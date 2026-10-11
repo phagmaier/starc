@@ -136,6 +136,22 @@ const QString kAccountNewsletterSubscribedKey = kAccountGroupKey + "/newsletter-
 // аватарка
 const QString kAccountAvatarKey = kAccountGroupKey + "/avatar";
 
+//
+// Sync of the stories with a GitHub repository
+//
+const QString kGitHubSyncGroupKey = "github-sync";
+//
+// repository in the form "owner/name"
+const QString kGitHubSyncRepositoryKey = kGitHubSyncGroupKey + "/repository";
+// personal access token
+const QString kGitHubSyncTokenKey = kGitHubSyncGroupKey + "/token";
+// upload changed stories when the application is closing
+const QString kGitHubSyncUploadOnExitKey = kGitHubSyncGroupKey + "/upload-on-exit";
+// what was synced on this device, see GitHubSyncManager
+const QString kGitHubSyncProjectsKey = kGitHubSyncGroupKey + "/projects";
+// files of the repository the user didn't want to download at startup
+const QString kGitHubSyncSkippedFilesKey = kGitHubSyncGroupKey + "/skipped-files";
+
 
 //
 // Проект

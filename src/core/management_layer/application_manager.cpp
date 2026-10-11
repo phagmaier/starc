@@ -2,6 +2,7 @@
 
 #include "content/account/account_manager.h"
 #include "content/export/export_manager.h"
+#include "content/github_sync/github_sync_manager.h"
 #include "content/import/import_manager.h"
 #include "content/notifications/notifications_manager.h"
 #include "content/onboarding/onboarding_manager.h"
@@ -380,6 +381,7 @@ public:
     QScopedPointer<SettingsManager> settingsManager;
     QScopedPointer<WritingSessionManager> writingSessionManager;
     QScopedPointer<NotificationsManager> notificationsManager;
+    QScopedPointer<GitHubSyncManager> gitHubSyncManager;
 #ifdef CLOUD_SERVICE_MANAGER
     QScopedPointer<CloudServiceManager> cloudServiceManager;
 #endif
@@ -423,6 +425,7 @@ ApplicationManager::Implementation::Implementation(ApplicationManager* _q)
           new SettingsManager(nullptr, applicationView, pluginsBuilder, shortcutsManager.data()))
     , writingSessionManager(new WritingSessionManager(nullptr, applicationView->view()))
     , notificationsManager(new NotificationsManager)
+    , gitHubSyncManager(new GitHubSyncManager(nullptr, applicationView, projectsManager.data()))
 #ifdef CLOUD_SERVICE_MANAGER
     , cloudServiceManager(new CloudServiceManager)
 #endif
@@ -459,6 +462,7 @@ ApplicationManager::Implementation::~Implementation()
              importManager.data(),
              exportManager.data(),
              writingSessionManager.data(),
+             gitHubSyncManager.data(),
 #ifdef CLOUD_SERVICE_MANAGER
              cloudServiceManager.data(),
 #endif
@@ -1402,6 +1406,13 @@ void ApplicationManager::Implementation::saveChanges()
             BackupBuilder::save, projectsManager->currentProject()->path(),
             settingsValue(DataStorageLayer::kApplicationBackupsFolderKey).toString(),
             baseBackupName, settingsValue(DataStorageLayer::kApplicationBackupsQtyKey).toInt()));
+    }
+
+    //
+    // The story differs from its copy on GitHub now
+    //
+    if (projectsManager->currentProject()->projectType() == BusinessLayer::ProjectType::Local) {
+        gitHubSyncManager->updateProjectState(projectsManager->currentProject()->path());
     }
 
     Log::info("All changes saved");
@@ -2579,6 +2590,11 @@ void ApplicationManager::exec(const QString& _fileToOpenPath)
             // Переводим состояние приложение в рабочий режим
             //
             d->state = ApplicationState::Working;
+
+            //
+            // Check if the stories were changed on another computer
+            //
+            d->gitHubSyncManager->checkOnStart();
         },
         Qt::QueuedConnection);
 }
@@ -2724,7 +2740,7 @@ void ApplicationManager::initConnections()
     connect(d->applicationView, &Ui::ApplicationView::turnOffFullScreenRequested, this,
             [this] { d->toggleFullScreen(); });
     connect(d->applicationView, &Ui::ApplicationView::closeRequested, this, [this] {
-        auto callback = [this] { d->exit(); };
+        auto callback = [this] { d->gitHubSyncManager->uploadBeforeExit([this] { d->exit(); }); };
         d->saveIfNeeded(callback);
     });
 
@@ -2875,6 +2891,30 @@ void ApplicationManager::initConnections()
             });
     connect(d->projectsManager.data(), &ProjectsManager::closeCurrentProjectRequested, this,
             [this] { d->closeCurrentProject(); });
+
+    //
+    // Sync of the stories with GitHub
+    //
+    d->projectsManager->setProjectActionsProvider(
+        [this](BusinessLayer::ProjectsModelProjectItem* _project) {
+            return d->gitHubSyncManager->projectActions(_project);
+        });
+    connect(d->projectsManager.data(), &ProjectsManager::syncProjectsRequested,
+            d->gitHubSyncManager.data(), &GitHubSyncManager::sync);
+    connect(d->gitHubSyncManager.data(), &GitHubSyncManager::saveCurrentProjectRequested, this,
+            [this] { d->saveChanges(); });
+    connect(d->gitHubSyncManager.data(), &GitHubSyncManager::closeProjectRequested, this,
+            [this](const QString& _path) {
+                if (d->projectsManager->currentProject() != nullptr
+                    && d->projectsManager->currentProject()->path() == _path) {
+                    d->closeCurrentProject();
+                    d->showProjects();
+                }
+            });
+    connect(d->gitHubSyncManager.data(), &GitHubSyncManager::setupRequested, this, [this] {
+        d->showSettings();
+        d->settingsManager->showGitHubSync();
+    });
 
     //
     // Менеджер проекта

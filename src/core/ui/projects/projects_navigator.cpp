@@ -24,6 +24,7 @@ public:
     OverlineLabel* quoteAuthorLabel = nullptr;
     Button* createProjectButton = nullptr;
     Button* openProjectButton = nullptr;
+    Button* syncProjectsButton = nullptr;
     Button* helpButton = nullptr;
 };
 
@@ -33,10 +34,12 @@ ProjectsNavigator::Implementation::Implementation(QWidget* _parent)
     , quoteAuthorLabel(new OverlineLabel(_parent))
     , createProjectButton(new Button(_parent))
     , openProjectButton(new Button(_parent))
+    , syncProjectsButton(new Button(_parent))
     , helpButton(new Button(_parent))
 {
     createProjectButton->setIcon(u8"\U000f0415");
     openProjectButton->setIcon(u8"\U000f0256");
+    syncProjectsButton->setIcon(u8"\U000F063F");
     helpButton->setIcon(u8"\U000F0625");
 
     layout->setContentsMargins({});
@@ -45,6 +48,7 @@ ProjectsNavigator::Implementation::Implementation(QWidget* _parent)
     layout->addWidget(quoteAuthorLabel);
     layout->addWidget(createProjectButton);
     layout->addWidget(openProjectButton);
+    layout->addWidget(syncProjectsButton);
     layout->addWidget(helpButton);
     layout->addStretch();
 }
@@ -60,6 +64,7 @@ ProjectsNavigator::ProjectsNavigator(QWidget* _parent)
     connect(d->createProjectButton, &Button::clicked, this,
             &ProjectsNavigator::createProjectPressed);
     connect(d->openProjectButton, &Button::clicked, this, &ProjectsNavigator::openProjectPressed);
+    connect(d->syncProjectsButton, &Button::clicked, this, &ProjectsNavigator::syncProjectsPressed);
     connect(d->helpButton, &Button::clicked, this, &ProjectsNavigator::helpPressed);
 }
 
@@ -73,6 +78,7 @@ void ProjectsNavigator::updateTranslations()
 
     d->createProjectButton->setText(tr("Create story"));
     d->openProjectButton->setText(tr("Open story"));
+    d->syncProjectsButton->setText(tr("Sync with GitHub"));
     d->helpButton->setText(tr("User guide"));
 }
 
@@ -99,7 +105,8 @@ void ProjectsNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     d->quoteAuthorLabel->setBackgroundColor(DesignSystem::color().primary());
     d->quoteAuthorLabel->setTextColor(ColorHelper::colorBetween(DesignSystem::color().primary(),
                                                                 DesignSystem::color().onPrimary()));
-    for (auto button : { d->createProjectButton, d->openProjectButton, d->helpButton }) {
+    for (auto button :
+         { d->createProjectButton, d->openProjectButton, d->syncProjectsButton, d->helpButton }) {
         button->setBackgroundColor(DesignSystem::color().accent());
         button->setTextColor(DesignSystem::color().accent());
     }

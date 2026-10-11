@@ -556,8 +556,10 @@ SOURCES += \
     utils/tools/alphanum_comparer.cpp \
     utils/tools/backup_builder.cpp \
     utils/tools/debouncer.cpp \
+    utils/tools/github_files_client.cpp \
     utils/tools/model_index_path.cpp \
     utils/tools/performance_monitor.cpp \
+    utils/tools/project_sync.cpp \
     utils/tools/run_once.cpp \
     utils/validators/email_validator.cpp
 
@@ -957,9 +959,11 @@ HEADERS += \
     utils/tools/alphanum_comparer.h \
     utils/tools/backup_builder.h \
     utils/tools/debouncer.h \
+    utils/tools/github_files_client.h \
     utils/tools/model_index_path.h \
     utils/tools/once.h \
     utils/tools/performance_monitor.h \
+    utils/tools/project_sync.h \
     utils/tools/run_once.h \
     utils/validators/email_validator.h
 

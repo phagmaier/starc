@@ -58,6 +58,7 @@ SOURCES += \
     management_layer/application_manager.cpp \
     management_layer/content/account/account_manager.cpp \
     management_layer/content/export/export_manager.cpp \
+    management_layer/content/github_sync/github_sync_manager.cpp \
     management_layer/content/import/import_manager.cpp \
     management_layer/content/notifications/notifications_manager.cpp \
     management_layer/content/onboarding/onboarding_manager.cpp \
@@ -156,6 +157,7 @@ HEADERS += \
     management_layer/application_manager.h \
     management_layer/content/account/account_manager.h \
     management_layer/content/export/export_manager.h \
+    management_layer/content/github_sync/github_sync_manager.h \
     management_layer/content/import/import_manager.h \
     management_layer/content/notifications/notifications_manager.h \
     management_layer/content/onboarding/onboarding_manager.h \

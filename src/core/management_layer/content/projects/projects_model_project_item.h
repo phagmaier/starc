@@ -30,6 +30,29 @@ enum class ProjectType {
 };
 
 /**
+ * @brief State of the local project relative to its copy in the GitHub repository
+ */
+enum class ProjectSyncStatus {
+    //
+    // Sync is not configured, or the state wasn't checked yet
+    //
+    Undefined,
+    //
+    // There is no copy of the project in the repository
+    //
+    NotSynced,
+    InSync,
+    LocalChanged,
+    RemoteChanged,
+    //
+    // The project was changed on this computer and in the repository
+    //
+    Diverged,
+    InProgress,
+    Failed,
+};
+
+/**
  * @brief Файл проекта
  */
 class ProjectsModelProjectItem : public ProjectsModelItem
@@ -114,6 +137,12 @@ public:
      */
     bool canBeSynced() const;
     void setCanBeSynced(bool _can);
+
+    /**
+     * @brief State of the project relative to its copy in the GitHub repository
+     */
+    ProjectSyncStatus syncStatus() const;
+    void setSyncStatus(ProjectSyncStatus _status);
 
     /**
      * @brief Идентификатор проекта

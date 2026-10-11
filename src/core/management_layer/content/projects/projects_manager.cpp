@@ -69,6 +69,9 @@ public:
 
     QPointer<Ui::CreateProjectDialog> createProjectDialog;
 
+    std::function<QVector<QAction*>(BusinessLayer::ProjectsModelProjectItem*)>
+        projectActionsProvider;
+
     bool isCloudProjectNameChanged = false;
     bool isCloudProjectLoglineChanged = false;
     bool isCloudProjectCoverChanged = false;
@@ -150,6 +153,8 @@ ProjectsManager::ProjectsManager(QObject* _parent, QWidget* _parentWidget)
             &ProjectsManager::openProjectRequested);
     connect(d->view, &Ui::ProjectsView::openProjectPressed, this,
             &ProjectsManager::openProjectRequested);
+    connect(d->navigator, &Ui::ProjectsNavigator::syncProjectsPressed, this,
+            &ProjectsManager::syncProjectsRequested);
     connect(d->view, &Ui::ProjectsView::openProjectRequested, this,
             [this](BusinessLayer::ProjectsModelProjectItem* _project) {
                 if (_project->isLocal()) {
@@ -258,6 +263,7 @@ ProjectsManager::ProjectsManager(QObject* _parent, QWidget* _parentWidget)
                 });
                 actions.append(removeProjectAction);
                 //
+#ifdef CLOUD_SERVICE_MANAGER
                 auto moveToCloudAction = new QAction;
                 moveToCloudAction->setSeparator(true);
                 moveToCloudAction->setIconText(u8"\U000F0167");
@@ -314,6 +320,15 @@ ProjectsManager::ProjectsManager(QObject* _parent, QWidget* _parentWidget)
                     }
                 });
                 actions.append(moveToCloudAction);
+#endif
+                //
+                if (d->projectActionsProvider) {
+                    const auto additionalActions = d->projectActionsProvider(_project);
+                    if (!additionalActions.isEmpty()) {
+                        additionalActions.constFirst()->setSeparator(true);
+                        actions.append(additionalActions);
+                    }
+                }
             }
             //
             // Действия над облачным проектом
@@ -1514,6 +1529,54 @@ void ProjectsManager::updateCurrentProject(const QString& _name, const QString& 
         setCurrentProjectLogline(_logline);
     }
     setCurrentProjectCover(_cover);
+}
+
+QVector<BusinessLayer::ProjectsModelProjectItem*> ProjectsManager::localProjects() const
+{
+    //
+    // Local projects are always placed in the root of the list
+    //
+    QVector<BusinessLayer::ProjectsModelProjectItem*> projects;
+    for (int row = 0; row < d->projects->rowCount(); ++row) {
+        const auto item = d->projects->itemForIndex(d->projects->index(row));
+        if (item->type() != BusinessLayer::ProjectsModelItemType::Project) {
+            continue;
+        }
+
+        auto project = static_cast<BusinessLayer::ProjectsModelProjectItem*>(item);
+        if (project->projectType() == BusinessLayer::ProjectType::Local) {
+            projects.append(project);
+        }
+    }
+    return projects;
+}
+
+BusinessLayer::ProjectsModelProjectItem* ProjectsManager::addLocalProject(const QString& _path)
+{
+    const QString projectPath = QDir::toNativeSeparators(_path);
+    if (auto project = this->project(projectPath); project != nullptr) {
+        return project;
+    }
+
+    const QFileInfo fileInfo(projectPath);
+    auto project = new BusinessLayer::ProjectsModelProjectItem;
+    project->setProjectType(BusinessLayer::ProjectType::Local);
+    project->setName(fileInfo.completeBaseName());
+    project->setPath(projectPath);
+    project->setLastEditTime(fileInfo.lastModified());
+    d->projects->prependItem(project);
+    return project;
+}
+
+void ProjectsManager::updateProject(BusinessLayer::ProjectsModelProjectItem* _project)
+{
+    d->projects->updateItem(_project);
+}
+
+void ProjectsManager::setProjectActionsProvider(
+    std::function<QVector<QAction*>(BusinessLayer::ProjectsModelProjectItem*)> _provider)
+{
+    d->projectActionsProvider = _provider;
 }
 
 } // namespace ManagementLayer

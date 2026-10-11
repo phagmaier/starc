@@ -33,6 +33,11 @@ public:
     QWidget* view() const;
 
     /**
+     * @brief Scroll the settings to the parameters of the sync with GitHub
+     */
+    void showGitHubSync();
+
+    /**
      * @brief Задать виджет настройки темы
      */
     void setThemeSetupView(Ui::ThemeSetupView* _view);
@@ -127,6 +132,9 @@ private:
     void setApplicationSaveBackups(bool _save);
     void setApplicationBackupsFolder(const QString& _path);
     void setApplicationBackupsQty(int _qty);
+    void setApplicationGitHubSyncRepository(const QString& _repository);
+    void setApplicationGitHubSyncToken(const QString& _token);
+    void setApplicationGitHubSyncUploadOnExit(bool _upload);
     void setApplicationShowDocumentsPages(bool _show);
     void setApplicationUseTypeWriterSound(bool _use);
     void setApplicationUseSpellChecker(bool _use);

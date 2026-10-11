@@ -2,6 +2,10 @@
 
 #include <QObject>
 
+#include <functional>
+
+class QAction;
+
 namespace Domain {
 enum class SubscriptionType;
 struct ProjectInfo;
@@ -176,6 +180,27 @@ public:
      */
     void updateCurrentProject(const QString& _name, const QString& _logline, const QPixmap& _cover);
 
+    /**
+     * @brief Projects stored in the files on this computer
+     */
+    QVector<BusinessLayer::ProjectsModelProjectItem*> localProjects() const;
+
+    /**
+     * @brief Add the project file to the list, if it isn't there yet
+     */
+    BusinessLayer::ProjectsModelProjectItem* addLocalProject(const QString& _path);
+
+    /**
+     * @brief Show the changes made in the parameters of the project
+     */
+    void updateProject(BusinessLayer::ProjectsModelProjectItem* _project);
+
+    /**
+     * @brief Set the source of additional actions for the context menu of a local project
+     */
+    void setProjectActionsProvider(
+        std::function<QVector<QAction*>(BusinessLayer::ProjectsModelProjectItem*)> _provider);
+
 signals:
     /**
      * @brief Запрос на отображение меню
@@ -213,6 +238,11 @@ signals:
      * @brief Пользователь хочет открыть проект
      */
     void openProjectRequested();
+
+    /**
+     * @brief The user wants to sync the stories with GitHub
+     */
+    void syncProjectsRequested();
 
     /**
      * @brief Пользователь хочет открыть локальный проект по заданному пути

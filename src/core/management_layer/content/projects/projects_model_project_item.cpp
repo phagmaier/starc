@@ -31,6 +31,7 @@ public:
     QDateTime lastEditTime;
     bool canAskAboutSwitch = true;
     bool canBeSynced = true;
+    ProjectSyncStatus syncStatus = ProjectSyncStatus::Undefined;
     int id = Domain::kInvalidId;
     int teamId = Domain::kInvalidId;
     bool isOwner = true;
@@ -240,6 +241,21 @@ bool ProjectsModelProjectItem::canBeSynced() const
 void ProjectsModelProjectItem::setCanBeSynced(bool _can)
 {
     d->canBeSynced = _can;
+}
+
+ProjectSyncStatus ProjectsModelProjectItem::syncStatus() const
+{
+    return d->syncStatus;
+}
+
+void ProjectsModelProjectItem::setSyncStatus(ProjectSyncStatus _status)
+{
+    if (d->syncStatus == _status) {
+        return;
+    }
+
+    d->syncStatus = _status;
+    setChanged(true);
 }
 
 int ProjectsModelProjectItem::id() const

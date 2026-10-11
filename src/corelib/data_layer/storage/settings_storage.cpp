@@ -129,6 +129,8 @@ SettingsStorage::Implementation::Implementation()
     defaultSettings.insert(kApplicationAdvancedAccurateMetricsHandlingKey, false);
     defaultSettings.insert(kApplicationLoggingLevelKey, static_cast<int>(Log::Level::Debug));
 
+    defaultSettings.insert(kGitHubSyncUploadOnExitKey, true);
+
     defaultSettings.insert(kProjectTypeKey, 0);
     defaultSettings.insert(kProjectSaveFolderKey,
                            QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)
@@ -1546,6 +1548,7 @@ void SettingsStorage::resetToDefaults(bool _fullReset)
             const QString realKey = QByteArray::fromHex(key.toUtf8());
             if (realKey == kDeviceUuidKey || realKey == kApplicationProjectsKey
                 || realKey.startsWith(kAccountGroupKey) || realKey.startsWith(kProjectGroupKey)
+                || realKey.startsWith(kGitHubSyncGroupKey)
                 || realKey.startsWith(QLatin1String("starc"))) {
                 settings.insert(key, d->appSettings.value(key));
             }

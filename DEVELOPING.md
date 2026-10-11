@@ -115,5 +115,12 @@ After a debug build, run `./tools/check-writing-session-storage.sh` for the
 focused writing-statistics storage regression. It uses an isolated profile and
 retains compile/test logs under `.build/evidence/`.
 
+`./tools/check-project-sync.sh` checks the GitHub story sync logic and client
+the same way. It starts `tests/github_mock_server.py`, a local stand-in for the
+GitHub API, so it needs no account and sends nothing to GitHub. To try the sync
+in the running application without touching a real repository, start that server
+and launch with `STARC_GITHUB_API_URL=http://127.0.0.1:<port>`; its default
+access token is `test-token`.
+
 Current setup results and any remaining machine-specific work are recorded in
 [docs/PROJECT.md](docs/PROJECT.md).

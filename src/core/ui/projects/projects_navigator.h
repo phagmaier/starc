@@ -28,6 +28,11 @@ signals:
     void openProjectPressed();
 
     /**
+     * @brief The user pressed the button of syncing the stories with GitHub
+     */
+    void syncProjectsPressed();
+
+    /**
      * @brief Пользователь нажал кнопку отображения справки
      */
     void helpPressed();

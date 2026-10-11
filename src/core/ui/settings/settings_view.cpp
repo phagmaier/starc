@@ -10,6 +10,7 @@
 #include <business_layer/templates/simple_text_template.h>
 #include <business_layer/templates/stageplay_template.h>
 #include <business_layer/templates/templates_facade.h>
+#include <include/custom_events.h>
 #include <ui/design_system/design_system.h>
 #include <ui/widgets/button/button.h>
 #include <ui/widgets/card/card.h>
@@ -311,6 +312,13 @@ public:
     CheckBox* saveBackups = nullptr;
     TextField* backupsFolderPath = nullptr;
     TextField* backupsQty = nullptr;
+    //
+    // ... Sync with GitHub
+    //
+    H6Label* applicationGitHubSyncTitle = nullptr;
+    TextField* gitHubSyncRepository = nullptr;
+    TextField* gitHubSyncToken = nullptr;
+    CheckBox* gitHubSyncUploadOnExit = nullptr;
     //
     // ... Text editing
     //
@@ -679,6 +687,10 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     , saveBackups(new CheckBox(applicationCard))
     , backupsFolderPath(new TextField(applicationCard))
     , backupsQty(new TextField(applicationCard))
+    , applicationGitHubSyncTitle(new H6Label(applicationCard))
+    , gitHubSyncRepository(new TextField(applicationCard))
+    , gitHubSyncToken(new TextField(applicationCard))
+    , gitHubSyncUploadOnExit(new CheckBox(applicationCard))
     , applicationTextEditingTitle(new H6Label(applicationCard))
     , showDocumentsPages(new CheckBox(applicationCard))
     , useTypewriterSound(new CheckBox(applicationCard))
@@ -967,6 +979,13 @@ void SettingsView::Implementation::initApplicationCard()
     backupsQty->setSpellCheckPolicy(SpellCheckPolicy::Manual);
     backupsQty->setEnabled(false);
     backupsQty->setSuffix("  ");
+    for (auto textField : { gitHubSyncRepository, gitHubSyncToken }) {
+        textField->setSpellCheckPolicy(SpellCheckPolicy::Manual);
+        textField->setCapitalizeWords(false);
+        textField->setCorrectDoubleCapitals(false);
+        textField->setCapitalizeSingleILetter(false);
+    }
+    gitHubSyncToken->setPasswordModeEnabled(true);
     spellCheckerLanguage->setSpellCheckPolicy(SpellCheckPolicy::Manual);
     spellCheckerLanguage->setEnabled(false);
     spellCheckerLanguage->setModel(spellCheckerLanguagesModel);
@@ -1027,6 +1046,17 @@ void SettingsView::Implementation::initApplicationCard()
         layout->addWidget(backupsQty);
         applicationCardLayout->addLayout(layout, itemIndex++, 0);
     }
+    //
+    // ... sync with GitHub
+    //
+    applicationCardLayout->addWidget(applicationGitHubSyncTitle, itemIndex++, 0);
+    {
+        auto layout = makeLayout();
+        layout->addWidget(gitHubSyncRepository, 1);
+        layout->addWidget(gitHubSyncToken, 1);
+        applicationCardLayout->addLayout(layout, itemIndex++, 0);
+    }
+    applicationCardLayout->addWidget(gitHubSyncUploadOnExit, itemIndex++, 0);
     //
     // ... параметры редакторов текста
     //
@@ -1757,6 +1787,9 @@ SettingsView::SettingsView(QWidget* _parent)
     setAnimationType(StackWidget::AnimationType::FadeThrough);
     showDefaultPage();
 
+    d->gitHubSyncRepository->installEventFilter(this);
+    d->gitHubSyncToken->installEventFilter(this);
+
     connect(&d->scrollAnimation, &QVariantAnimation::valueChanged, this,
             [this](const QVariant& _value) {
                 d->content->verticalScrollBar()->setValue(_value.toInt());
@@ -1823,6 +1856,13 @@ SettingsView::SettingsView(QWidget* _parent)
             d->backupsQty->undo();
         }
     });
+    connect(d->gitHubSyncRepository, &TextField::textChanged, this, [this] {
+        emit applicationGitHubSyncRepositoryChanged(d->gitHubSyncRepository->text());
+    });
+    connect(d->gitHubSyncToken, &TextField::textChanged, this,
+            [this] { emit applicationGitHubSyncTokenChanged(d->gitHubSyncToken->text()); });
+    connect(d->gitHubSyncUploadOnExit, &CheckBox::checkedChanged, this,
+            &SettingsView::applicationGitHubSyncUploadOnExitChanged);
     connect(d->showDocumentsPages, &CheckBox::checkedChanged, this,
             &SettingsView::applicationShowDocumentsPagesChanged);
     connect(d->useTypewriterSound, &CheckBox::checkedChanged, this,
@@ -3054,6 +3094,11 @@ void SettingsView::showApplicationSaveAndBackups()
     d->scrollToTitle(d->applicationSaveAndBackupTitle);
 }
 
+void SettingsView::showApplicationGitHubSync()
+{
+    d->scrollToTitle(d->applicationGitHubSyncTitle);
+}
+
 void SettingsView::showApplicationTextEditing()
 {
     d->scrollToTitle(d->applicationTextEditingTitle);
@@ -3251,6 +3296,21 @@ void SettingsView::setApplicationBackupsFolder(const QString& _path)
 void SettingsView::setApplicationBackupsQty(int _qty)
 {
     d->backupsQty->setText(QString::number(_qty));
+}
+
+void SettingsView::setApplicationGitHubSyncRepository(const QString& _repository)
+{
+    d->gitHubSyncRepository->setText(_repository);
+}
+
+void SettingsView::setApplicationGitHubSyncToken(const QString& _token)
+{
+    d->gitHubSyncToken->setText(_token);
+}
+
+void SettingsView::setApplicationGitHubSyncUploadOnExit(bool _upload)
+{
+    d->gitHubSyncUploadOnExit->setChecked(_upload);
 }
 
 void SettingsView::setApplicationShowDocumentsPages(bool _show)
@@ -4092,6 +4152,20 @@ void SettingsView::setAdvancedUseExtendedLogging(bool _use)
     d->advancedUseExtendedLogging->setChecked(_use);
 }
 
+bool SettingsView::eventFilter(QObject* _watched, QEvent* _event)
+{
+    //
+    // Text corrections turned on in the settings are applied to all text fields of the
+    // application, but they must not change the name of the repository and the access token
+    //
+    if ((_watched == d->gitHubSyncRepository || _watched == d->gitHubSyncToken)
+        && _event->type() == static_cast<QEvent::Type>(EventType::TextEditingOptionsChangeEvent)) {
+        return true;
+    }
+
+    return StackWidget::eventFilter(_watched, _event);
+}
+
 void SettingsView::resizeEvent(QResizeEvent* _event)
 {
     StackWidget::resizeEvent(_event);
@@ -4116,6 +4190,13 @@ void SettingsView::updateTranslations()
     d->saveBackups->setText(tr("Save backups"));
     d->backupsFolderPath->setLabel(tr("Backups folder path"));
     d->backupsQty->setLabel(tr("Qty"));
+    d->applicationGitHubSyncTitle->setText(tr("Sync with GitHub"));
+    d->gitHubSyncRepository->setLabel(tr("Private repository"));
+    d->gitHubSyncRepository->setHelper(tr("In the form owner/name"));
+    d->gitHubSyncToken->setLabel(tr("Access token"));
+    d->gitHubSyncToken->setHelper(
+        tr("With read and write access to the contents of the repository"));
+    d->gitHubSyncUploadOnExit->setText(tr("Upload changed stories when closing the application"));
     d->applicationTextEditingTitle->setText(tr("Text editing"));
     d->showDocumentsPages->setText(tr("Show documents pages"));
     d->useTypewriterSound->setText(tr("Use typewriter sound for keys pressing"));
@@ -4572,6 +4653,7 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->applicationTitle,
              d->applicationUserInterfaceTitle,
              d->applicationSaveAndBackupTitle,
+             d->applicationGitHubSyncTitle,
              d->applicationTextEditingTitle,
              d->applicationTextEditingSubtitle,
              d->applicationAiAssistantTitle,
@@ -4613,6 +4695,7 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     for (auto cardTitle : std::vector<Widget*>{
              d->applicationUserInterfaceTitle,
              d->applicationSaveAndBackupTitle,
+             d->applicationGitHubSyncTitle,
              d->applicationTextEditingTitle,
              d->applicationAiAssistantTitle,
              d->simpleTextEditorTitle,
@@ -4697,6 +4780,7 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->isCompact,
              d->autoSave,
              d->saveBackups,
+             d->gitHubSyncUploadOnExit,
              //
              d->showDocumentsPages,
              d->useTypewriterSound,
@@ -4824,6 +4908,8 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     for (auto textField : std::vector<TextField*>{
              d->backupsFolderPath,
              d->backupsQty,
+             d->gitHubSyncRepository,
+             d->gitHubSyncToken,
              d->spellCheckerLanguage,
              //
              d->simpleTextEditorDefaultTemplate,
@@ -4855,6 +4941,9 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     }
     d->backupsQty->setCustomMargins({ isLeftToRight() ? 0.0 : DesignSystem::layout().px24(), 0.0,
                                       isLeftToRight() ? DesignSystem::layout().px24() : 0.0, 0.0 });
+    d->gitHubSyncToken->setCustomMargins(
+        { isLeftToRight() ? 0.0 : DesignSystem::layout().px24(), 0.0,
+          isLeftToRight() ? DesignSystem::layout().px24() : 0.0, 0.0 });
     for (auto textField : {
              d->simpleTextEditorDefaultTemplate,
              d->screenplayEditorDefaultTemplate,

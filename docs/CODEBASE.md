@@ -44,6 +44,24 @@ Shared editor infrastructure lives in [ScriptTextEdit](../src/corelib/ui/modules
 
 For layout changes, inspect the template, document correction, paged widget, and exporter paths together. Screen appearance alone does not establish PDF output or saved-document behavior.
 
+## Story sync with GitHub
+
+This fork can keep each local story as one file in the root of a private GitHub repository. It replaces the upstream cloud service, whose client is a private submodule absent from this checkout.
+
+| Area | Start here | Notes |
+| --- | --- | --- |
+| When and what to sync, dialogs, story menu actions | [GitHubSyncManager](../src/core/management_layer/content/github_sync/github_sync_manager.h) | Owned by `ApplicationManager`, which calls it after startup, before exit, and after every save. |
+| Deciding which copy is newer | [ProjectSync](../src/corelib/utils/tools/project_sync.h) | Pure functions: content fingerprint of a project file and the state of a local/remote pair. |
+| Talking to GitHub | [GitHubFilesClient](../src/corelib/utils/tools/github_files_client.h) | Repository contents API over `QNetworkAccessManager`. `STARC_GITHUB_API_URL` points it at another server for tests. |
+| Settings | `kGitHubSync*` keys in [SettingsStorage](../src/corelib/data_layer/storage/settings_storage.h) | Repository, token (stored as plain text), upload on exit, and what was synced on this computer. |
+
+Rules the code relies on:
+
+- The application rewrites a project file when it is only opened, so file bytes cannot tell whether a story changed. A story counts as changed when the fingerprint of its documents differs from the one remembered at the last sync.
+- A file is uploaded only over the repository version it was last synced with (GitHub refuses the upload otherwise), and downloaded over a local file only if that file has not changed since the last sync. When both changed, nothing is replaced until the user picks a version in the story's context menu.
+- A local version replaced by a download is first copied to the backups folder as `<name> (before GitHub download)_<time>.starc`.
+- A public repository is refused.
+
 ## Scope and validation notes
 
 - Some modules are conditional. [core.pro](../src/core/core.pro) optionally includes `src/cloud/cloud.pri`; [plugins.pro](../src/core/management_layer/plugins/plugins.pro) conditionally includes modules such as screenplay cards, timeline, breakdown, and statistics. Their absence should be checked against the checkout and build configuration before investigating it as a runtime defect.

@@ -147,6 +147,12 @@ void SettingsManager::Implementation::loadApplicationSettings()
         settingsValue(DataStorageLayer::kApplicationBackupsFolderKey).toString());
     view->setApplicationBackupsQty(
         settingsValue(DataStorageLayer::kApplicationBackupsQtyKey).toInt());
+    view->setApplicationGitHubSyncRepository(
+        settingsValue(DataStorageLayer::kGitHubSyncRepositoryKey).toString());
+    view->setApplicationGitHubSyncToken(
+        settingsValue(DataStorageLayer::kGitHubSyncTokenKey).toString());
+    view->setApplicationGitHubSyncUploadOnExit(
+        settingsValue(DataStorageLayer::kGitHubSyncUploadOnExitKey).toBool());
     view->setApplicationShowDocumentsPages(
         settingsValue(DataStorageLayer::kApplicationShowDocumentsPagesKey).toBool());
     view->setApplicationUseTypewriterSound(
@@ -1091,6 +1097,12 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             &SettingsManager::setApplicationBackupsFolder);
     connect(d->view, &Ui::SettingsView::applicationBackupsQtyChanged, this,
             &SettingsManager::setApplicationBackupsQty);
+    connect(d->view, &Ui::SettingsView::applicationGitHubSyncRepositoryChanged, this,
+            &SettingsManager::setApplicationGitHubSyncRepository);
+    connect(d->view, &Ui::SettingsView::applicationGitHubSyncTokenChanged, this,
+            &SettingsManager::setApplicationGitHubSyncToken);
+    connect(d->view, &Ui::SettingsView::applicationGitHubSyncUploadOnExitChanged, this,
+            &SettingsManager::setApplicationGitHubSyncUploadOnExit);
     connect(d->view, &Ui::SettingsView::applicationShowDocumentsPagesChanged, this,
             &SettingsManager::setApplicationShowDocumentsPages);
     connect(d->view, &Ui::SettingsView::applicationUseTypewriterSoundChanged, this,
@@ -1781,6 +1793,11 @@ QWidget* SettingsManager::view() const
     return d->view;
 }
 
+void SettingsManager::showGitHubSync()
+{
+    d->view->showApplicationGitHubSync();
+}
+
 void SettingsManager::setThemeSetupView(Ui::ThemeSetupView* _view)
 {
     d->themeSetupView = _view;
@@ -1888,6 +1905,21 @@ void SettingsManager::setApplicationBackupsQty(int _qty)
 {
     setSettingsValue(DataStorageLayer::kApplicationBackupsQtyKey, _qty);
     emit applicationBackupsQtyChanged(_qty);
+}
+
+void SettingsManager::setApplicationGitHubSyncRepository(const QString& _repository)
+{
+    setSettingsValue(DataStorageLayer::kGitHubSyncRepositoryKey, _repository);
+}
+
+void SettingsManager::setApplicationGitHubSyncToken(const QString& _token)
+{
+    setSettingsValue(DataStorageLayer::kGitHubSyncTokenKey, _token);
+}
+
+void SettingsManager::setApplicationGitHubSyncUploadOnExit(bool _upload)
+{
+    setSettingsValue(DataStorageLayer::kGitHubSyncUploadOnExitKey, _upload);
 }
 
 void SettingsManager::setApplicationShowDocumentsPages(bool _show)

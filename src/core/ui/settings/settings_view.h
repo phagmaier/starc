@@ -31,6 +31,7 @@ public:
     void showApplication();
     void showApplicationUserInterface();
     void showApplicationSaveAndBackups();
+    void showApplicationGitHubSync();
     void showApplicationTextEditing();
     void showApplicationAiAssistant();
     void showComponents();
@@ -53,6 +54,9 @@ public:
     void setApplicationSaveBackups(bool _save);
     void setApplicationBackupsFolder(const QString& _path);
     void setApplicationBackupsQty(int _qty);
+    void setApplicationGitHubSyncRepository(const QString& _repository);
+    void setApplicationGitHubSyncToken(const QString& _token);
+    void setApplicationGitHubSyncUploadOnExit(bool _upload);
     void setApplicationShowDocumentsPages(bool _show);
     void setApplicationUseTypewriterSound(bool _use);
     void setApplicationUseSpellChecker(bool _use);
@@ -196,6 +200,9 @@ signals:
     void applicationSaveBackupsChanged(bool _save);
     void applicationBackupsFolderChanged(const QString& _path);
     void applicationBackupsQtyChanged(int _qty);
+    void applicationGitHubSyncRepositoryChanged(const QString& _repository);
+    void applicationGitHubSyncTokenChanged(const QString& _token);
+    void applicationGitHubSyncUploadOnExitChanged(bool _upload);
     void applicationShowDocumentsPagesChanged(bool _show);
     void applicationUseTypewriterSoundChanged(bool _use);
     void applicationUseSpellCheckerChanged(bool _use);
@@ -393,6 +400,11 @@ signals:
     void advancedUseExtendedLoggingChanged(bool _use);
 
 protected:
+    /**
+     * @brief Keep the GitHub repository and the access token exactly as they were entered
+     */
+    bool eventFilter(QObject* _watched, QEvent* _event) override;
+
     /**
      * @brief Переопределяем для обновления размеров таблиц
      */

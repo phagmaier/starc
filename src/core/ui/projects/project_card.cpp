@@ -249,7 +249,9 @@ void ProjectCard::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _opt
     const auto fullLoglinHeight
         = TextHelper::heightForWidth(d->project->logline(), _painter->font(), textRect.width());
     const auto fontLineSpacing = TextHelper::fineLineSpacing(_painter->font());
-    const int loglineMaxLines = d->project->isLocal() ? 5 : 4;
+    const auto hasSyncStatus
+        = d->project->syncStatus() != BusinessLayer::ProjectSyncStatus::Undefined;
+    const int loglineMaxLines = d->project->isLocal() && !hasSyncStatus ? 5 : 4;
     const QRectF loglineRect(textRect.left(), textRect.bottom() + DesignSystem::layout().px8(),
                              textRect.width(),
                              std::min(fullLoglinHeight, fontLineSpacing * loglineMaxLines));
@@ -327,6 +329,80 @@ void ProjectCard::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _opt
                         lastDateRect.bottom() + fontLineSpacing + DesignSystem::layout().px(6)));
             _painter->drawText(roleRect, Qt::AlignLeft | Qt::AlignBottom, roleText);
         }
+    }
+    //
+    // State of the copy in the GitHub repository
+    //
+    else if (d->project->syncStatus() != BusinessLayer::ProjectSyncStatus::Undefined) {
+        QString syncIcon;
+        QString syncText;
+        QColor syncColor = betweenBackgroundColor;
+        switch (d->project->syncStatus()) {
+        case BusinessLayer::ProjectSyncStatus::Undefined: {
+            break;
+        }
+
+        case BusinessLayer::ProjectSyncStatus::NotSynced: {
+            syncIcon = u8"\U000F0164";
+            syncText = QCoreApplication::translate("ProjectCard", "Not on GitHub");
+            break;
+        }
+
+        case BusinessLayer::ProjectSyncStatus::InSync: {
+            syncIcon = u8"\U000F0160";
+            syncText = QCoreApplication::translate("ProjectCard", "In sync with GitHub");
+            break;
+        }
+
+        case BusinessLayer::ProjectSyncStatus::LocalChanged: {
+            syncIcon = u8"\U000F0167";
+            syncText = QCoreApplication::translate("ProjectCard", "Changes to upload");
+            syncColor = DesignSystem::color().accent();
+            break;
+        }
+
+        case BusinessLayer::ProjectSyncStatus::RemoteChanged: {
+            syncIcon = u8"\U000F0162";
+            syncText = QCoreApplication::translate("ProjectCard", "Newer on GitHub");
+            syncColor = DesignSystem::color().accent();
+            break;
+        }
+
+        case BusinessLayer::ProjectSyncStatus::Diverged: {
+            syncIcon = u8"\U000F09E0";
+            syncText = QCoreApplication::translate("ProjectCard", "Changed in both places");
+            syncColor = DesignSystem::color().error();
+            break;
+        }
+
+        case BusinessLayer::ProjectSyncStatus::InProgress: {
+            syncIcon = u8"\U000F063F";
+            syncText = QCoreApplication::translate("ProjectCard", "Syncing...");
+            break;
+        }
+
+        case BusinessLayer::ProjectSyncStatus::Failed: {
+            syncIcon = u8"\U000F09E0";
+            syncText = QCoreApplication::translate("ProjectCard", "Sync failed");
+            syncColor = DesignSystem::color().error();
+            break;
+        }
+        }
+
+        _painter->setPen(syncColor);
+        _painter->setFont(DesignSystem::font().iconsSmall());
+        const QRectF iconRect(
+            lastDateRect.bottomLeft(),
+            QSizeF(DesignSystem::layout().px24(), fontLineSpacing + DesignSystem::layout().px4()));
+        _painter->drawText(iconRect, Qt::AlignLeft | Qt::AlignBottom, syncIcon);
+
+        _painter->setFont(DesignSystem::font().subtitle2());
+        const QRectF syncRect(
+            iconRect.topRight(),
+            QPointF(lastDateRect.right(),
+                    lastDateRect.bottom() + fontLineSpacing + DesignSystem::layout().px(6)));
+        _painter->drawText(syncRect, Qt::AlignLeft | Qt::AlignBottom,
+                           TextHelper::elidedText(syncText, _painter->font(), syncRect.width()));
     }
 
     //
