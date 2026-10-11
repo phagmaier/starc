@@ -69,13 +69,10 @@ public:
     /**
      * @brief Включён ли режим ИИ помощника
      */
-    bool isAiAssistantEnabled() const;
-    void setAiAssistantEnabled(bool _enabled);
 
     /**
      * @brief Видна ли кнопка включения ИИ помощника
      */
-    void setAiAssistantVisible(bool _visible);
 
     /**
      * @brief Включена ли опция изолирования элементов на экране
@@ -96,7 +93,7 @@ signals:
     void fastFormatPanelVisibleChanged(bool _visible);
     void searchPressed();
     void commentsModeEnabledChanged(bool _enabled);
-    void aiAssistantEnabledChanged(bool _enabled);
+
     void itemIsolationEnabledChanged(bool _enabled);
 
 protected:

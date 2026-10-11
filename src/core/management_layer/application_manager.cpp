@@ -2925,8 +2925,7 @@ void ApplicationManager::initConnections()
             d->accountManager.data(), &AccountManager::upgradeAccountToPro);
     connect(d->projectManager.data(), &ProjectManager::upgradeToCreatorRequested,
             d->accountManager.data(), &AccountManager::upgradeAccountToCreator);
-    connect(d->projectManager.data(), &ProjectManager::buyCreditsRequested,
-            d->accountManager.data(), &AccountManager::buyCredits);
+
     connect(d->projectManager.data(), &ProjectManager::contentsChanged, this,
             [this] { d->markChangesSaved(false); });
     connect(d->projectManager.data(), &ProjectManager::projectUuidChanged,
@@ -3023,8 +3022,6 @@ void ApplicationManager::initConnections()
             [this](int _density) { d->setDesignSystemDensity(_density); });
     connect(d->settingsManager.data(), &SettingsManager::applicationUseAutoSaveChanged, this,
             [this] { d->configureAutoSave(); });
-    connect(d->settingsManager.data(), &SettingsManager::applicationAiAssistantEnabledChanged,
-            d->projectManager.data(), &ProjectManager::reconfigurePluginsWithAiAssistant);
 
     //
     connect(d->settingsManager.data(), &SettingsManager::simpleTextEditorChanged, this,
@@ -3282,7 +3279,6 @@ void ApplicationManager::initConnections()
                 d->projectManager->checkAvailabilityToEdit();
                 d->projectManager->setBlockedDocumentTypes(
                     d->cloudServiceManager->blockedDocumentTypes());
-                d->projectManager->setAvailableCredits(_accountInfo.credits);
             });
     connect(d->cloudServiceManager.data(), &CloudServiceManager::giftSent, d->accountManager.data(),
             &AccountManager::showGiftSentMessage);
@@ -3731,32 +3727,7 @@ void ApplicationManager::initConnections()
     //
     // Генерация текста
     //
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::buyCreditsRequested,
-            d->accountManager.data(), &AccountManager::buyCredits);
-    connect(d->projectManager.data(), &ProjectManager::rephraseTextRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiRephraseText);
-    connect(d->projectManager.data(), &ProjectManager::expandTextRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiExpandText);
-    connect(d->projectManager.data(), &ProjectManager::shortenTextRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiShortenText);
-    connect(d->projectManager.data(), &ProjectManager::insertTextRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiInsertText);
-    connect(d->projectManager.data(), &ProjectManager::summarizeTextRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiSummarizeText);
-    connect(d->projectManager.data(), &ProjectManager::translateTextRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiTranslateText);
-    connect(d->projectManager.data(), &ProjectManager::translateDocumentRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiTranslateDocument);
-    connect(d->projectManager.data(), &ProjectManager::generateSynopsisRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiGenerateSynopsis);
-    connect(d->projectManager.data(), &ProjectManager::generateNovelRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiGenerateNovel);
-    connect(d->projectManager.data(), &ProjectManager::generateScriptRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiGenerateScript);
-    connect(d->projectManager.data(), &ProjectManager::generateTextRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiGenerateText);
-    connect(d->projectManager.data(), &ProjectManager::generateImageRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::aiGenerateImage);
+
     //
     // Тестовый метод, для отправки документа на проверку
     //
@@ -3772,53 +3743,7 @@ void ApplicationManager::initConnections()
                                                              _draftName, _comment);
             });
     //
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::textRephrased,
-            d->projectManager.data(), &ProjectManager::setRephrasedText);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::textExpanded,
-            d->projectManager.data(), &ProjectManager::setExpandedText);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::textShortened,
-            d->projectManager.data(), &ProjectManager::setShortenedText);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::textInserted,
-            d->projectManager.data(), &ProjectManager::setInsertedText);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::textSummarizeed,
-            d->projectManager.data(), &ProjectManager::setSummarizeedText);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::textTranslated,
-            d->projectManager.data(), &ProjectManager::setTranslatedText);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::documentTranslated,
-            d->projectManager.data(), &ProjectManager::setTranslatedDocument);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::synopsisGenerated,
-            d->projectManager.data(), &ProjectManager::setGeneratedSynopsis);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::novelGenerated, this,
-            [this](const QString& _text) {
-                const auto novelFilePath
-                    = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
-                    + QDir::separator() + tr("Novel") + ".md";
-                QFile file(novelFilePath);
-                if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                    file.write(_text.toUtf8());
-                    file.close();
 
-                    d->importManager->importNovel(novelFilePath);
-                }
-            });
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::scriptGenerated, this,
-            [this](const QString& _text) {
-                const auto scriptFilePath
-                    = QStandardPaths::writableLocation(QStandardPaths::TempLocation)
-                    + QDir::separator() + tr("Screenplay") + ".fountain";
-                QFile file(scriptFilePath);
-                if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                    file.write(_text.toUtf8());
-                    file.close();
-
-                    const bool importDocuments = false;
-                    d->importManager->importScreenplay(scriptFilePath, importDocuments);
-                }
-            });
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::textGenerated,
-            d->projectManager.data(), &ProjectManager::setGeneratedText);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::imageGenerated,
-            d->projectManager.data(), &ProjectManager::setGeneratedImage);
 #endif
 }
 

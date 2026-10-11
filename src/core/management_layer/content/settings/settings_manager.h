@@ -80,7 +80,6 @@ signals:
     void applicationSaveBackupsChanged(bool _save);
     void applicationBackupsFolderChanged(const QString& _path);
     void applicationBackupsQtyChanged(int _qty);
-    void applicationAiAssistantEnabledChanged(const QStringList& _changedSettingsKeys);
 
     /**
      * @brief Изменились параметры компонентов
@@ -151,7 +150,6 @@ private:
     void setApplicationUseSmartQuotes(bool _use);
     void setApplicationReplaceTwoDashesWithEmDash(bool _replace);
     void setApplicationAvoidMultipleSpaces(bool _avoid);
-    void setApplicationAiAssistantEnabled(bool _enabled);
 
     //
     // Сохранение параметров редактора сценария

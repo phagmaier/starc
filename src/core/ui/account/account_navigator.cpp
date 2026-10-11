@@ -18,7 +18,6 @@
 #include <QStandardItemModel>
 #include <QVBoxLayout>
 
-
 namespace Ui {
 
 namespace {
@@ -49,13 +48,11 @@ public:
     void updateCreatorSubtitleLabel();
     void updateStudioSubtitleLabel();
     void updateCampusSubtitleLabel();
-    void updateCreditsSubtitleLabel();
 
     /**
      * @brief Задать возможность добавления команд
      */
     void setAccountTeamsCanBeAdded(bool _can);
-
 
     quint64 cloudStorageSize = 0;
     quint64 cloudStorageSizeUsed = 0;
@@ -63,7 +60,6 @@ public:
     QDateTime creatorSubscriptionEnds;
     QDateTime studioSubscriptionEnds;
     QDateTime campusSubscriptionEnds;
-    int creditsAvailable = 0;
     bool isTeamsCanBeAdded = false;
 
     //
@@ -103,11 +99,6 @@ public:
     ProgressBar* campusSpaceStats = nullptr;
     Subtitle2Label* campusSpaceInfo = nullptr;
     Subtitle2Label* campusSubtitle = nullptr;
-
-    IconsMidLabel* creditsTitleIcon = nullptr;
-    ButtonLabel* creditsTitle = nullptr;
-    Subtitle2Label* creditsSubtitle = nullptr;
-    Button* buyCreditsButton = nullptr;
 
     Button* logoutButton = nullptr;
 
@@ -168,10 +159,6 @@ AccountNavigator::Implementation::Implementation(QWidget* _parent)
     , campusSpaceInfo(new Subtitle2Label(accountPage))
     , campusSubtitle(new Subtitle2Label(accountPage))
     //
-    , creditsTitleIcon(new IconsMidLabel(accountPage))
-    , creditsTitle(new ButtonLabel(accountPage))
-    , creditsSubtitle(new Subtitle2Label(accountPage))
-    , buyCreditsButton(new Button(accountPage))
     //
     , logoutButton(new Button(accountPage))
     , accountLayout(new QGridLayout)
@@ -214,7 +201,6 @@ AccountNavigator::Implementation::Implementation(QWidget* _parent)
     creatorTitleIcon->setIcon(u8"\U000F0674");
     studioTitleIcon->setIcon(u8"\U000F0381");
     campusTitleIcon->setIcon(u8"\U000F0474");
-    creditsTitleIcon->setIcon(u8"\U000F133C");
 
     logoutButton->setIcon(u8"\U000F0343");
 
@@ -286,18 +272,13 @@ AccountNavigator::Implementation::Implementation(QWidget* _parent)
         auto layout = new QHBoxLayout;
         layout->setContentsMargins({});
         layout->setSpacing(0);
-        layout->addWidget(creditsTitleIcon);
-        layout->addWidget(creditsTitle, 1);
         accountLayout->addLayout(layout, row++, 2);
     }
-    accountLayout->addWidget(creditsSubtitle, row++, 2);
-    accountLayout->addWidget(buyCreditsButton, row++, 2);
     //
     accountLayout->setRowStretch(row++, 1);
     accountLayout->addWidget(logoutButton, row++, 1, 1, 2);
     //
     accountPage->setLayout(accountLayout);
-
 
     QPalette palette;
     palette.setColor(QPalette::Base, Qt::transparent);
@@ -404,13 +385,6 @@ void AccountNavigator::Implementation::updateCampusSubtitleLabel()
             : tr("Active until %1").arg(campusSubscriptionEnds.toString("dd.MM.yyyy")));
 }
 
-void AccountNavigator::Implementation::updateCreditsSubtitleLabel()
-{
-    creditsSubtitle->setText(creditsAvailable > 0
-                                 ? tr("%n credits available", nullptr, creditsAvailable / 1000)
-                                 : tr("No credits available"));
-}
-
 void AccountNavigator::Implementation::setAccountTeamsCanBeAdded(bool _can)
 {
     if (isTeamsCanBeAdded == _can) {
@@ -424,7 +398,6 @@ void AccountNavigator::Implementation::setAccountTeamsCanBeAdded(bool _can)
     teamsOwner->setVisible(_can);
     addTeamButton->setVisible(_can);
 }
-
 
 // ****
 
@@ -475,7 +448,7 @@ AccountNavigator::AccountNavigator(QWidget* _parent)
             &AccountNavigator::tryCreatorForFreePressed);
     connect(d->renewCreatorSubscriptionButton, &Button::clicked, this,
             &AccountNavigator::renewCreatorPressed);
-    connect(d->buyCreditsButton, &Button::clicked, this, &AccountNavigator::buyCreditsPressed);
+
     connect(d->logoutButton, &Button::clicked, this, &AccountNavigator::logoutPressed);
     //
     connect(editTeamAction, &QAction::triggered, this, [this] {
@@ -541,7 +514,7 @@ void AccountNavigator::setConnected(bool _connected)
     d->renewProSubscriptionButton->setEnabled(_connected);
     d->tryCreatorButton->setEnabled(_connected);
     d->renewCreatorSubscriptionButton->setEnabled(_connected);
-    d->buyCreditsButton->setEnabled(_connected);
+
     //
     d->teamsOwner->setContextMenuPolicy(_connected ? Qt::CustomContextMenu : Qt::NoContextMenu);
     d->addTeamButton->setEnabled(_connected);
@@ -801,8 +774,6 @@ void AccountNavigator::setAccountInfo(const Domain::AccountInfo& _account)
     //
     // Также настроим информацию о доступных кредитах
     //
-    d->creditsAvailable = _account.credits;
-    d->updateCreditsSubtitleLabel();
 }
 
 void AccountNavigator::setAccountTeams(const QVector<Domain::TeamInfo>& _teams)
@@ -885,8 +856,7 @@ void AccountNavigator::updateTranslations()
     d->updateStudioSubtitleLabel();
     d->campusTitle->setText(tr("CAMPUS version"));
     d->updateCampusSubtitleLabel();
-    d->creditsTitle->setText(tr("Credits for Ai tools"));
-    d->buyCreditsButton->setText(tr("Buy credits"));
+
     d->logoutButton->setText(tr("Logout"));
 
     d->teamsOwnerLabel->setText(tr("Owner"));
@@ -926,7 +896,6 @@ void AccountNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->creatorTitleIcon,
              d->studioTitleIcon,
              d->campusTitleIcon,
-             d->creditsTitleIcon,
          }) {
         icon->setBackgroundColor(DesignSystem::color().primary());
         icon->setTextColor(DesignSystem::color().onPrimary());
@@ -942,7 +911,6 @@ void AccountNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->creatorTitle,
              d->studioTitle,
              d->campusTitle,
-             d->creditsTitle,
          }) {
         title->setBackgroundColor(DesignSystem::color().primary());
         title->setTextColor(DesignSystem::color().onPrimary());
@@ -962,7 +930,6 @@ void AccountNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->studioSubtitle,
              d->campusSpaceInfo,
              d->campusSubtitle,
-             d->creditsSubtitle,
          }) {
         subtitle->setBackgroundColor(DesignSystem::color().primary());
         subtitle->setTextColor(ColorHelper::transparent(DesignSystem::color().onPrimary(),
@@ -990,7 +957,6 @@ void AccountNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->renewProSubscriptionButton,
              d->tryCreatorButton,
              d->renewCreatorSubscriptionButton,
-             d->buyCreditsButton,
              d->logoutButton,
              d->addTeamButton,
          }) {
@@ -1015,7 +981,6 @@ void AccountNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     d->accountLayout->setColumnMinimumWidth(0, DesignSystem::layout().px4());
     d->accountLayout->setColumnMinimumWidth(3, DesignSystem::layout().px12());
     d->accountLayout->setContentsMargins(0, 0, 0, DesignSystem::layout().px12());
-
 
     d->teamsOwner->setFixedHeight(d->teamsOwner->viewportSizeHint().height());
     d->teamsMember->setFixedHeight(d->teamsMember->viewportSizeHint().height());

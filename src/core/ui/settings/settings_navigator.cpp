@@ -16,7 +16,6 @@ constexpr int kApplicationIndex = 0;
 constexpr int kApplicationUserInterfaceIndex = 0;
 constexpr int kApplicationSaveAndBackupIndex = 1;
 constexpr int kApplicationTextEditingIndex = 2;
-constexpr int kApplicationAiAssistantIndex = 3;
 constexpr int kComponentsIndex = 1;
 constexpr int kComponentsSimpleTextIndex = 0;
 constexpr int kComponentsScreenplayIndex = 1;
@@ -55,7 +54,6 @@ SettingsNavigator::Implementation::Implementation(QWidget* _parent)
     applicationItem->appendRow(createItem(u8"\U000f062e"));
     applicationItem->appendRow(createItem(u8"\U000f061b"));
     applicationItem->appendRow(createItem(u8"\U000F05E7"));
-    applicationItem->appendRow(createItem(u8"\U000F133C"));
     model->appendRow(applicationItem);
     auto componentsItem = createItem(u8"\U000f09ac");
     componentsItem->appendRow(createItem(u8"\U000F021A"));
@@ -108,10 +106,7 @@ SettingsNavigator::SettingsNavigator(QWidget* _parent)
                     emit applicationTextEditingPressed();
                     break;
                 }
-                case kApplicationAiAssistantIndex: {
-                    emit applicationAiAssistantPressed();
-                    break;
-                }
+
                 default: {
                     break;
                 }
@@ -203,9 +198,7 @@ void SettingsNavigator::updateTranslations()
     model->item(kApplicationIndex)
         ->child(kApplicationTextEditingIndex)
         ->setText(tr("Text editing"));
-    model->item(kApplicationIndex)
-        ->child(kApplicationAiAssistantIndex)
-        ->setText(tr("AI assistant"));
+
     model->item(kComponentsIndex)->setText(tr("Components"));
     model->item(kComponentsIndex)->child(kComponentsSimpleTextIndex)->setText(tr("Simple text"));
     model->item(kComponentsIndex)->child(kComponentsScreenplayIndex)->setText(tr("Screenplay"));

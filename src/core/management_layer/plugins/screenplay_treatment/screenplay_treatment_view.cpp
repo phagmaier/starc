@@ -19,7 +19,6 @@
 #include <domain/starcloud_api.h>
 #include <interfaces/management_layer/i_document_manager.h>
 #include <ui/design_system/design_system.h>
-#include <ui/modules/ai_assistant/ai_assistant_view.h>
 #include <ui/modules/bookmarks/bookmarks_model.h>
 #include <ui/modules/bookmarks/bookmarks_view.h>
 #include <ui/modules/cards/card_item_parameters_view.h>
@@ -64,7 +63,6 @@ enum {
     kFastFormatTabIndex = 0,
     kSceneParametersTabIndex,
     kCommentsTabIndex,
-    kAiAssistantTabIndex,
     kBookmarksTabIndex,
 };
 
@@ -73,7 +71,6 @@ const QString kScaleFactorKey = kSettingsKey + "/scale-factor";
 const QString kSidebarStateKey = kSettingsKey + "/sidebar-state";
 const QString kIsFastFormatPanelVisibleKey = kSettingsKey + "/is-fast-format-panel-visible";
 const QString kIsCommentsModeEnabledKey = kSettingsKey + "/is-comments-mode-enabled";
-const QString kIsAiAssistantEnabledKey = kSettingsKey + "/is-ai-assistant-enabled";
 const QString kIsItemIsolationEnabledKey = kSettingsKey + "/is-item-isolation-enabled";
 const QString kIsSceneParametersVisibleKey = kSettingsKey + "/is-scene-parameters-visible";
 const QString kIsBookmarksListVisibleKey = kSettingsKey + "/is-bookmarks-list-visible";
@@ -183,7 +180,6 @@ public:
     FastFormatWidget* fastFormatWidget = nullptr;
     CardItemParametersView* itemParametersView = nullptr;
     CommentsView* commentsView = nullptr;
-    AiAssistantView* aiAssistantView = nullptr;
     BookmarksView* bookmarksView = nullptr;
     //
     Splitter* splitter = nullptr;
@@ -219,7 +215,6 @@ ScreenplayTreatmentView::Implementation::Implementation(ScreenplayTreatmentView*
     , fastFormatWidget(new FastFormatWidget(_q))
     , itemParametersView(new CardItemParametersView(_q))
     , commentsView(new CommentsView(_q))
-    , aiAssistantView(new AiAssistantView(_q))
     , bookmarksView(new BookmarksView(_q))
     , splitter(new Splitter(_q))
     , showSceneParametersAction(new QAction(_q))
@@ -248,8 +243,6 @@ ScreenplayTreatmentView::Implementation::Implementation(ScreenplayTreatmentView*
     sidebarTabs->setTabVisible(kSceneParametersTabIndex, false);
     sidebarTabs->addTab({}); // comments
     sidebarTabs->setTabVisible(kCommentsTabIndex, false);
-    sidebarTabs->addTab({}); // ai assistant
-    sidebarTabs->setTabVisible(kAiAssistantTabIndex, false);
     sidebarTabs->addTab({}); // bookmarks
     sidebarTabs->setTabVisible(kBookmarksTabIndex, false);
     sidebarContent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
@@ -257,7 +250,6 @@ ScreenplayTreatmentView::Implementation::Implementation(ScreenplayTreatmentView*
     sidebarContent->addWidget(fastFormatWidget);
     sidebarContent->addWidget(itemParametersView);
     sidebarContent->addWidget(commentsView);
-    sidebarContent->addWidget(aiAssistantView);
     sidebarContent->addWidget(bookmarksView);
     fastFormatWidget->hide();
     fastFormatWidget->setParagraphTypesModel(paragraphTypesModel);
@@ -267,7 +259,7 @@ ScreenplayTreatmentView::Implementation::Implementation(ScreenplayTreatmentView*
     itemParametersView->hide();
     commentsView->setModel(commentsModel);
     commentsView->hide();
-    aiAssistantView->hide();
+
     bookmarksView->setModel(bookmarksModel);
     bookmarksView->hide();
 
@@ -558,8 +550,8 @@ void ScreenplayTreatmentView::Implementation::updateCommentsToolbar(bool _force)
 void ScreenplayTreatmentView::Implementation::updateSideBarVisibility(QWidget* _container)
 {
     const bool isSidebarShouldBeVisible = toolbar->isFastFormatPanelVisible()
-        || toolbar->isCommentsModeEnabled() || toolbar->isAiAssistantEnabled()
-        || showSceneParametersAction->isChecked() || showBookmarksAction->isChecked();
+        || toolbar->isCommentsModeEnabled() || showSceneParametersAction->isChecked()
+        || showBookmarksAction->isChecked();
     if (sidebarWidget->isVisible() == isSidebarShouldBeVisible) {
         return;
     }
@@ -736,16 +728,7 @@ ScreenplayTreatmentView::ScreenplayTreatmentView(QWidget* _parent)
                                             d->searchManager->toolbar());
         d->searchManager->activateSearhToolbar();
     });
-    connect(d->toolbar, &ScreenplayTreatmentEditToolbar::aiAssistantEnabledChanged, this,
-            [this](bool _enabled) {
-                d->sidebarTabs->setTabVisible(kAiAssistantTabIndex, _enabled);
-                d->aiAssistantView->setVisible(_enabled);
-                if (_enabled) {
-                    d->sidebarTabs->setCurrentTab(kAiAssistantTabIndex);
-                    d->sidebarContent->setCurrentWidget(d->aiAssistantView);
-                }
-                d->updateSideBarVisibility(this);
-            });
+
     connect(d->toolbar, &ScreenplayTreatmentEditToolbar::itemIsolationEnabledChanged, this,
             [this](bool _enabled) {
                 d->textEdit->setVisibleTopLevelItemIndex(_enabled ? d->textEdit->currentModelIndex()
@@ -953,10 +936,7 @@ ScreenplayTreatmentView::ScreenplayTreatmentView(QWidget* _parent)
             d->sidebarContent->setCurrentWidget(d->commentsView);
             break;
         }
-        case kAiAssistantTabIndex: {
-            d->sidebarContent->setCurrentWidget(d->aiAssistantView);
-            break;
-        }
+
         case kBookmarksTabIndex: {
             d->sidebarContent->setCurrentWidget(d->bookmarksView);
             break;
@@ -1294,24 +1274,7 @@ ScreenplayTreatmentView::ScreenplayTreatmentView(QWidget* _parent)
                 d->commentsModel->remove(_indexes);
             });
     //
-    connect(d->aiAssistantView, &AiAssistantView::rephraseRequested, this,
-            &ScreenplayTreatmentView::rephraseTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::expandRequested, this,
-            &ScreenplayTreatmentView::expandTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::shortenRequested, this,
-            &ScreenplayTreatmentView::shortenTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::insertRequested, this,
-            &ScreenplayTreatmentView::insertTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::summarizeRequested, this,
-            &ScreenplayTreatmentView::summarizeTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::translateRequested, this,
-            &ScreenplayTreatmentView::translateTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::generateTextRequested, this,
-            &ScreenplayTreatmentView::generateTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::insertTextRequested, this,
-            [this](const QString& _text) { d->textEdit->insertPlainText(_text); });
-    connect(d->aiAssistantView, &AiAssistantView::buyCreditsPressed, this,
-            &ScreenplayTreatmentView::buyCreditsRequested);
+
     //
     connect(d->bookmarksView, &BookmarksView::addBookmarkRequested, this,
             &ScreenplayTreatmentView::createBookmarkRequested);
@@ -1386,7 +1349,7 @@ void ScreenplayTreatmentView::setEditingMode(ManagementLayer::DocumentEditingMod
     }
     d->itemParametersView->setReadOnly(readOnly);
     d->commentsView->setReadOnly(_mode == ManagementLayer::DocumentEditingMode::Read);
-    d->aiAssistantView->setReadOnly(_mode == ManagementLayer::DocumentEditingMode::Read);
+
     d->bookmarksView->setReadOnly(readOnly);
     const auto enabled = !readOnly;
     d->shortcutsManager.setEnabled(enabled);
@@ -1407,134 +1370,9 @@ void ScreenplayTreatmentView::setCurrentModelIndex(const QModelIndex& _index)
     d->textEdit->setCurrentModelIndex(_index);
 }
 
-void ScreenplayTreatmentView::setAvailableCredits(int _credits)
-{
-    d->aiAssistantView->setAvailableWords(_credits);
-}
-
-void ScreenplayTreatmentView::setRephrasedText(const QString& _text)
-{
-    d->aiAssistantView->setRephraseResult(_text);
-}
-
-void ScreenplayTreatmentView::setExpandedText(const QString& _text)
-{
-    d->aiAssistantView->setExpandResult(_text);
-}
-
-void ScreenplayTreatmentView::setShortenedText(const QString& _text)
-{
-    d->aiAssistantView->setShortenResult(_text);
-}
-
-void ScreenplayTreatmentView::setInsertedText(const QString& _text)
-{
-    d->aiAssistantView->setInsertResult(_text);
-}
-
-void ScreenplayTreatmentView::setSummarizedText(const QString& _text)
-{
-    d->aiAssistantView->setSummarizeResult(_text);
-}
-
-void ScreenplayTreatmentView::setTranslatedText(const QString& _text)
-{
-    d->aiAssistantView->setTransateResult(_text);
-}
-
-void ScreenplayTreatmentView::setGeneratedText(const QString& _text)
-{
-    const QLatin1String textWritingTaskKey("text-writing-task");
-    TaskBar::addTask(textWritingTaskKey);
-    TaskBar::setTaskTitle(textWritingTaskKey, tr("Writing text"));
-
-    //
-    // Отключим отображение всплывающих подсказок
-    //
-    d->textEdit->setCompleterActive(false);
-
-    //
-    // Переходим в конец позицию вставки, а затем переводим его на новую строку, или сдвигаем
-    // последующий текст, чтобы помещать текст в новом блоке
-    //
-    switch (d->aiAssistantView->textInsertPosition()) {
-    case AiAssistantView::TextInsertPosition::AtBeginning: {
-        d->textEdit->moveCursor(QTextCursor::Start);
-        d->textEdit->addParagraph(d->textEdit->currentParagraphType());
-        d->textEdit->moveCursor(QTextCursor::Start);
-        break;
-    }
-
-    case AiAssistantView::TextInsertPosition::AtCursorPosition: {
-        d->textEdit->moveCursor(QTextCursor::EndOfBlock);
-        d->textEdit->addParagraph(BusinessLayer::TextParagraphType::BeatHeading);
-        break;
-    }
-
-    case AiAssistantView::TextInsertPosition::AtEnd: {
-        d->textEdit->moveCursor(QTextCursor::End);
-        d->textEdit->addParagraph(BusinessLayer::TextParagraphType::BeatHeading);
-        break;
-    }
-    }
-
-    QElapsedTimer timer;
-    int progress = 0;
-    auto waitForNextOperation = [&timer, &progress, maximum = _text.length(), textWritingTaskKey] {
-        timer.restart();
-        const auto delay = QRandomGenerator::global()->bounded(10, 60);
-        while (!timer.hasExpired(delay)) {
-            QCoreApplication::processEvents();
-        }
-
-        ++progress;
-        TaskBar::setTaskProgress(textWritingTaskKey, progress * 100 / static_cast<qreal>(maximum));
-    };
-
-    auto lines = _text.split('\n', Qt::SkipEmptyParts);
-    for (auto& line : lines) {
-        if (line == TextHelper::smartToUpper(line) && line.contains('.')
-            && (line.contains('-') || line.contains("–"))) {
-            d->textEdit->setCurrentParagraphType(BusinessLayer::TextParagraphType::SceneHeading);
-        } else {
-            d->textEdit->setCurrentParagraphType(BusinessLayer::TextParagraphType::BeatHeading);
-        }
-
-        for (int index = 0; index < line.length(); ++index) {
-            QCoreApplication::postEvent(d->textEdit,
-                                        new QKeyEvent(QEvent::KeyPress, Qt::Key_unknown,
-                                                      Qt::NoModifier, line.mid(index, 1)));
-            QCoreApplication::postEvent(d->textEdit,
-                                        new QKeyEvent(QEvent::KeyRelease, Qt::Key_unknown,
-                                                      Qt::NoModifier, line.mid(index, 1)));
-            waitForNextOperation();
-        }
-
-        QCoreApplication::postEvent(
-            d->textEdit, new QKeyEvent(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier));
-        QCoreApplication::postEvent(
-            d->textEdit, new QKeyEvent(QEvent::KeyRelease, Qt::Key_Return, Qt::NoModifier));
-        waitForNextOperation();
-    }
-
-    //
-    // Возвращаем возможность использования всплывающих подсказок
-    //
-    d->textEdit->setCompleterActive(true);
-
-    TaskBar::finishTask(textWritingTaskKey);
-}
-
 void ScreenplayTreatmentView::reconfigure(const QStringList& _changedSettingsKeys)
 {
     UiHelper::initSpellingFor(d->textEdit);
-
-    if (_changedSettingsKeys.isEmpty()
-        || _changedSettingsKeys.contains(DataStorageLayer::kApplicationAiAssistantEnabledKey)) {
-        d->toolbar->setAiAssistantVisible(
-            settingsValue(DataStorageLayer::kApplicationAiAssistantEnabledKey).toBool());
-        d->updateToolbarUi();
-    }
 
     if (_changedSettingsKeys.isEmpty()
         || _changedSettingsKeys.contains(
@@ -1641,8 +1479,7 @@ void ScreenplayTreatmentView::loadViewSettings()
     d->toolbar->setItemIsolationEnabled(isItemIsolationEnabled);
     const auto isCommentsModeEnabled = settingsValue(kIsCommentsModeEnabledKey, false).toBool();
     d->toolbar->setCommentsModeEnabled(isCommentsModeEnabled);
-    const auto isAiAssistantEnabled = settingsValue(kIsAiAssistantEnabledKey, false).toBool();
-    d->toolbar->setAiAssistantEnabled(isAiAssistantEnabled);
+
     const auto isFastFormatPanelVisible
         = settingsValue(kIsFastFormatPanelVisibleKey, false).toBool();
     d->toolbar->setFastFormatPanelVisible(isFastFormatPanelVisible);
@@ -1651,7 +1488,15 @@ void ScreenplayTreatmentView::loadViewSettings()
     d->showSceneParametersAction->setChecked(isSceneParametersVisible);
     const auto isBookmarksListVisible = settingsValue(kIsBookmarksListVisibleKey, false).toBool();
     d->showBookmarksAction->setChecked(isBookmarksListVisible);
-    const auto sidebarPanelIndex = settingsValue(kSidebarPanelIndexKey, 0).toInt();
+    auto sidebarPanelIndex = settingsValue(kSidebarPanelIndexKey + "/without-ai").toInt();
+    if (!settingsValue(kSidebarPanelIndexKey + "/without-ai").isValid()) {
+        sidebarPanelIndex = settingsValue(kSidebarPanelIndexKey, 0).toInt();
+        if (sidebarPanelIndex == 3) {
+            sidebarPanelIndex = 0;
+        } else if (sidebarPanelIndex > 3) {
+            --sidebarPanelIndex;
+        }
+    }
     d->sidebarTabs->setCurrentTab(sidebarPanelIndex);
 
     const auto sidebarState = settingsValue(kSidebarStateKey);
@@ -1666,11 +1511,10 @@ void ScreenplayTreatmentView::saveViewSettings()
 
     setSettingsValue(kIsFastFormatPanelVisibleKey, d->toolbar->isFastFormatPanelVisible());
     setSettingsValue(kIsCommentsModeEnabledKey, d->toolbar->isCommentsModeEnabled());
-    setSettingsValue(kIsAiAssistantEnabledKey, d->toolbar->isAiAssistantEnabled());
     setSettingsValue(kIsItemIsolationEnabledKey, d->toolbar->isItemIsolationEnabled());
     setSettingsValue(kIsSceneParametersVisibleKey, d->showSceneParametersAction->isChecked());
     setSettingsValue(kIsBookmarksListVisibleKey, d->showBookmarksAction->isChecked());
-    setSettingsValue(kSidebarPanelIndexKey, d->sidebarTabs->currentTab());
+    setSettingsValue(kSidebarPanelIndexKey + "/without-ai", d->sidebarTabs->currentTab());
 
     setSettingsValue(kSidebarStateKey, d->splitter->saveState());
 }
@@ -1812,12 +1656,8 @@ void ScreenplayTreatmentView::updateTranslations()
     d->sidebarTabs->setTabName(kFastFormatTabIndex, tr("Formatting"));
     d->sidebarTabs->setTabName(kSceneParametersTabIndex, tr("Scene parameters"));
     d->sidebarTabs->setTabName(kCommentsTabIndex, tr("Comments"));
-    d->sidebarTabs->setTabName(kAiAssistantTabIndex, tr("AI assistant"));
-    d->sidebarTabs->setTabName(kBookmarksTabIndex, tr("Bookmarks"));
 
-    d->aiAssistantView->setGenerationPromptHint(
-        tr("Start prompt from something like \"Write a novel about ...\", or \"Write a chapter "
-           "about ...\""));
+    d->sidebarTabs->setTabName(kBookmarksTabIndex, tr("Bookmarks"));
 
     d->updateOptionsTranslations();
 

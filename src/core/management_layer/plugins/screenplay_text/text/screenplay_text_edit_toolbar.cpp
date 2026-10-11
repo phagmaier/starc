@@ -29,7 +29,6 @@ public:
     QAction* fastFormatAction = nullptr;
     QAction* searchAction = nullptr;
     QAction* commentsAction = nullptr;
-    QAction* aiAssistantAction = nullptr;
     QAction* isolationAction = nullptr;
     QAction* optionsAction = nullptr;
     QVector<QAction*> options;
@@ -45,7 +44,6 @@ ScreenplayTextEditToolbar::Implementation::Implementation(QWidget* _parent)
     , fastFormatAction(new QAction(_parent))
     , searchAction(new QAction(_parent))
     , commentsAction(new QAction(_parent))
-    , aiAssistantAction(new QAction(_parent))
     , isolationAction(new QAction(_parent))
     , optionsAction(new QAction(_parent))
     , popup(new CardPopupWithTree(_parent))
@@ -135,14 +133,6 @@ ScreenplayTextEditToolbar::ScreenplayTextEditToolbar(QWidget* _parent)
             &ScreenplayTextEditToolbar::updateTranslations);
     connect(d->commentsAction, &QAction::toggled, this,
             &ScreenplayTextEditToolbar::commentsModeEnabledChanged);
-
-    d->aiAssistantAction->setIconText(u8"\U000F0068");
-    d->aiAssistantAction->setCheckable(true);
-    addAction(d->aiAssistantAction);
-    connect(d->aiAssistantAction, &QAction::toggled, this,
-            &ScreenplayTextEditToolbar::updateTranslations);
-    connect(d->aiAssistantAction, &QAction::toggled, this,
-            &ScreenplayTextEditToolbar::aiAssistantEnabledChanged);
 
     d->isolationAction->setIconText(u8"\U000F0EFF");
     d->isolationAction->setCheckable(true);
@@ -295,24 +285,6 @@ void ScreenplayTextEditToolbar::setCommentsModeEnabled(bool _enabled)
     d->commentsAction->setChecked(_enabled);
 }
 
-bool ScreenplayTextEditToolbar::isAiAssistantEnabled() const
-{
-    return d->aiAssistantAction->isChecked();
-}
-
-void ScreenplayTextEditToolbar::setAiAssistantEnabled(bool _enabled)
-{
-    d->aiAssistantAction->setChecked(_enabled);
-}
-
-void ScreenplayTextEditToolbar::setAiAssistantVisible(bool _visible)
-{
-    d->aiAssistantAction->setVisible(_visible);
-    if (!_visible) {
-        d->aiAssistantAction->setChecked(false);
-    }
-}
-
 bool ScreenplayTextEditToolbar::isItemIsolationEnabled() const
 {
     return d->isolationAction->isChecked();
@@ -355,8 +327,7 @@ void ScreenplayTextEditToolbar::updateTranslations()
             QKeySequence(QKeySequence::Find).toString(QKeySequence::NativeText)));
     d->commentsAction->setToolTip(d->commentsAction->isChecked() ? tr("Disable review mode")
                                                                  : tr("Enable review mode"));
-    d->aiAssistantAction->setToolTip(d->aiAssistantAction->isChecked() ? tr("Disable AI assistant")
-                                                                       : tr("Enable AI assistant"));
+
     d->isolationAction->setToolTip(d->isolationAction->isChecked()
                                        ? tr("Show full text")
                                        : tr("Show only current scene text"));

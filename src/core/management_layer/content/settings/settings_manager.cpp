@@ -38,7 +38,6 @@
 #include <QStandardPaths>
 #include <QTimer>
 
-
 namespace ManagementLayer {
 
 namespace {
@@ -179,8 +178,6 @@ void SettingsManager::Implementation::loadApplicationSettings()
         settingsValue(DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey).toBool());
     view->setApplicationAvoidMultipleSpaces(
         settingsValue(DataStorageLayer::kApplicationAvoidMultipleSpacesKey).toBool());
-    view->setApplicationAiAssistantEnabled(
-        settingsValue(DataStorageLayer::kApplicationAiAssistantEnabledKey).toBool());
 }
 
 void SettingsManager::Implementation::loadComponentsSettings()
@@ -948,9 +945,7 @@ void SettingsManager::Implementation::finishSpellCheckingDictionaryLoadingTask(
     TaskBar::finishTask(spellCheckerLoadingTaskId(_languageCode));
 }
 
-
 // ****
-
 
 SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
                                  const PluginsBuilder& _pluginsBuilder,
@@ -972,8 +967,7 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             &Ui::SettingsView::showApplicationSaveAndBackups);
     connect(d->navigator, &Ui::SettingsNavigator::applicationTextEditingPressed, d->view,
             &Ui::SettingsView::showApplicationTextEditing);
-    connect(d->navigator, &Ui::SettingsNavigator::applicationAiAssistantPressed, d->view,
-            &Ui::SettingsView::showApplicationAiAssistant);
+
     connect(d->navigator, &Ui::SettingsNavigator::componentsPressed, d->view,
             &Ui::SettingsView::showComponents);
     connect(d->navigator, &Ui::SettingsNavigator::componentsSimpleTextPressed, d->view,
@@ -1129,8 +1123,7 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             &SettingsManager::setApplicationReplaceTwoDashesWithEmDash);
     connect(d->view, &Ui::SettingsView::applicationAvoidMultipleSpacesChanged, this,
             &SettingsManager::setApplicationAvoidMultipleSpaces);
-    connect(d->view, &Ui::SettingsView::applicationAiAssistantEnabledChanged, this,
-            &SettingsManager::setApplicationAiAssistantEnabled);
+
     //
     // ... простой редактор текста
     //
@@ -2255,13 +2248,6 @@ void SettingsManager::setApplicationAvoidMultipleSpaces(bool _avoid)
     emit audioplayEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
     emit stageplayEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
-}
-
-void SettingsManager::setApplicationAiAssistantEnabled(bool _enabled)
-{
-    setSettingsValue(DataStorageLayer::kApplicationAiAssistantEnabledKey, _enabled);
-    emit applicationAiAssistantEnabledChanged(
-        { DataStorageLayer::kApplicationAiAssistantEnabledKey });
 }
 
 void SettingsManager::setSimpleTextAvailable(bool _available)

@@ -168,121 +168,6 @@ Ui::NovelTextView* NovelTextManager::Implementation::createView(
         modelForView(view)->updateItem(textItem);
     });
     //
-    connect(view, &Ui::NovelTextView::rephraseTextRequested, q,
-            &NovelTextManager::rephraseTextRequested);
-    connect(view, &Ui::NovelTextView::expandTextRequested, q,
-            &NovelTextManager::expandTextRequested);
-    connect(view, &Ui::NovelTextView::shortenTextRequested, q,
-            &NovelTextManager::shortenTextRequested);
-    connect(view, &Ui::NovelTextView::insertTextRequested, q,
-            &NovelTextManager::insertTextRequested);
-    connect(view, &Ui::NovelTextView::summarizeTextRequested, q,
-            &NovelTextManager::summarizeTextRequested);
-    connect(view, &Ui::NovelTextView::translateTextRequested, q,
-            &NovelTextManager::translateTextRequested);
-    connect(view, &Ui::NovelTextView::translateDocumentRequested, q,
-            [this, view](const QString& _languageCode) {
-                const auto model = modelForView(view);
-                QVector<QString> groups;
-                QString group;
-                std::function<void(const QModelIndex&)> findGroups;
-                findGroups
-                    = [&findGroups, model, &groups, &group](const QModelIndex& _parentItemIndex) {
-                          for (int row = 0; row < model->rowCount(_parentItemIndex); ++row) {
-                              const auto itemIndex = model->index(row, 0, _parentItemIndex);
-                              const auto item = model->itemForIndex(itemIndex);
-                              switch (item->type()) {
-                              case BusinessLayer::TextModelItemType::Folder: {
-                                  findGroups(itemIndex);
-                                  break;
-                              }
-
-                              case BusinessLayer::TextModelItemType::Group: {
-                                  if (!group.isEmpty()) {
-                                      groups.append(group);
-                                      group.clear();
-                                  }
-
-                                  findGroups(itemIndex);
-                                  break;
-                              }
-
-                              case BusinessLayer::TextModelItemType::Text: {
-                                  const auto textItem
-                                      = static_cast<const BusinessLayer::TextModelTextItem*>(item);
-                                  if (!textItem->text().isEmpty()) {
-                                      if (!group.isEmpty()) {
-                                          group.append("\n");
-                                      }
-                                      group.append(textItem->text());
-                                  }
-                                  break;
-                              }
-
-                              default: {
-                                  break;
-                              }
-                              }
-                          }
-                      };
-                findGroups({});
-                if (!group.isEmpty()) {
-                    groups.append(group);
-                }
-                emit q->translateDocumentRequested(groups, _languageCode,
-                                                   Domain::DocumentObjectType::NovelText,
-                                                   model->wordsCount());
-            });
-    connect(view, &Ui::NovelTextView::generateScriptRequested, q, [this, view] {
-        const auto model = modelForView(view);
-        QVector<QString> chapter;
-        std::function<void(const QModelIndex&)> findChapters;
-        findChapters = [&findChapters, model, &chapter](const QModelIndex& _parentItemIndex) {
-            for (int row = 0; row < model->rowCount(_parentItemIndex); ++row) {
-                const auto itemIndex = model->index(row, 0, _parentItemIndex);
-                const auto item = model->itemForIndex(itemIndex);
-                switch (item->type()) {
-                case BusinessLayer::TextModelItemType::Folder: {
-                    const auto folderItem
-                        = static_cast<const BusinessLayer::NovelTextModelFolderItem*>(item);
-                    //
-                    // Если в папке много вложений, то обрабатываем каждое по отдельности
-                    //
-                    if (folderItem->charactersCount().second > 10000) {
-                        findChapters(itemIndex);
-                    }
-                    //
-                    // ... а если достаточно, чтобы нейронка переварила, берём текст папки целиком
-                    //
-                    else {
-                        chapter.append(folderItem->text());
-                    }
-                    break;
-                }
-
-                case BusinessLayer::TextModelItemType::Group: {
-                    if (item->subtype() == static_cast<int>(BusinessLayer::TextGroupType::Scene)) {
-                        const auto sceneItem
-                            = static_cast<const BusinessLayer::NovelTextModelSceneItem*>(item);
-                        chapter.append(sceneItem->text());
-                    }
-                    break;
-                }
-
-                default: {
-                    break;
-                }
-                }
-            }
-        };
-        findChapters({});
-        emit q->generateScriptRequested(chapter, model->wordsCount());
-    });
-    connect(view, &Ui::NovelTextView::generateTextRequested, q,
-            [this](const QString& _text) { emit q->generateTextRequested({}, _text, {}); });
-    connect(view, &Ui::NovelTextView::buyCreditsRequested, q,
-            &NovelTextManager::buyCreditsRequested);
-
 
     updateTranslations();
 
@@ -524,17 +409,6 @@ void NovelTextManager::setEditingMode(DocumentEditingMode _mode)
         }
 
         viewAndModel.view->setEditingMode(_mode);
-    }
-}
-
-void NovelTextManager::setAvailableCredits(int _credits)
-{
-    for (auto& viewAndModel : d->allViews) {
-        if (viewAndModel.view.isNull()) {
-            continue;
-        }
-
-        viewAndModel.view->setAvailableCredits(_credits);
     }
 }
 

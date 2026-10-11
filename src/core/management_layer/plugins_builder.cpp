@@ -372,7 +372,6 @@ public:
     /**
      * @brief Количество кредитов доступных для использования с ИИ инструментами
      */
-    int availableCredits = 0;
 };
 
 bool PluginsBuilder::Implementation::initPlugin(const QString& _mimeType)
@@ -441,7 +440,6 @@ bool PluginsBuilder::Implementation::initPlugin(const QString& _mimeType)
     }
 
     auto plugin = qobject_cast<ManagementLayer::IDocumentManager*>(pluginObject);
-    plugin->setAvailableCredits(availableCredits);
     plugins.insert(_mimeType, plugin);
 
     return true;
@@ -495,7 +493,6 @@ Ui::IDocumentView* PluginsBuilder::Implementation::activatePlugin(
     //
     // ... а также доступные кредиты для работы с ИИ
     //
-    view->setAvailableCredits(availableCredits);
 
     return view;
 }
@@ -985,37 +982,6 @@ void PluginsBuilder::reconfigurePlugin(const QString& _mimeType,
     plugin->reconfigure(_changedSettingsKeys);
 }
 
-void PluginsBuilder::reconfigurePluginsWithAiAssistant(
-    const QStringList& _changedSettingsKeys) const
-{
-    //
-    // Текстовые плагины
-    //
-    reconfigurePlugin(kSimpleTextEditorMime, _changedSettingsKeys);
-    //
-    reconfigurePlugin(kScreenplayTreatmentEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplayTextEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplayTextBreakdownMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTreatmentEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTextEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTextBreakdownMime, _changedSettingsKeys);
-    //
-    reconfigurePlugin(kComicBookTextEditorMime, _changedSettingsKeys);
-    //
-    reconfigurePlugin(kAudioplayTextEditorMime, _changedSettingsKeys);
-    //
-    reconfigurePlugin(kStageplayTextEditorMime, _changedSettingsKeys);
-    //
-    reconfigurePlugin(kNovelOutlineEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kNovelTextEditorMime, _changedSettingsKeys);
-
-    //
-    // Остальные
-    //
-    reconfigurePlugin(kCharacterEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kMindMapMime, _changedSettingsKeys);
-}
-
 void PluginsBuilder::reconfigureSimpleTextEditor(const QStringList& _changedSettingsKeys) const
 {
     reconfigurePlugin(kSimpleTextEditorMime, _changedSettingsKeys);
@@ -1137,18 +1103,6 @@ void PluginsBuilder::setEditingPermissions(
     d->editingPermissions = _permissions;
     for (auto plugin : std::as_const(d->plugins)) {
         plugin->setEditingPermissions(d->editingPermissions);
-    }
-}
-
-void PluginsBuilder::setAvailableCredits(int _credits) const
-{
-    if (d->availableCredits == _credits) {
-        return;
-    }
-
-    d->availableCredits = _credits;
-    for (auto plugin : std::as_const(d->plugins)) {
-        plugin->setAvailableCredits(d->availableCredits);
     }
 }
 

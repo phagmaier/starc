@@ -86,46 +86,6 @@ public:
     {
     }
 
-    /**
-     * @brief Задать доступное кол-во кредитов для использования ИИ инструментов
-     */
-    virtual void setAvailableCredits(int /*_credits*/)
-    {
-    }
-
-    /**
-     * @brief Задать сгенерированный текст
-     */
-    virtual void setRephrasedText(const QString& /*_text*/)
-    {
-    }
-    virtual void setExpandedText(const QString& /*_text*/)
-    {
-    }
-    virtual void setShortenedText(const QString& /*_text*/)
-    {
-    }
-    virtual void setInsertedText(const QString& /*_text*/)
-    {
-    }
-    virtual void setSummarizedText(const QString& /*_text*/)
-    {
-    }
-    virtual void setTranslatedText(const QString& /*_text*/)
-    {
-    }
-    virtual void setTranslatedDocument(const QVector<QString>& /*_text*/)
-    {
-    }
-    virtual void setGeneratedSynopsis(const QString& /*_text*/)
-    {
-    }
-    virtual void setGeneratedText(const QString& /*_text*/)
-    {
-    }
-    virtual void setGeneratedImage(const QPixmap& /*_image*/)
-    {
-    }
 
 
     //

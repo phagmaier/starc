@@ -27,7 +27,6 @@
 #include <QStandardPaths>
 #include <QTimer>
 
-
 namespace Ui {
 
 namespace {
@@ -97,7 +96,7 @@ public:
     void initAccountPage();
     void initModulesPage();
     void initStyleChoosePage();
-    void initAiPage();
+
     void initBackupsPage();
     void initSocialPage();
 
@@ -105,7 +104,6 @@ public:
      * @brief Обновить аватарку как реакцию на изменение размера виджета в котором она отображается
      */
     void updateAccountAvatar();
-
 
     OnboardingNavigator* q = nullptr;
 
@@ -181,16 +179,6 @@ public:
     ComboBox* styleChooseComboBox = nullptr;
     QStandardItemModel* styleChooseModel = nullptr;
     Button* styleChooseContinueButton = nullptr;
-
-    Widget* aiPage = nullptr;
-    QScrollArea* aiPageContainer = nullptr;
-    ImageLabel* aiLogo = nullptr;
-    H6Label* aiTitle = nullptr;
-    Body2Label* aiSubtitle = nullptr;
-    Subtitle1Label* aiDescription = nullptr;
-    Body1Label* aiEnabledTitle = nullptr;
-    Toggle* aiEnabledToggle = nullptr;
-    Button* aiContinueButton = nullptr;
 
     Widget* backupsPage = nullptr;
     QScrollArea* backupsPageContainer = nullptr;
@@ -283,15 +271,6 @@ OnboardingNavigator::Implementation::Implementation(OnboardingNavigator* _q)
     , styleChooseModel(new QStandardItemModel(styleChooseComboBox))
     , styleChooseContinueButton(new Button(styleChoosePage))
     //
-    , aiPage(new Widget(q))
-    , aiPageContainer(UiHelper::createScrollArea(aiPage))
-    , aiLogo(new ImageLabel(aiPageContainer))
-    , aiTitle(new H6Label(aiPageContainer))
-    , aiSubtitle(new Body2Label(aiPageContainer))
-    , aiDescription(new Subtitle1Label(aiPageContainer))
-    , aiEnabledTitle(new Body1Label(aiPageContainer))
-    , aiEnabledToggle(new Toggle(aiPageContainer))
-    , aiContinueButton(new Button(aiPageContainer))
     //
     , backupsPage(new Widget(q))
     , backupsPageContainer(UiHelper::createScrollArea(backupsPage))
@@ -319,7 +298,6 @@ OnboardingNavigator::Implementation::Implementation(OnboardingNavigator* _q)
     initAccountPage();
     initModulesPage();
     initStyleChoosePage();
-    initAiPage();
     initBackupsPage();
     initSocialPage();
 }
@@ -538,27 +516,6 @@ void OnboardingNavigator::Implementation::initStyleChoosePage()
     styleChoosePage->setLayout(pageLayout);
 }
 
-void OnboardingNavigator::Implementation::initAiPage()
-{
-    aiLogo->setImage(QPixmap(":/images/logo"));
-    aiTitle->setAlignment(Qt::AlignCenter);
-    aiSubtitle->setAlignment(Qt::AlignCenter);
-    aiContinueButton->setContained(true);
-
-    auto pageLayout = qobject_cast<QVBoxLayout*>(aiPageContainer->widget()->layout());
-    pageLayout->addWidget(aiLogo, 0, Qt::AlignHCenter);
-    pageLayout->addWidget(aiTitle);
-    pageLayout->addWidget(aiSubtitle);
-    pageLayout->addWidget(aiDescription);
-    addToggleWithTitle(pageLayout, aiEnabledToggle, aiEnabledTitle);
-    pageLayout->addStretch();
-    pageLayout->addWidget(aiContinueButton);
-
-    auto layout = UiHelper::makeVBoxLayout();
-    layout->addWidget(aiPageContainer);
-    aiPage->setLayout(layout);
-}
-
 void OnboardingNavigator::Implementation::initBackupsPage()
 {
     backupsLogo->setImage(QPixmap(":/images/logo"));
@@ -629,9 +586,7 @@ void OnboardingNavigator::Implementation::updateAccountAvatar()
     }
 }
 
-
 // ****
-
 
 OnboardingNavigator::OnboardingNavigator(QWidget* _parent)
     : StackWidget(_parent)
@@ -644,10 +599,8 @@ OnboardingNavigator::OnboardingNavigator(QWidget* _parent)
     addWidget(d->accountPage);
     addWidget(d->styleChoosePage);
     addWidget(d->modulesPage);
-    addWidget(d->aiPage);
     addWidget(d->backupsPage);
     addWidget(d->socialPage);
-
 
     connect(d->uiLanguage, &ComboBox::currentIndexChanged, this, [this](const QModelIndex& _index) {
         if (const auto translationProgress = _index.data(LanguageTranslatedRole).toInt();
@@ -817,13 +770,9 @@ OnboardingNavigator::OnboardingNavigator(QWidget* _parent)
         setSettingsValue(DataStorageLayer::kComponentsNovelAvailableKey, _checked);
     });
     connect(d->modulesContinueButton, &Button::clicked, this,
-            [this] { setCurrentWidget(d->aiPage); });
-    //
-    connect(d->aiEnabledToggle, &Toggle::checkedChanged, this, [](bool _checked) {
-        setSettingsValue(DataStorageLayer::kApplicationAiAssistantEnabledKey, _checked);
-    });
-    connect(d->aiContinueButton, &Button::clicked, this,
             [this] { setCurrentWidget(d->backupsPage); });
+    //
+
     //
     connect(d->backupsContinueButton, &Button::clicked, this,
             [this] { setCurrentWidget(d->socialPage); });
@@ -978,20 +927,6 @@ void OnboardingNavigator::updateTranslations()
     d->styleChooseComboBox->setLabel(tr("Application"));
     d->styleChooseActivateTitle->setText(tr("Adapt the interface and workflow"));
 
-    d->aiTitle->setText(tr("AI assistant"));
-    d->aiSubtitle->setText(tr("Your writing mate"));
-    d->aiDescription->setText(
-        tr("An intelligent assistant speeds up your work and helps you hear yourself clearly. It "
-           "will help you:\n\n"
-           "• paraphrase, supplement, expand, abbreviate, translate, and summarize text\n\n"
-           "• brainstorm and suggest ways to organize your ideas as text or mind maps\n\n"
-           "• translate a script, comic, or novel into any language while fully preserving its "
-           "formatting\n\n"
-           "• create a summary of any text document, convert a script to a novel and back, and "
-           "much more."));
-    d->aiEnabledTitle->setText(tr("Enable AI assistant"));
-    d->aiContinueButton->setText(tr("Continue"));
-
     d->backupsTitle->setText(tr("Before you get started"));
     d->backupsSubtitle->setText(tr("Feel our care"));
     d->backupsDescription->setText(
@@ -1071,12 +1006,6 @@ void OnboardingNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _even
              d->styleChooseDescription,
              d->styleChooseActivateTitle,
              //
-             d->aiPage,
-             d->aiLogo,
-             d->aiTitle,
-             d->aiSubtitle,
-             d->aiEnabledTitle,
-             d->aiDescription,
              //
              d->backupsPage,
              d->backupsLogo,
@@ -1127,11 +1056,7 @@ void OnboardingNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _even
                                                   DesignSystem::layout().px12());
     d->styleChooseActivateTitle->setContentsMargins(isLeftToRight() ? 0 : margin, 0,
                                                     isLeftToRight() ? margin : 0, 0);
-    d->aiTitle->setContentsMargins(margin / 2.0, DesignSystem::layout().px24(), margin / 2.0,
-                                   DesignSystem::layout().px4());
-    d->aiSubtitle->setContentsMargins(margin, 0, margin, 0);
-    d->aiDescription->setContentsMargins(margin, DesignSystem::layout().px24(), margin,
-                                         DesignSystem::layout().px12());
+
     d->backupsTitle->setContentsMargins(margin / 2.0, DesignSystem::layout().px24(), margin / 2.0,
                                         DesignSystem::layout().px4());
     d->backupsSubtitle->setContentsMargins(margin, 0, margin, 0);
@@ -1147,7 +1072,6 @@ void OnboardingNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _even
              d->uiLogo,
              d->modulesLogo,
              d->styleChooseLogo,
-             d->aiLogo,
              d->backupsLogo,
              d->socialLogo,
          }) {
@@ -1193,7 +1117,6 @@ void OnboardingNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _even
              d->accountContinueButton,
              d->modulesContinueButton,
              d->styleChooseContinueButton,
-             d->aiContinueButton,
              d->backupsContinueButton,
              d->socialContinueButton,
          }) {
@@ -1218,7 +1141,6 @@ void OnboardingNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _even
              d->modulesStageplayToggle,
              d->modulesNovelToggle,
              d->styleChooseActivateToggle,
-             d->aiEnabledToggle,
          }) {
         toggle->setBackgroundColor(DesignSystem::color().primary());
         toggle->setTextColor(DesignSystem::color().onPrimary());

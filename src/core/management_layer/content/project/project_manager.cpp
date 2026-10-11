@@ -3547,11 +3547,6 @@ void ProjectManager::toggleFullScreen(bool _isFullScreen)
     }
 }
 
-void ProjectManager::reconfigurePluginsWithAiAssistant(const QStringList& _changedSettingsKeys)
-{
-    d->pluginsBuilder.reconfigurePluginsWithAiAssistant(_changedSettingsKeys);
-}
-
 void ProjectManager::reconfigureSimpleTextEditor(const QStringList& _changedSettingsKeys)
 {
     d->pluginsBuilder.reconfigureSimpleTextEditor(_changedSettingsKeys);
@@ -5226,91 +5221,6 @@ void ProjectManager::setBlockedDocumentTypes(const QVector<Domain::DocumentObjec
     }
 }
 
-void ProjectManager::setAvailableCredits(int _credits)
-{
-    d->pluginsBuilder.setAvailableCredits(_credits);
-}
-
-void ProjectManager::setRephrasedText(const QString& _text)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setRephrasedText(_text);
-    }
-}
-
-void ProjectManager::setExpandedText(const QString& _text)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setExpandedText(_text);
-    }
-}
-
-void ProjectManager::setShortenedText(const QString& _text)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setShortenedText(_text);
-    }
-}
-
-void ProjectManager::setInsertedText(const QString& _text)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setInsertedText(_text);
-    }
-}
-
-void ProjectManager::setSummarizeedText(const QString& _text)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setSummarizedText(_text);
-    }
-}
-
-void ProjectManager::setTranslatedText(const QString& _text)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setTranslatedText(_text);
-    }
-}
-
-void ProjectManager::setTranslatedDocument(const QVector<QString>& _text)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setTranslatedDocument(_text);
-    }
-}
-
-void ProjectManager::setGeneratedSynopsis(const QString& _text)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setGeneratedSynopsis(_text);
-    }
-}
-
-void ProjectManager::setGeneratedText(const QString& _text)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setGeneratedText(_text);
-    }
-}
-
-void ProjectManager::setGeneratedImage(const QPixmap& _image)
-{
-    auto view = d->activeDocumentView();
-    if (view != nullptr) {
-        view->setGeneratedImage(_image);
-    }
-}
-
 QString ProjectManager::projectName() const
 {
     const auto projectInformationModel = qobject_cast<BusinessLayer::ProjectInformationModel*>(
@@ -5643,11 +5553,7 @@ void ProjectManager::showView(const QModelIndex& _itemIndex, const QString& _vie
             connect(documentManager, SIGNAL(upgradeToCreatorRequested()), this,
                     SIGNAL(upgradeToCreatorRequested()), Qt::UniqueConnection);
         }
-        if (documentManager->metaObject()->indexOfSignal("buyCreditsRequested()")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(buyCreditsRequested()), this,
-                    SIGNAL(buyCreditsRequested()), Qt::UniqueConnection);
-        }
+
         if (documentManager->metaObject()->indexOfSignal("linkActivated(QUuid,QModelIndex,QString)")
             != invalidSignalIndex) {
             connect(documentManager, SIGNAL(linkActivated(QUuid, QModelIndex, QString)), this,
@@ -5658,80 +5564,6 @@ void ProjectManager::showView(const QModelIndex& _itemIndex, const QString& _vie
             != invalidSignalIndex) {
             connect(documentManager, SIGNAL(createDocumentRequested(Domain::DocumentObjectType)),
                     this, SLOT(createDocument(Domain::DocumentObjectType)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal("rephraseTextRequested(QString,QString)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(rephraseTextRequested(QString, QString)), this,
-                    SIGNAL(rephraseTextRequested(QString, QString)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal("expandTextRequested(QString)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(expandTextRequested(QString)), this,
-                    SIGNAL(expandTextRequested(QString)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal("shortenTextRequested(QString)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(shortenTextRequested(QString)), this,
-                    SIGNAL(shortenTextRequested(QString)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal("insertTextRequested(QString,QString)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(insertTextRequested(QString, QString)), this,
-                    SIGNAL(insertTextRequested(QString, QString)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal("summarizeTextRequested(QString)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(summarizeTextRequested(QString)), this,
-                    SIGNAL(summarizeTextRequested(QString)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal("translateTextRequested(QString,QString)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(translateTextRequested(QString, QString)), this,
-                    SIGNAL(translateTextRequested(QString, QString)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal(
-                "translateDocumentRequested(QVector<QString>,QString,Domain::DocumentObjectType,"
-                "int)")
-            != invalidSignalIndex) {
-            connect(documentManager,
-                    SIGNAL(translateDocumentRequested(QVector<QString>, QString,
-                                                      Domain::DocumentObjectType, int)),
-                    this,
-                    SIGNAL(translateDocumentRequested(QVector<QString>, QString,
-                                                      Domain::DocumentObjectType, int)),
-                    Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal(
-                "generateSynopsisRequested(QVector<QString>,int,int)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(generateSynopsisRequested(QVector<QString>, int, int)),
-                    this, SIGNAL(generateSynopsisRequested(QVector<QString>, int, int)),
-                    Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal(
-                "generateNovelRequested(QVector<QString>,int)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(generateNovelRequested(QVector<QString>, int)), this,
-                    SIGNAL(generateNovelRequested(QVector<QString>, int)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal(
-                "generateScriptRequested(QVector<QString>,int)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(generateScriptRequested(QVector<QString>, int)), this,
-                    SIGNAL(generateScriptRequested(QVector<QString>, int)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal(
-                "generateTextRequested(QString,QString,QString)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(generateTextRequested(QString, QString, QString)), this,
-                    SIGNAL(generateTextRequested(QString, QString, QString)), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal(
-                "generateImageRequested(QString,QString,QString)")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(generateImageRequested(QString, QString, QString)),
-                    this, SIGNAL(generateImageRequested(QString, QString, QString)),
-                    Qt::UniqueConnection);
         }
 
         //

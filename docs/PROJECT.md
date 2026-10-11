@@ -115,3 +115,21 @@ assertion. Bash syntax, ShellCheck, changed-code formatting, and
 `git diff --check` passed. Build/control logs are retained in
 `.build/evidence/session-statistics-fix-2026-10-11/`; each regression run prints
 its separate retained evidence directory.
+
+## AI removal
+
+AI assistant panels, toolbar controls, preferences, onboarding, credit purchases,
+and text/image generation and translation request/result connections have been
+removed. Ordinary application translations, spelling, comments, bookmarks,
+manual images, and the non-AI avatar, cover, and logline tools remain. Existing
+sidebar preferences are mapped around the removed AI tab. The optional cloud
+fragment is absent; its AI connections were removed from the public manager.
+GitHub sync and unrelated networking remain.
+
+`JOBS=4 ./build/dev.sh build debug` passed. An isolated offscreen construction
+check exercised all five retained text editors plus settings, onboarding, and
+account widgets and found no AI panel or toolbar action. The writing-session
+storage and local mock GitHub sync regressions passed. Generated dependencies
+required `make qmake_all` after deleting the AI headers. Failed build and harness
+attempts remain under `.build/evidence/feature-pruning/`; the construction check
+is not visible GUI or document round-trip evidence.

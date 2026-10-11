@@ -19,7 +19,6 @@
 #include <domain/starcloud_api.h>
 #include <interfaces/management_layer/i_document_manager.h>
 #include <ui/design_system/design_system.h>
-#include <ui/modules/ai_assistant/ai_assistant_view.h>
 #include <ui/modules/bookmarks/bookmarks_model.h>
 #include <ui/modules/bookmarks/bookmarks_view.h>
 #include <ui/modules/cards/card_item_parameters_view.h>
@@ -64,7 +63,6 @@ enum {
     kFastFormatTabIndex = 0,
     kSceneParametersTabIndex,
     kCommentsTabIndex,
-    kAiAssistantTabIndex,
     kBookmarksTabIndex,
 };
 
@@ -74,7 +72,6 @@ const QString kSidebarStateKey = kSettingsKey + "/sidebar-state";
 const QString kIsFastFormatPanelVisibleKey = kSettingsKey + "/is-fast-format-panel-visible";
 const QString kIsBeatsVisibleKey = kSettingsKey + "/is-beats-visible";
 const QString kIsCommentsModeEnabledKey = kSettingsKey + "/is-comments-mode-enabled";
-const QString kIsAiAssistantEnabledKey = kSettingsKey + "/is-ai-assistant-enabled";
 const QString kIsItemIsolationEnabledKey = kSettingsKey + "/is-item-isolation-enabled";
 const QString kIsSceneParametersVisibleKey = kSettingsKey + "/is-scene-parameters-visible";
 const QString kIsBookmarksListVisibleKey = kSettingsKey + "/is-bookmarks-list-visible";
@@ -182,7 +179,6 @@ public:
     FastFormatWidget* fastFormatWidget = nullptr;
     CardItemParametersView* itemParametersView = nullptr;
     CommentsView* commentsView = nullptr;
-    AiAssistantView* aiAssistantView = nullptr;
     BookmarksView* bookmarksView = nullptr;
     DictionariesView* dictionariesView = nullptr;
     //
@@ -219,7 +215,6 @@ NovelTextView::Implementation::Implementation(NovelTextView* _q)
     , fastFormatWidget(new FastFormatWidget(_q))
     , itemParametersView(new CardItemParametersView(_q))
     , commentsView(new CommentsView(_q))
-    , aiAssistantView(new AiAssistantView(_q))
     , bookmarksView(new BookmarksView(_q))
     , splitter(new Splitter(_q))
     , showSceneParametersAction(new QAction(_q))
@@ -249,8 +244,6 @@ NovelTextView::Implementation::Implementation(NovelTextView* _q)
     sidebarTabs->setTabVisible(kSceneParametersTabIndex, false);
     sidebarTabs->addTab({}); // comments
     sidebarTabs->setTabVisible(kCommentsTabIndex, false);
-    sidebarTabs->addTab({}); // ai assistant
-    sidebarTabs->setTabVisible(kAiAssistantTabIndex, false);
     sidebarTabs->addTab({}); // bookmarks
     sidebarTabs->setTabVisible(kBookmarksTabIndex, false);
     sidebarContent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
@@ -258,7 +251,6 @@ NovelTextView::Implementation::Implementation(NovelTextView* _q)
     sidebarContent->addWidget(fastFormatWidget);
     sidebarContent->addWidget(itemParametersView);
     sidebarContent->addWidget(commentsView);
-    sidebarContent->addWidget(aiAssistantView);
     sidebarContent->addWidget(bookmarksView);
     fastFormatWidget->hide();
     fastFormatWidget->setParagraphTypesModel(paragraphTypesModel);
@@ -268,8 +260,7 @@ NovelTextView::Implementation::Implementation(NovelTextView* _q)
     itemParametersView->hide();
     commentsView->setModel(commentsModel);
     commentsView->hide();
-    aiAssistantView->hide();
-    aiAssistantView->setScriptGenerationAvaiable(true);
+
     bookmarksView->setModel(bookmarksModel);
     bookmarksView->hide();
 
@@ -551,8 +542,8 @@ void NovelTextView::Implementation::updateCommentsToolbar(bool _force)
 void NovelTextView::Implementation::updateSideBarVisibility(QWidget* _container)
 {
     const bool isSidebarShouldBeVisible = toolbar->isFastFormatPanelVisible()
-        || toolbar->isCommentsModeEnabled() || toolbar->isAiAssistantEnabled()
-        || showSceneParametersAction->isChecked() || showBookmarksAction->isChecked();
+        || toolbar->isCommentsModeEnabled() || showSceneParametersAction->isChecked()
+        || showBookmarksAction->isChecked();
     if (sidebarWidget->isVisible() == isSidebarShouldBeVisible) {
         return;
     }
@@ -725,16 +716,7 @@ NovelTextView::NovelTextView(QWidget* _parent)
                 d->updateCommentsToolbar();
                 d->updateSideBarVisibility(this);
             });
-    connect(d->toolbar, &NovelTextEditToolbar::aiAssistantEnabledChanged, this,
-            [this](bool _enabled) {
-                d->sidebarTabs->setTabVisible(kAiAssistantTabIndex, _enabled);
-                d->aiAssistantView->setVisible(_enabled);
-                if (_enabled) {
-                    d->sidebarTabs->setCurrentTab(kAiAssistantTabIndex);
-                    d->sidebarContent->setCurrentWidget(d->aiAssistantView);
-                }
-                d->updateSideBarVisibility(this);
-            });
+
     connect(d->toolbar, &NovelTextEditToolbar::itemIsolationEnabledChanged, this,
             [this](bool _enabled) {
                 d->textEdit->setVisibleTopLevelItemIndex(_enabled ? d->textEdit->currentModelIndex()
@@ -946,10 +928,7 @@ NovelTextView::NovelTextView(QWidget* _parent)
             d->sidebarContent->setCurrentWidget(d->commentsView);
             break;
         }
-        case kAiAssistantTabIndex: {
-            d->sidebarContent->setCurrentWidget(d->aiAssistantView);
-            break;
-        }
+
         case kBookmarksTabIndex: {
             d->sidebarContent->setCurrentWidget(d->bookmarksView);
             break;
@@ -1287,28 +1266,7 @@ NovelTextView::NovelTextView(QWidget* _parent)
                 d->commentsModel->remove(_indexes);
             });
     //
-    connect(d->aiAssistantView, &AiAssistantView::rephraseRequested, this,
-            &NovelTextView::rephraseTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::expandRequested, this,
-            &NovelTextView::expandTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::shortenRequested, this,
-            &NovelTextView::shortenTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::insertRequested, this,
-            &NovelTextView::insertTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::summarizeRequested, this,
-            &NovelTextView::summarizeTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::translateRequested, this,
-            &NovelTextView::translateTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::translateDocumentRequested, this,
-            &NovelTextView::translateDocumentRequested);
-    connect(d->aiAssistantView, &AiAssistantView::generateScriptRequested, this,
-            &NovelTextView::generateScriptRequested);
-    connect(d->aiAssistantView, &AiAssistantView::generateTextRequested, this,
-            &NovelTextView::generateTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::insertTextRequested, this,
-            [this](const QString& _text) { d->textEdit->insertPlainText(_text); });
-    connect(d->aiAssistantView, &AiAssistantView::buyCreditsPressed, this,
-            &NovelTextView::buyCreditsRequested);
+
     //
     connect(d->bookmarksView, &BookmarksView::addBookmarkRequested, this,
             &NovelTextView::createBookmarkRequested);
@@ -1388,7 +1346,7 @@ void NovelTextView::setEditingMode(ManagementLayer::DocumentEditingMode _mode)
         d->commentsToolbar->hideToolbar();
     }
     d->commentsView->setReadOnly(_mode == ManagementLayer::DocumentEditingMode::Read);
-    d->aiAssistantView->setReadOnly(_mode == ManagementLayer::DocumentEditingMode::Read);
+
     d->bookmarksView->setReadOnly(readOnly);
     const auto enabled = !readOnly;
     d->shortcutsManager.setEnabled(enabled);
@@ -1409,140 +1367,6 @@ void NovelTextView::setCurrentModelIndex(const QModelIndex& _index)
     d->textEdit->setCurrentModelIndex(_index);
 }
 
-void NovelTextView::setAvailableCredits(int _credits)
-{
-    d->aiAssistantView->setAvailableWords(_credits);
-}
-
-void NovelTextView::setRephrasedText(const QString& _text)
-{
-    d->aiAssistantView->setRephraseResult(_text);
-}
-
-void NovelTextView::setExpandedText(const QString& _text)
-{
-    d->aiAssistantView->setExpandResult(_text);
-}
-
-void NovelTextView::setShortenedText(const QString& _text)
-{
-    d->aiAssistantView->setShortenResult(_text);
-}
-
-void NovelTextView::setInsertedText(const QString& _text)
-{
-    d->aiAssistantView->setInsertResult(_text);
-}
-
-void NovelTextView::setSummarizedText(const QString& _text)
-{
-    d->aiAssistantView->setSummarizeResult(_text);
-}
-
-void NovelTextView::setTranslatedText(const QString& _text)
-{
-    d->aiAssistantView->setTransateResult(_text);
-}
-
-void NovelTextView::setTranslatedDocument(const QVector<QString>& _text)
-{
-    auto lines = _text;
-    std::function<void(const QModelIndex&)> updateLines;
-    updateLines = [this, &updateLines, &lines](const QModelIndex& _parentItemIndex) {
-        for (int row = 0; row < d->model->rowCount(_parentItemIndex); ++row) {
-            const auto itemIndex = d->model->index(row, 0, _parentItemIndex);
-            const auto item = d->model->itemForIndex(itemIndex);
-            switch (item->type()) {
-            case BusinessLayer::TextModelItemType::Folder: {
-                updateLines(itemIndex);
-                break;
-            }
-
-            case BusinessLayer::TextModelItemType::Group: {
-                updateLines(itemIndex);
-                break;
-            }
-
-            case BusinessLayer::TextModelItemType::Text: {
-                auto textItem = static_cast<BusinessLayer::TextModelTextItem*>(item);
-                if (!textItem->text().isEmpty()) {
-                    textItem->setText(lines.takeFirst());
-                    textItem->setFormats({});
-                    d->model->updateItem(textItem);
-                }
-                break;
-            }
-
-            default: {
-                break;
-            }
-            }
-        }
-    };
-    updateLines({});
-}
-
-void NovelTextView::setGeneratedText(const QString& _text)
-{
-    const QLatin1String textWritingTaskKey("text-writing-task");
-    TaskBar::addTask(textWritingTaskKey);
-    TaskBar::setTaskTitle(textWritingTaskKey, tr("Writing text"));
-
-    //
-    // Отключим отображение всплывающих подсказок
-    //
-    d->textEdit->setCompleterActive(false);
-
-    //
-    // Переходим в конец текущей строки/на новую строку, чтобы помещать текст в новом блоке
-    //
-    if (!d->textEdit->textCursor().block().text().isEmpty()) {
-        d->textEdit->moveCursor(QTextCursor::EndOfBlock);
-        d->textEdit->addParagraph(BusinessLayer::TextParagraphType::Text);
-    }
-
-    QElapsedTimer timer;
-    int progress = 0;
-    auto waitForNextOperation = [&timer, &progress, maximum = _text.length(), textWritingTaskKey] {
-        timer.restart();
-        const auto delay = QRandomGenerator::global()->bounded(10, 60);
-        while (!timer.hasExpired(delay)) {
-            QCoreApplication::processEvents();
-        }
-
-        ++progress;
-        TaskBar::setTaskProgress(textWritingTaskKey, progress * 100 / static_cast<qreal>(maximum));
-    };
-
-    const auto lines = _text.split('\n', Qt::SkipEmptyParts);
-    for (const auto& line : lines) {
-        d->textEdit->setCurrentParagraphType(BusinessLayer::TextParagraphType::Text);
-
-        for (int index = 0; index < line.length(); ++index) {
-            QCoreApplication::postEvent(
-                d->textEdit,
-                new QKeyEvent(QEvent::KeyPress, Qt::Key_unknown, Qt::NoModifier, line[index]));
-            QCoreApplication::postEvent(
-                d->textEdit,
-                new QKeyEvent(QEvent::KeyRelease, Qt::Key_unknown, Qt::NoModifier, line[index]));
-            waitForNextOperation();
-        }
-
-        QCoreApplication::postEvent(
-            d->textEdit, new QKeyEvent(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier));
-        QCoreApplication::postEvent(
-            d->textEdit, new QKeyEvent(QEvent::KeyRelease, Qt::Key_Return, Qt::NoModifier));
-        waitForNextOperation();
-    }
-
-    //
-    // Возвращаем возможность использования всплывающих подсказок
-    //
-    d->textEdit->setCompleterActive(true);
-
-    TaskBar::finishTask(textWritingTaskKey);
-}
-
 DictionariesView* NovelTextView::dictionariesView() const
 {
     return d->dictionariesView;
@@ -1551,13 +1375,6 @@ DictionariesView* NovelTextView::dictionariesView() const
 void NovelTextView::reconfigure(const QStringList& _changedSettingsKeys)
 {
     UiHelper::initSpellingFor(d->textEdit);
-
-    if (_changedSettingsKeys.isEmpty()
-        || _changedSettingsKeys.contains(DataStorageLayer::kApplicationAiAssistantEnabledKey)) {
-        d->toolbar->setAiAssistantVisible(
-            settingsValue(DataStorageLayer::kApplicationAiAssistantEnabledKey).toBool());
-        d->updateToolbarUi();
-    }
 
     if (_changedSettingsKeys.isEmpty()
         || _changedSettingsKeys.contains(
@@ -1649,8 +1466,7 @@ void NovelTextView::loadViewSettings()
     d->toolbar->setItemIsolationEnabled(isItemIsolationEnabled);
     const auto isCommentsModeEnabled = settingsValue(kIsCommentsModeEnabledKey, false).toBool();
     d->toolbar->setCommentsModeEnabled(isCommentsModeEnabled);
-    const auto isAiAssistantEnabled = settingsValue(kIsAiAssistantEnabledKey, false).toBool();
-    d->toolbar->setAiAssistantEnabled(isAiAssistantEnabled);
+
     const auto isFastFormatPanelVisible
         = settingsValue(kIsFastFormatPanelVisibleKey, false).toBool();
     d->toolbar->setFastFormatPanelVisible(isFastFormatPanelVisible);
@@ -1661,7 +1477,15 @@ void NovelTextView::loadViewSettings()
     d->showSceneParametersAction->setChecked(isSceneParametersVisible);
     const auto isBookmarksListVisible = settingsValue(kIsBookmarksListVisibleKey, false).toBool();
     d->showBookmarksAction->setChecked(isBookmarksListVisible);
-    const auto sidebarPanelIndex = settingsValue(kSidebarPanelIndexKey, 0).toInt();
+    auto sidebarPanelIndex = settingsValue(kSidebarPanelIndexKey + "/without-ai").toInt();
+    if (!settingsValue(kSidebarPanelIndexKey + "/without-ai").isValid()) {
+        sidebarPanelIndex = settingsValue(kSidebarPanelIndexKey, 0).toInt();
+        if (sidebarPanelIndex == 3) {
+            sidebarPanelIndex = 0;
+        } else if (sidebarPanelIndex > 3) {
+            --sidebarPanelIndex;
+        }
+    }
     d->sidebarTabs->setCurrentTab(sidebarPanelIndex);
 
     const auto sidebarState = settingsValue(kSidebarStateKey);
@@ -1677,11 +1501,10 @@ void NovelTextView::saveViewSettings()
     setSettingsValue(kIsFastFormatPanelVisibleKey, d->toolbar->isFastFormatPanelVisible());
     setSettingsValue(kIsBeatsVisibleKey, d->toolbar->isBeatsVisible());
     setSettingsValue(kIsCommentsModeEnabledKey, d->toolbar->isCommentsModeEnabled());
-    setSettingsValue(kIsAiAssistantEnabledKey, d->toolbar->isAiAssistantEnabled());
     setSettingsValue(kIsItemIsolationEnabledKey, d->toolbar->isItemIsolationEnabled());
     setSettingsValue(kIsSceneParametersVisibleKey, d->showSceneParametersAction->isChecked());
     setSettingsValue(kIsBookmarksListVisibleKey, d->showBookmarksAction->isChecked());
-    setSettingsValue(kSidebarPanelIndexKey, d->sidebarTabs->currentTab());
+    setSettingsValue(kSidebarPanelIndexKey + "/without-ai", d->sidebarTabs->currentTab());
 
     setSettingsValue(kSidebarStateKey, d->splitter->saveState());
 }
@@ -1719,20 +1542,7 @@ void NovelTextView::setModel(BusinessLayer::NovelTextModel* _model)
                 });
 
         //
-        // Обновляем стоимость генерации при изменении модели
         //
-        auto updateGenerationPrice = [this] {
-            d->aiAssistantView->setTranslationDocumentOption(
-                tr("Document translation will take %n word(s)", 0, d->model->wordsCount()));
-            d->aiAssistantView->setGenerationScriptOptions(
-                tr("Script generation will take %n word(s)", 0, d->model->wordsCount()));
-        };
-        connect(d->model, &BusinessLayer::NovelTextModel::modelReset, this, updateGenerationPrice);
-        connect(d->model, &BusinessLayer::NovelTextModel::dataChanged, this, updateGenerationPrice);
-        connect(d->model, &BusinessLayer::NovelTextModel::rowsInserted, this,
-                updateGenerationPrice);
-        connect(d->model, &BusinessLayer::NovelTextModel::rowsMoved, this, updateGenerationPrice);
-        connect(d->model, &BusinessLayer::NovelTextModel::rowsRemoved, this, updateGenerationPrice);
 
         //
         // Перед началом сброса документа запоминаем текущую позицию курсора
@@ -1841,12 +1651,8 @@ void NovelTextView::updateTranslations()
     d->sidebarTabs->setTabName(kFastFormatTabIndex, tr("Formatting"));
     d->sidebarTabs->setTabName(kSceneParametersTabIndex, tr("Scene parameters"));
     d->sidebarTabs->setTabName(kCommentsTabIndex, tr("Comments"));
-    d->sidebarTabs->setTabName(kAiAssistantTabIndex, tr("AI assistant"));
-    d->sidebarTabs->setTabName(kBookmarksTabIndex, tr("Bookmarks"));
 
-    d->aiAssistantView->setGenerationPromptHint(
-        tr("Start prompt from something like \"Write a novel about ...\", or \"Write a chapter "
-           "about ...\""));
+    d->sidebarTabs->setTabName(kBookmarksTabIndex, tr("Bookmarks"));
 
     d->updateOptionsTranslations();
 

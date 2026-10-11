@@ -33,16 +33,7 @@ public:
     void setCursors(const QVector<Domain::CursorInfo>& _cursors) override;
     void setCurrentCursor(const Domain::CursorInfo& _cursor) override;
     void setCurrentModelIndex(const QModelIndex& _index) override;
-    void setAvailableCredits(int _credits) override;
-    void setRephrasedText(const QString& _text) override;
-    void setExpandedText(const QString& _text) override;
-    void setShortenedText(const QString& _text) override;
-    void setInsertedText(const QString& _text) override;
-    void setSummarizedText(const QString& _text) override;
-    void setTranslatedText(const QString& _text) override;
-    void setTranslatedDocument(const QVector<QString>& _text) override;
-    void setGeneratedSynopsis(const QString& _text) override;
-    void setGeneratedText(const QString& _text) override;
+
     /** @} */
 
     /**
@@ -125,21 +116,10 @@ signals:
     /**
      * @brief Запросы к интеллектуальному помощнику
      */
-    void rephraseTextRequested(const QString& _sourceText, const QString& _style);
-    void expandTextRequested(const QString& _text);
-    void shortenTextRequested(const QString& _text);
-    void insertTextRequested(const QString& _after, const QString& _before);
-    void summarizeTextRequested(const QString& _text);
-    void translateTextRequested(const QString& _text, const QString& _languageCode);
-    void translateDocumentRequested(const QString& _languageCode);
-    void generateSynopsisRequested(int _maxWordsPerScene);
-    void generateNovelRequested();
-    void generateTextRequested(const QString& _text);
 
     /**
      * @brief Пользователь хочет докупить кредитов
      */
-    void buyCreditsRequested();
 
 protected:
     /**

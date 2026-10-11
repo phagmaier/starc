@@ -125,7 +125,7 @@ public:
      */
     void reconfigureAll() const;
     void reconfigurePlugin(const QString& _mimeType, const QStringList& _changedSettingsKeys) const;
-    void reconfigurePluginsWithAiAssistant(const QStringList& _changedSettingsKeys) const;
+
     void reconfigureSimpleTextEditor(const QStringList& _changedSettingsKeys) const;
     void reconfigureSimpleTextNavigator() const;
     void reconfigureScreenplayEditor(const QStringList& _changedSettingsKeys) const;
@@ -159,7 +159,6 @@ public:
     /**
      * @brief Задать количество кредитов доступных для использования с ИИ инструментами
      */
-    void setAvailableCredits(int _credits) const;
 
     /**
      * @brief Сбросить модели для всех плагинов

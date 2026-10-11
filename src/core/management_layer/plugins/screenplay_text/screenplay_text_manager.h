@@ -48,7 +48,7 @@ public:
                         bool _canBeSentForChecking,
                         const QVector<BusinessLayer::ComplianceRule>& _complianceRules) override;
     void setEditingMode(DocumentEditingMode _mode) override;
-    void setAvailableCredits(int _credits) override;
+
     /** @} */
 
 signals:
@@ -63,27 +63,10 @@ signals:
      */
     void currentModelIndexChanged(const QModelIndex& _index);
 
-    /**
-     * @brief Запрос на генерацию текста с заданными настройками
-     */
-    void rephraseTextRequested(const QString& _sourceText, const QString& _style);
-    void expandTextRequested(const QString& _text);
-    void shortenTextRequested(const QString& _text);
-    void insertTextRequested(const QString& _after, const QString& _before);
-    void summarizeTextRequested(const QString& _text);
-    void translateTextRequested(const QString& _text, const QString& _languageCode);
-    void translateDocumentRequested(const QVector<QString>& _texts, const QString& _languageCode,
-                                    Domain::DocumentObjectType _type, int _wordsRequired);
-    void generateSynopsisRequested(const QVector<QString>& _scenes, int _maxWordsPerScene,
-                                   int _wordsRequired);
-    void generateNovelRequested(const QVector<QString>& _scenes, int _wordsRequired);
-    void generateTextRequested(const QString& _promptPrefix, const QString& _prompt,
-                               const QString& _promptSuffix);
 
     /**
      * @brief Пользователь хочет докупить кредитов
      */
-    void buyCreditsRequested();
 
 protected:
     /**

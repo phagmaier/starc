@@ -28,7 +28,6 @@ public:
     QAction* fastFormatAction = nullptr;
     QAction* searchAction = nullptr;
     QAction* commentsAction = nullptr;
-    QAction* aiAssistantAction = nullptr;
     QAction* isolationAction = nullptr;
     QAction* optionsAction = nullptr;
     QVector<QAction*> options;
@@ -43,7 +42,6 @@ SimpleTextEditToolbar::Implementation::Implementation(QWidget* _parent)
     , fastFormatAction(new QAction)
     , searchAction(new QAction)
     , commentsAction(new QAction)
-    , aiAssistantAction(new QAction(_parent))
     , isolationAction(new QAction(_parent))
     , optionsAction(new QAction(_parent))
     , popup(new CardPopupWithTree(_parent))
@@ -124,15 +122,6 @@ SimpleTextEditToolbar::SimpleTextEditToolbar(QWidget* _parent)
     connect(d->commentsAction, &QAction::toggled, this, &SimpleTextEditToolbar::updateTranslations);
     connect(d->commentsAction, &QAction::toggled, this,
             &SimpleTextEditToolbar::commentsModeEnabledChanged);
-
-    d->aiAssistantAction->setIconText(u8"\U000F0068");
-    d->aiAssistantAction->setCheckable(true);
-    addAction(d->aiAssistantAction);
-    connect(d->aiAssistantAction, &QAction::toggled, this,
-            &SimpleTextEditToolbar::updateTranslations);
-    connect(d->aiAssistantAction, &QAction::toggled, this,
-            &SimpleTextEditToolbar::aiAssistantEnabledChanged);
-
 
     d->isolationAction->setIconText(u8"\U000F0EFF");
     d->isolationAction->setCheckable(true);
@@ -270,24 +259,6 @@ void SimpleTextEditToolbar::setCommentsModeEnabled(bool _enabled)
     d->commentsAction->setChecked(_enabled);
 }
 
-bool SimpleTextEditToolbar::isAiAssistantEnabled() const
-{
-    return d->aiAssistantAction->isChecked();
-}
-
-void SimpleTextEditToolbar::setAiAssistantEnabled(bool _enabled)
-{
-    d->aiAssistantAction->setChecked(_enabled);
-}
-
-void SimpleTextEditToolbar::setAiAssistantVisible(bool _visible)
-{
-    d->aiAssistantAction->setVisible(_visible);
-    if (!_visible) {
-        d->aiAssistantAction->setChecked(false);
-    }
-}
-
 bool SimpleTextEditToolbar::isItemIsolationEnabled() const
 {
     return d->isolationAction->isChecked();
@@ -328,8 +299,7 @@ void SimpleTextEditToolbar::updateTranslations()
             QKeySequence(QKeySequence::Find).toString(QKeySequence::NativeText)));
     d->commentsAction->setToolTip(d->commentsAction->isChecked() ? tr("Disable review mode")
                                                                  : tr("Enable review mode"));
-    d->aiAssistantAction->setToolTip(d->aiAssistantAction->isChecked() ? tr("Disable AI assistant")
-                                                                       : tr("Enable AI assistant"));
+
     d->isolationAction->setToolTip(d->isolationAction->isChecked()
                                        ? tr("Show full text")
                                        : tr("Show only current scene text"));

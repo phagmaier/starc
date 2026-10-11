@@ -52,7 +52,7 @@ public:
     /**
      * @brief Перенастроить плагины
      */
-    void reconfigurePluginsWithAiAssistant(const QStringList& _changedSettingsKeys);
+
     void reconfigureSimpleTextEditor(const QStringList& _changedSettingsKeys);
     void reconfigureSimpleTextNavigator();
     void reconfigureScreenplayEditor(const QStringList& _changedSettingsKeys);
@@ -215,21 +215,10 @@ public:
     /**
      * @brief Задать кол-во кредитов доступных для использования с ИИ инструментами
      */
-    void setAvailableCredits(int _credits);
 
     /**
      * @brief Установить результат генерации текста
      */
-    void setRephrasedText(const QString& _text);
-    void setExpandedText(const QString& _text);
-    void setShortenedText(const QString& _text);
-    void setInsertedText(const QString& _text);
-    void setSummarizeedText(const QString& _text);
-    void setTranslatedText(const QString& _text);
-    void setTranslatedDocument(const QVector<QString>& _text);
-    void setGeneratedSynopsis(const QString& _text);
-    void setGeneratedText(const QString& _text);
-    void setGeneratedImage(const QPixmap& _image);
 
     /**
      * @brief Получить информацию о проекте
@@ -253,7 +242,6 @@ signals:
     /**
      * @brief Запрос на покупку кредитов из одного из плагинов
      */
-    void buyCreditsRequested();
 
     /**
      * @brief Запрос на экспорт документа
@@ -329,25 +317,6 @@ signals:
      */
     void cursorChanged(const QUuid& _documentUuid, const QByteArray& _cursorData);
 
-    /**
-     * @brief Запрос на генерацию текста с заданными настройками
-     */
-    void rephraseTextRequested(const QString& _sourceText, const QString& _style);
-    void expandTextRequested(const QString& _sourceText);
-    void shortenTextRequested(const QString& _sourceText);
-    void insertTextRequested(const QString& _after, const QString& _before);
-    void summarizeTextRequested(const QString& _sourceText);
-    void translateTextRequested(const QString& _text, const QString& _languageCode);
-    void translateDocumentRequested(const QVector<QString>& _text, const QString& _languageCode,
-                                    Domain::DocumentObjectType _type, int _wordsRequired);
-    void generateSynopsisRequested(const QVector<QString>& _scenes, int _maxWordsPerScene,
-                                   int _wordsRequired);
-    void generateNovelRequested(const QVector<QString>& _scenes, int _wordsRequired);
-    void generateScriptRequested(const QVector<QString>& _chapters, int _wordsRequired);
-    void generateTextRequested(const QString& _promptPrefix, const QString& _prompt,
-                               const QString& _promptSuffix);
-    void generateImageRequested(const QString& _promptPrefix, const QString& _prompt,
-                                const QString& _promptSuffix);
 
     /**
      * @brief Запрос на импорт файлов

@@ -17,7 +17,6 @@
 #include <domain/starcloud_api.h>
 #include <interfaces/management_layer/i_document_manager.h>
 #include <ui/design_system/design_system.h>
-#include <ui/modules/ai_assistant/ai_assistant_view.h>
 #include <ui/modules/bookmarks/bookmarks_model.h>
 #include <ui/modules/bookmarks/bookmarks_view.h>
 #include <ui/modules/comments/comments_model.h>
@@ -59,7 +58,6 @@ const int kTypeDataRole = Qt::UserRole + 100;
 enum {
     kFastFormatTabIndex = 0,
     kCommentsTabIndex,
-    kAiAssistantTabIndex,
     kBookmarksTabIndex,
 };
 
@@ -68,7 +66,6 @@ const QString kScaleFactorKey = kSettingsKey + "/scale-factor";
 const QString kSidebarStateKey = kSettingsKey + "/sidebar-state";
 const QString kIsFastFormatPanelVisibleKey = kSettingsKey + "/is-fast-format-panel-visible";
 const QString kIsCommentsModeEnabledKey = kSettingsKey + "/is-comments-mode-enabled";
-const QString kIsAiAssistantEnabledKey = kSettingsKey + "/is-ai-assistant-enabled";
 const QString kIsItemIsolationEnabledKey = kSettingsKey + "/is-item-isolation-enabled";
 const QString kIsBookmarksListVisibleKey = kSettingsKey + "/is-bookmarks-list-visible";
 const QString kSidebarPanelIndexKey = kSettingsKey + "/sidebar-panel-index";
@@ -170,7 +167,6 @@ public:
     StackWidget* sidebarContent = nullptr;
     FastFormatWidget* fastFormatWidget = nullptr;
     CommentsView* commentsView = nullptr;
-    AiAssistantView* aiAssistantView = nullptr;
     BookmarksView* bookmarksView = nullptr;
     //
     Splitter* splitter = nullptr;
@@ -204,7 +200,6 @@ AudioplayTextView::Implementation::Implementation(AudioplayTextView* _q)
     , sidebarContent(new StackWidget(_q))
     , fastFormatWidget(new FastFormatWidget(_q))
     , commentsView(new CommentsView(_q))
-    , aiAssistantView(new AiAssistantView(_q))
     , bookmarksView(new BookmarksView(_q))
     , splitter(new Splitter(_q))
     , showBookmarksAction(new QAction(_q))
@@ -232,21 +227,18 @@ AudioplayTextView::Implementation::Implementation(AudioplayTextView* _q)
     sidebarTabs->setTabVisible(kFastFormatTabIndex, false);
     sidebarTabs->addTab({}); // comments
     sidebarTabs->setTabVisible(kCommentsTabIndex, false);
-    sidebarTabs->addTab({}); // ai assistant
-    sidebarTabs->setTabVisible(kAiAssistantTabIndex, false);
     sidebarTabs->addTab({}); // bookmarks
     sidebarTabs->setTabVisible(kBookmarksTabIndex, false);
     sidebarContent->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     sidebarContent->setAnimationType(StackWidget::AnimationType::Slide);
     sidebarContent->addWidget(fastFormatWidget);
     sidebarContent->addWidget(commentsView);
-    sidebarContent->addWidget(aiAssistantView);
     sidebarContent->addWidget(bookmarksView);
     fastFormatWidget->hide();
     fastFormatWidget->setParagraphTypesModel(paragraphTypesModel);
     commentsView->setModel(commentsModel);
     commentsView->hide();
-    aiAssistantView->hide();
+
     bookmarksView->setModel(bookmarksModel);
     bookmarksView->hide();
 
@@ -516,8 +508,7 @@ void AudioplayTextView::Implementation::updateCommentsToolbar(bool _force)
 void AudioplayTextView::Implementation::updateSideBarVisibility(QWidget* _container)
 {
     const bool isSidebarShouldBeVisible = toolbar->isFastFormatPanelVisible()
-        || toolbar->isCommentsModeEnabled() || toolbar->isAiAssistantEnabled()
-        || showBookmarksAction->isChecked();
+        || toolbar->isCommentsModeEnabled() || showBookmarksAction->isChecked();
     if (sidebarWidget->isVisible() == isSidebarShouldBeVisible) {
         return;
     }
@@ -626,16 +617,7 @@ AudioplayTextView::AudioplayTextView(QWidget* _parent)
                 d->updateCommentsToolbar();
                 d->updateSideBarVisibility(this);
             });
-    connect(d->toolbar, &AudioplayTextEditToolbar::aiAssistantEnabledChanged, this,
-            [this](bool _enabled) {
-                d->sidebarTabs->setTabVisible(kAiAssistantTabIndex, _enabled);
-                d->aiAssistantView->setVisible(_enabled);
-                if (_enabled) {
-                    d->sidebarTabs->setCurrentTab(kAiAssistantTabIndex);
-                    d->sidebarContent->setCurrentWidget(d->aiAssistantView);
-                }
-                d->updateSideBarVisibility(this);
-            });
+
     connect(d->toolbar, &AudioplayTextEditToolbar::itemIsolationEnabledChanged, this,
             [this](bool _enabled) {
                 d->textEdit->setVisibleTopLevelItemIndex(_enabled ? d->textEdit->currentModelIndex()
@@ -769,26 +751,7 @@ AudioplayTextView::AudioplayTextView(QWidget* _parent)
                 d->commentsModel->remove(_indexes);
             });
     //
-    connect(d->aiAssistantView, &AiAssistantView::rephraseRequested, this,
-            &AudioplayTextView::rephraseTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::expandRequested, this,
-            &AudioplayTextView::expandTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::shortenRequested, this,
-            &AudioplayTextView::shortenTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::insertRequested, this,
-            &AudioplayTextView::insertTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::summarizeRequested, this,
-            &AudioplayTextView::summarizeTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::translateRequested, this,
-            &AudioplayTextView::translateTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::translateDocumentRequested, this,
-            &AudioplayTextView::translateDocumentRequested);
-    connect(d->aiAssistantView, &AiAssistantView::generateTextRequested, this,
-            &AudioplayTextView::generateTextRequested);
-    connect(d->aiAssistantView, &AiAssistantView::insertTextRequested, this,
-            [this](const QString& _text) { d->textEdit->insertPlainText(_text); });
-    connect(d->aiAssistantView, &AiAssistantView::buyCreditsPressed, this,
-            &AudioplayTextView::buyCreditsRequested);
+
     //
     connect(d->bookmarksView, &BookmarksView::addBookmarkRequested, this,
             &AudioplayTextView::createBookmarkRequested);
@@ -826,10 +789,7 @@ AudioplayTextView::AudioplayTextView(QWidget* _parent)
             d->sidebarContent->setCurrentWidget(d->commentsView);
             break;
         }
-        case kAiAssistantTabIndex: {
-            d->sidebarContent->setCurrentWidget(d->aiAssistantView);
-            break;
-        }
+
         case kBookmarksTabIndex: {
             d->sidebarContent->setCurrentWidget(d->bookmarksView);
             break;
@@ -981,7 +941,7 @@ void AudioplayTextView::setEditingMode(ManagementLayer::DocumentEditingMode _mod
         d->commentsToolbar->hideToolbar();
     }
     d->commentsView->setReadOnly(_mode == ManagementLayer::DocumentEditingMode::Read);
-    d->aiAssistantView->setReadOnly(_mode == ManagementLayer::DocumentEditingMode::Read);
+
     d->bookmarksView->setReadOnly(readOnly);
     const auto enabled = !readOnly;
     d->shortcutsManager.setEnabled(enabled);
@@ -1002,196 +962,9 @@ void AudioplayTextView::setCurrentModelIndex(const QModelIndex& _index)
     d->textEdit->setCurrentModelIndex(_index);
 }
 
-void AudioplayTextView::setAvailableCredits(int _credits)
-{
-    d->aiAssistantView->setAvailableWords(_credits);
-}
-
-void AudioplayTextView::setRephrasedText(const QString& _text)
-{
-    d->aiAssistantView->setRephraseResult(_text);
-}
-
-void AudioplayTextView::setExpandedText(const QString& _text)
-{
-    d->aiAssistantView->setExpandResult(_text);
-}
-
-void AudioplayTextView::setShortenedText(const QString& _text)
-{
-    d->aiAssistantView->setShortenResult(_text);
-}
-
-void AudioplayTextView::setInsertedText(const QString& _text)
-{
-    d->aiAssistantView->setInsertResult(_text);
-}
-
-void AudioplayTextView::setSummarizedText(const QString& _text)
-{
-    d->aiAssistantView->setSummarizeResult(_text);
-}
-
-void AudioplayTextView::setTranslatedText(const QString& _text)
-{
-    d->aiAssistantView->setTransateResult(_text);
-}
-
-void AudioplayTextView::setTranslatedDocument(const QVector<QString>& _text)
-{
-    auto lines = _text;
-    std::function<void(const QModelIndex&)> updateLines;
-    updateLines = [this, &updateLines, &lines](const QModelIndex& _parentItemIndex) {
-        for (int row = 0; row < d->model->rowCount(_parentItemIndex); ++row) {
-            const auto itemIndex = d->model->index(row, 0, _parentItemIndex);
-            const auto item = d->model->itemForIndex(itemIndex);
-            switch (item->type()) {
-            case BusinessLayer::TextModelItemType::Folder: {
-                updateLines(itemIndex);
-                break;
-            }
-
-            case BusinessLayer::TextModelItemType::Group: {
-                updateLines(itemIndex);
-                break;
-            }
-
-            case BusinessLayer::TextModelItemType::Text: {
-                auto textItem = static_cast<BusinessLayer::TextModelTextItem*>(item);
-                if (!textItem->text().isEmpty()) {
-                    textItem->setText(lines.takeFirst());
-                    textItem->setFormats({});
-                    d->model->updateItem(textItem);
-                }
-                break;
-            }
-
-            default: {
-                break;
-            }
-            }
-        }
-    };
-    updateLines({});
-}
-
-void AudioplayTextView::setGeneratedText(const QString& _text)
-{
-    const QLatin1String textWritingTaskKey("text-writing-task");
-    TaskBar::addTask(textWritingTaskKey);
-    TaskBar::setTaskTitle(textWritingTaskKey, tr("Writing text"));
-
-    //
-    // Отключим отображение всплывающих подсказок
-    //
-    d->textEdit->setCompleterActive(false);
-
-    //
-    // Переходим в конец позицию вставки, а затем переводим его на новую строку, или сдвигаем
-    // последующий текст, чтобы помещать текст в новом блоке
-    //
-    switch (d->aiAssistantView->textInsertPosition()) {
-    case AiAssistantView::TextInsertPosition::AtBeginning: {
-        d->textEdit->moveCursor(QTextCursor::Start);
-        d->textEdit->addParagraph(d->textEdit->currentParagraphType());
-        d->textEdit->moveCursor(QTextCursor::Start);
-        break;
-    }
-
-    case AiAssistantView::TextInsertPosition::AtCursorPosition: {
-        d->textEdit->moveCursor(QTextCursor::EndOfBlock);
-        d->textEdit->addParagraph(BusinessLayer::TextParagraphType::Action);
-        break;
-    }
-
-    case AiAssistantView::TextInsertPosition::AtEnd: {
-        d->textEdit->moveCursor(QTextCursor::End);
-        d->textEdit->addParagraph(BusinessLayer::TextParagraphType::Action);
-        break;
-    }
-    }
-
-    QElapsedTimer timer;
-    int progress = 0;
-    auto waitForNextOperation = [&timer, &progress, maximum = _text.length(), textWritingTaskKey] {
-        timer.restart();
-        const auto delay = QRandomGenerator::global()->bounded(10, 60);
-        while (!timer.hasExpired(delay)) {
-            QCoreApplication::processEvents();
-        }
-
-        ++progress;
-        TaskBar::setTaskProgress(textWritingTaskKey, progress * 100 / static_cast<qreal>(maximum));
-    };
-
-    auto postEvent = [this](Qt::Key _key, const QString& _text = {}) {
-        QCoreApplication::postEvent(d->textEdit,
-                                    new QKeyEvent(QEvent::KeyPress, _key, Qt::NoModifier, _text));
-        QCoreApplication::postEvent(d->textEdit,
-                                    new QKeyEvent(QEvent::KeyRelease, _key, Qt::NoModifier, _text));
-    };
-
-    auto lines = _text.split('\n', Qt::SkipEmptyParts);
-    bool nextBlockShoudBeDialogue = false;
-    for (auto& line : lines) {
-        static QRegularExpression sceneNumberPattern("\\s+\\d*(:|)($|[ ])");
-        if (line.contains(sceneNumberPattern)
-            || (line == TextHelper::smartToUpper(line) && line.contains('.')
-                && (line.contains('-') || line.contains("–")))) {
-            if (nextBlockShoudBeDialogue) {
-                nextBlockShoudBeDialogue = false;
-                postEvent(Qt::Key_Return);
-            }
-            d->textEdit->setCurrentParagraphType(BusinessLayer::TextParagraphType::SceneHeading);
-        } else if (line.contains(':') || line == TextHelper::smartToUpper(line)) {
-            if (nextBlockShoudBeDialogue) {
-                postEvent(Qt::Key_Down);
-            }
-            d->textEdit->setCurrentParagraphType(BusinessLayer::TextParagraphType::Character);
-            line = line.remove('"').replace(": ", ":");
-            nextBlockShoudBeDialogue = true;
-        } else if (nextBlockShoudBeDialogue) {
-            nextBlockShoudBeDialogue = false;
-        } else {
-            d->textEdit->setCurrentParagraphType(BusinessLayer::TextParagraphType::Cue);
-        }
-        for (int index = 0; index < line.length(); ++index) {
-            const auto character = line.mid(index, 1);
-
-            if (character == ':' && character != line.right(1)) {
-                postEvent(Qt::Key_Return);
-                if (index + 1 < line.length()) {
-                    nextBlockShoudBeDialogue = false;
-                }
-                continue;
-            }
-
-            postEvent(Qt::Key_unknown, character);
-            waitForNextOperation();
-        }
-
-        postEvent(Qt::Key_Return);
-        waitForNextOperation();
-    }
-
-    //
-    // Возвращаем возможность использования всплывающих подсказок
-    //
-    d->textEdit->setCompleterActive(true);
-
-    TaskBar::finishTask(textWritingTaskKey);
-}
-
 void AudioplayTextView::reconfigure(const QStringList& _changedSettingsKeys)
 {
     UiHelper::initSpellingFor(d->textEdit);
-
-    if (_changedSettingsKeys.isEmpty()
-        || _changedSettingsKeys.contains(DataStorageLayer::kApplicationAiAssistantEnabledKey)) {
-        d->toolbar->setAiAssistantVisible(
-            settingsValue(DataStorageLayer::kApplicationAiAssistantEnabledKey).toBool());
-        d->updateToolbarUi();
-    }
 
     if (_changedSettingsKeys.isEmpty()
         || _changedSettingsKeys.contains(
@@ -1297,8 +1070,7 @@ void AudioplayTextView::loadViewSettings()
     d->toolbar->setItemIsolationEnabled(isItemIsolationEnabled);
     const auto isCommentsModeEnabled = settingsValue(kIsCommentsModeEnabledKey, false).toBool();
     d->toolbar->setCommentsModeEnabled(isCommentsModeEnabled);
-    const auto isTextGenerationEnabled = settingsValue(kIsAiAssistantEnabledKey, false).toBool();
-    d->toolbar->setAiAssistantEnabled(isTextGenerationEnabled);
+
     const auto isFastFormatPanelVisible
         = settingsValue(kIsFastFormatPanelVisibleKey, false).toBool();
     d->toolbar->setFastFormatPanelVisible(isFastFormatPanelVisible);
@@ -1317,7 +1089,6 @@ void AudioplayTextView::saveViewSettings()
 
     setSettingsValue(kIsFastFormatPanelVisibleKey, d->toolbar->isFastFormatPanelVisible());
     setSettingsValue(kIsCommentsModeEnabledKey, d->toolbar->isCommentsModeEnabled());
-    setSettingsValue(kIsAiAssistantEnabledKey, d->toolbar->isAiAssistantEnabled());
     setSettingsValue(kIsItemIsolationEnabledKey, d->toolbar->isItemIsolationEnabled());
     setSettingsValue(kIsBookmarksListVisibleKey, d->showBookmarksAction->isChecked());
     setSettingsValue(kSidebarPanelIndexKey, d->sidebarTabs->currentTab());
@@ -1355,22 +1126,7 @@ void AudioplayTextView::setModel(BusinessLayer::AudioplayTextModel* _model)
                 [this] { d->reconfigureBlockNumbersVisibility(); });
 
         //
-        // Обновляем стоимость генерации при изменении модели
         //
-        auto updateGenerationPrice = [this] {
-            d->aiAssistantView->setTranslationDocumentOption(
-                tr("Document translation will take %n word(s)", 0, d->model->wordsCount()));
-        };
-        connect(d->model, &BusinessLayer::AudioplayTextModel::modelReset, this,
-                updateGenerationPrice);
-        connect(d->model, &BusinessLayer::AudioplayTextModel::dataChanged, this,
-                updateGenerationPrice);
-        connect(d->model, &BusinessLayer::AudioplayTextModel::rowsInserted, this,
-                updateGenerationPrice);
-        connect(d->model, &BusinessLayer::AudioplayTextModel::rowsMoved, this,
-                updateGenerationPrice);
-        connect(d->model, &BusinessLayer::AudioplayTextModel::rowsRemoved, this,
-                updateGenerationPrice);
 
         //
         // Перед началом сброса документа запоминаем текущую позицию курсора
@@ -1479,12 +1235,8 @@ void AudioplayTextView::updateTranslations()
 {
     d->sidebarTabs->setTabName(kFastFormatTabIndex, tr("Formatting"));
     d->sidebarTabs->setTabName(kCommentsTabIndex, tr("Comments"));
-    d->sidebarTabs->setTabName(kAiAssistantTabIndex, tr("AI assistant"));
-    d->sidebarTabs->setTabName(kBookmarksTabIndex, tr("Bookmarks"));
 
-    d->aiAssistantView->setGenerationPromptHint(
-        tr("Start prompt from something like \"Write an audio drama about ...\", or \"Write a "
-           "radio drama about ...\""));
+    d->sidebarTabs->setTabName(kBookmarksTabIndex, tr("Bookmarks"));
 
     d->updateOptionsTranslations();
 

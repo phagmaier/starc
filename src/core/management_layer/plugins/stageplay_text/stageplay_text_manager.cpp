@@ -150,76 +150,6 @@ Ui::StageplayTextView* StageplayTextManager::Implementation::createView(
         modelForView(view)->updateItem(textItem);
     });
     //
-    connect(view, &Ui::StageplayTextView::rephraseTextRequested, q,
-            &StageplayTextManager::rephraseTextRequested);
-    connect(view, &Ui::StageplayTextView::expandTextRequested, q,
-            &StageplayTextManager::expandTextRequested);
-    connect(view, &Ui::StageplayTextView::shortenTextRequested, q,
-            &StageplayTextManager::shortenTextRequested);
-    connect(view, &Ui::StageplayTextView::insertTextRequested, q,
-            &StageplayTextManager::insertTextRequested);
-    connect(view, &Ui::StageplayTextView::summarizeTextRequested, q,
-            &StageplayTextManager::summarizeTextRequested);
-    connect(view, &Ui::StageplayTextView::translateTextRequested, q,
-            &StageplayTextManager::translateTextRequested);
-    connect(view, &Ui::StageplayTextView::translateDocumentRequested, q,
-            [this, view](const QString& _languageCode) {
-                const auto model = modelForView(view);
-                QVector<QString> scenes;
-                QString scene;
-                std::function<void(const QModelIndex&)> findGroups;
-                findGroups
-                    = [&findGroups, model, &scenes, &scene](const QModelIndex& _parentItemIndex) {
-                          for (int row = 0; row < model->rowCount(_parentItemIndex); ++row) {
-                              const auto itemIndex = model->index(row, 0, _parentItemIndex);
-                              const auto item = model->itemForIndex(itemIndex);
-                              switch (item->type()) {
-                              case BusinessLayer::TextModelItemType::Folder: {
-                                  findGroups(itemIndex);
-                                  break;
-                              }
-
-                              case BusinessLayer::TextModelItemType::Group: {
-                                  if (!scene.isEmpty()) {
-                                      scenes.append(scene);
-                                      scene.clear();
-                                  }
-
-                                  findGroups(itemIndex);
-                                  break;
-                              }
-
-                              case BusinessLayer::TextModelItemType::Text: {
-                                  const auto textItem
-                                      = static_cast<const BusinessLayer::TextModelTextItem*>(item);
-                                  if (!textItem->text().isEmpty()) {
-                                      if (!scene.isEmpty()) {
-                                          scene.append("\n");
-                                      }
-                                      scene.append(textItem->text());
-                                  }
-                                  break;
-                              }
-
-                              default: {
-                                  break;
-                              }
-                              }
-                          }
-                      };
-                findGroups({});
-                if (!scene.isEmpty()) {
-                    scenes.append(scene);
-                }
-                emit q->translateDocumentRequested(scenes, _languageCode,
-                                                   Domain::DocumentObjectType::StageplayText,
-                                                   model->wordsCount());
-            });
-    connect(view, &Ui::StageplayTextView::generateTextRequested, q, [this](const QString& _text) {
-        emit q->generateTextRequested({}, _text, "\n\nWrite result in fountain format.");
-    });
-    connect(view, &Ui::StageplayTextView::buyCreditsRequested, q,
-            &StageplayTextManager::buyCreditsRequested);
 
     return view;
 }
@@ -444,17 +374,6 @@ void StageplayTextManager::setEditingMode(DocumentEditingMode _mode)
         }
 
         viewAndModel.view->setEditingMode(_mode);
-    }
-}
-
-void StageplayTextManager::setAvailableCredits(int _credits)
-{
-    for (auto& viewAndModel : d->allViews) {
-        if (viewAndModel.view.isNull()) {
-            continue;
-        }
-
-        viewAndModel.view->setAvailableCredits(_credits);
     }
 }
 
