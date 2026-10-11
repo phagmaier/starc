@@ -59,3 +59,59 @@ Remaining boundaries:
 - The optional Qt translation utilities (`qt6-tools`) need the user's sudo
   password to install. Existing translations and normal builds work without
   them. Install with `sudo pacman -S --needed qt6-tools` when needed.
+
+## Fork customization: telemetry removal
+
+Startup telemetry and BugSplat crash reporting were removed on 2026-10-11.
+The fork no longer sends the startup device/app/OS report, collects Crashpad
+reports, attaches logs to crash uploads, or prompts to send reports upstream.
+Crashpad is no longer a build or packaging dependency, and CI no longer builds
+it or uploads symbols to BugSplat. The setup evidence above describes the
+original baseline, before this customization.
+
+Local diagnostic logs and writing-session statistics remain available. Device
+identity is created when saving a writing session, preserving existing IDs and
+statistics. Existing account/cloud features, update checks, and asset downloads
+retain their behavior; this change does not make the application offline.
+
+Validation for this customization:
+
+- `./build/dev.sh doctor` and `JOBS=4 ./build/dev.sh build debug`: passed
+  without a Crashpad prerequisite or linkage.
+- Bash/sh syntax checks, ShellCheck for the local development/setup helpers,
+  libyaml parsing of the three modified CI workflows, and `git diff --check`:
+  passed. Packaging and hosted workflows were not executed.
+- An isolated offscreen harness loaded the actual application plugin, reached
+  window creation, and exited normally (exit 0). It verified no startup device
+  ID, Crashpad database, or crash-upload dialog; a seeded legacy report remained.
+  This does not prove visible desktop behavior or interactive window closing.
+- Writing-session checks with a stored account label passed for a new device ID,
+  reopening with the same ID and retained rows, and an existing device ID. Typed
+  character counts and both session rows were preserved in each run.
+- A separate unset-account session check failed to persist rows. The same check
+  using the pre-change writing-session implementation also failed. This was
+  subsequently fixed by the anonymous-session storage change below.
+- `nm -C` and `strings` on the rebuilt core plugin found no Crashpad/BugSplat
+  symbols, crash-upload dialog, or removed telemetry endpoints.
+
+Harness sources, logs, and failed controls are retained locally in
+`.build/evidence/telemetry-removal-2026-10-11/` (ignored by Git).
+
+## Anonymous writing-session statistics
+
+An unset account email produced a null QString, which SQLite rejected with
+`NOT NULL constraint failed: sessions.account_email`. The save path now stores
+an empty string for anonymous sessions, matching the existing schema and read
+filter. This requires no database migration and preserves account filtering.
+
+The focused regression is `./tools/check-writing-session-storage.sh`. It checks
+unset and explicitly empty email, exact session fields, account filtering,
+retention of existing rows, and reopening. The original failing controls remain
+in `.build/evidence/session-statistics-diagnosis-2026-10-11/`.
+
+`JOBS=4 ./build/dev.sh build debug` and the regression check passed. The same
+regression failed on the pre-fix storage implementation at the anonymous-save
+assertion. Bash syntax, ShellCheck, changed-code formatting, and
+`git diff --check` passed. Build/control logs are retained in
+`.build/evidence/session-statistics-fix-2026-10-11/`; each regression run prints
+its separate retained evidence directory.

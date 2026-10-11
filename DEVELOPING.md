@@ -7,15 +7,14 @@ reference. [AGENTS.md](AGENTS.md) describes the working rules and
 ## Arch Linux setup
 
 This checkout uses C++17, Qt 6, qmake, GNU Make, and public PDF libraries. The
-application also links Crashpad; it must be built before the application. Qt's
-private GUI/Widgets headers must match the installed Qt version.
+fork has no startup telemetry or crash-report uploader. Qt's private
+GUI/Widgets headers must match the installed Qt version.
 
 After your normal full Arch system upgrade, run from this directory:
 
 ```bash
 ./build/setup_arch.sh
 ./tools/install-git-guards.sh
-./build/dev.sh crashpad debug
 ./build/dev.sh doctor
 ./build/dev.sh compdb debug
 ./build/dev.sh run debug
@@ -29,21 +28,7 @@ Avoid partial upgrades. The script includes compiler/debugging tools, Qt
 development utilities. Compilation database generation uses Python and Make,
 which are already required; no editor-specific package is needed.
 
-Crashpad's upstream builder downloads Chromium `depot_tools` and dependencies
-and tracks their current sources. This is the largest first-time download and
-requires network access. Retain its output when diagnosing failures:
-
-```bash
-./build/dev.sh crashpad debug > .build-crashpad-debug.log 2>&1
-```
-
-The local builder selects GN debug/release explicitly, caps Ninja jobs, and
-builds only required Linux targets. A tracked compatibility patch adds the
-missing integer-type header to Crashpad when needed on the current toolchain.
-It is checked before applying and skipped if the include is already present.
-
-For an already prepared machine, start with `./build/dev.sh doctor`. Missing
-release Crashpad is informational when the debug configuration is ready.
+For an already prepared machine, start with `./build/dev.sh doctor`.
 Private cloud/commercial submodules are not needed for this public build; do not
 initialize all submodules indiscriminately.
 
@@ -53,16 +38,14 @@ initialize all submodules indiscriminately.
 ./build/dev.sh build debug
 ./build/dev.sh run debug
 # When a release configuration is actually needed:
-./build/dev.sh crashpad release
 ./build/dev.sh build release
 ./build/dev.sh run release
 ```
 
 The helpers work from any current directory. Generated files and output live
 under `.build/debug/` or `.build/release/`; each executable is
-`_build/starcapp` with its libraries and plugins alongside it. Keep the matching
-Crashpad configuration in `bin/crashpad/`. Use `JOBS=2` for a machine with less
-memory; the default is four jobs. `QMAKE` and `CRASHPAD_ARCH` are overridable.
+`_build/starcapp` with its libraries and plugins alongside it. Use `JOBS=2`
+for a machine with less memory; the default is four jobs. `QMAKE` is overridable.
 The current helper targets Linux and Qt 6; upstream README/CI cover other hosts.
 Read the `.pro` files before adapting the workflow to another platform.
 The Linux helper enables the bundled TIFF library's `unistd.h` declarations via
@@ -127,6 +110,10 @@ ShellCheck, and the relevant command. For C++, build the affected configuration
 and exercise the behavior. `src/testapp` is a manual widget demo, not a general
 automated test suite. For screenplay editing changes, include relevant keyboard,
 Undo/Redo, save/reopen, pagination, or export evidence.
+
+After a debug build, run `./tools/check-writing-session-storage.sh` for the
+focused writing-statistics storage regression. It uses an isolated profile and
+retains compile/test logs under `.build/evidence/`.
 
 Current setup results and any remaining machine-specific work are recorded in
 [docs/PROJECT.md](docs/PROJECT.md).

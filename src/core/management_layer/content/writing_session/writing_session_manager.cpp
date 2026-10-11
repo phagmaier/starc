@@ -102,11 +102,18 @@ void WritingSessionManager::Implementation::saveCurrentSession(const QDateTime& 
     // FIXME: Потенциально тут в файл может записаться хрень, если перед выключением компьютера были
     //        запущены несколько копий приложения и они начнут писать одновременно
     //
+    // Keep a stable device identity for writing-session statistics without startup telemetry.
+    auto deviceUuid = settingsValue(DataStorageLayer::kDeviceUuidKey).toUuid();
+    if (deviceUuid.isNull()) {
+        deviceUuid = QUuid::createUuid();
+        setSettingsValue(DataStorageLayer::kDeviceUuidKey, deviceUuid);
+    }
+
     const Domain::SessionStatistics session{
         sessionUuid,
         projectUuid,
         projectName,
-        settingsValue(DataStorageLayer::kDeviceUuidKey).toString(),
+        deviceUuid.toString(),
         QSysInfo::prettyProductName(),
         sessionStartedAt,
         sessionEndsAt,

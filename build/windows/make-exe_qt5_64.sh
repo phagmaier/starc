@@ -17,7 +17,6 @@
 EXE_APP_DIR="files_64"
 mkdir $EXE_APP_DIR
 mkdir $EXE_APP_DIR/plugins
-mkdir $EXE_APP_DIR/crashpad
 
 #
 # Copy application binaries
@@ -26,7 +25,6 @@ APP_BIN_DIR="../../src/_build"
 cp $APP_BIN_DIR/starcapp.exe $EXE_APP_DIR
 cp $APP_BIN_DIR/corelib.dll $EXE_APP_DIR
 cp $APP_BIN_DIR/plugins/*.dll $EXE_APP_DIR/plugins/
-cp $APP_BIN_DIR/crashpad/crashpad_handler.exe $EXE_APP_DIR/crashpad
 
 #
 # Copy Qt libraries

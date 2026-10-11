@@ -69,7 +69,6 @@ You will need:
 - Qt 5 or Qt 6 with qmake, including Core, GUI, Widgets, Concurrent, Multimedia, Network, SQL, and XML; some bundled components also use Qt GUI/Widgets private headers;
 - when using Qt 6, the Qt 5 Core Compatibility module (the official CI setup also installs Speech and WebSockets);
 - CMake, GNU Make, and pkg-config on Linux/macOS;
-- Python and the platform build tools required by Chromium's `depot_tools` (the Crashpad script downloads these tools and sources);
 - OpenSSL and zlib development files.
 
 On Ubuntu/Debian, the native packages used by CI can be installed with:
@@ -101,28 +100,7 @@ git submodule update --init --recursive \
 > [!IMPORTANT]
 > The repository also references private cloud and commercial-feature submodules. A plain `git submodule update --init --recursive` may therefore request access you do not have. The command above fetches only the dependencies needed by public pull-request builds.
 
-### 2. Build Crashpad
-
-From the repository root:
-
-```bash
-cd build
-chmod +x build_crashpad.sh
-./build_crashpad.sh
-cd ..
-```
-
-Useful options:
-
-| Option | Description |
-|:--|:--|
-| `-d` | Build Crashpad in debug mode |
-| `-a ARCH`, `--arch ARCH` | Select `x86`, `x64`, or `arm64` |
-| `-u`, `--universal` | Build a universal x64 + arm64 binary on macOS |
-
-For example, use `./build_crashpad.sh -a x64` for a 64-bit Windows build or `./build_crashpad.sh -u` for a universal macOS build.
-
-### 3. Build the application
+### 2. Build the application
 
 ```bash
 cd src
@@ -134,7 +112,7 @@ On macOS, replace `$(nproc)` with a suitable number such as `4`. On Windows, run
 
 ```powershell
 cd src
-qmake starc.pro CONFIG+=release CRASHPAD_ARCH=x64
+qmake starc.pro CONFIG+=release
 nmake
 ```
 
@@ -142,12 +120,8 @@ Build products are written to `src/_build/`; the main executable is named `starc
 
 ### Debug build
 
-Crashpad and the application should use the same configuration:
-
 ```bash
-cd build
-./build_crashpad.sh -d
-cd ../src
+cd src
 qmake starc.pro CONFIG+=debug
 make -j"$(nproc)"
 ```
@@ -156,7 +130,7 @@ make -j"$(nproc)"
 
 ```text
 starc/
-├── build/                  Packaging scripts and Crashpad builder
+├── build/                  Packaging scripts
 ├── img/                    README artwork
 └── src/
     ├── 3rd_party/          Bundled and submodule dependencies

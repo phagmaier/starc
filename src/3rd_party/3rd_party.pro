@@ -8,5 +8,4 @@ SUBDIRS = \
     webloader \
     qtxlsxwriter \
     pdfhummus \
-    pdftextextraction \
-    crashpad_paths \
+    pdftextextraction

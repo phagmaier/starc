@@ -153,7 +153,10 @@ void WritingSessionStorage::saveSessionStatistics(
         query.addBindValue(session.endDateTime);
         query.addBindValue(session.words);
         query.addBindValue(session.characters);
-        query.addBindValue(DataStorageLayer::StorageFacade::settingsStorage()->accountEmail());
+        // Anonymous sessions use an empty string; a null QString would violate NOT NULL.
+        const auto accountEmail
+            = DataStorageLayer::StorageFacade::settingsStorage()->accountEmail();
+        query.addBindValue(accountEmail.isNull() ? QStringLiteral("") : accountEmail);
         query.exec();
     }
     database.commit();

@@ -29,4 +29,4 @@ else
     sudo pacman -S --needed "${options[@]}" "${packages[@]}"
 fi
 "$ROOT/build/dev.sh" deps
-printf 'Packages and public PDF sources are ready. Next: ./build/dev.sh crashpad debug\n'
+printf 'Packages and public PDF sources are ready. Next: ./build/dev.sh build debug\n'

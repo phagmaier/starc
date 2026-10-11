@@ -9,8 +9,7 @@ CONFIG += separate_debug_info
 # every platform. Unlike the plugins, a regular qmake library is versioned by
 # default (libcorelib.so.1 / libcorelib.1.dylib and, depending on the mkspec,
 # corelib1.dll), while its debug artifact is based on the unversioned target.
-# Crashpad uses the loaded module name for symbol lookup, so that mismatch only
-# prevents frames belonging to corelib from being resolved.
+# Matching names allow debuggers to resolve frames belonging to corelib.
 win32 {
     CONFIG += skip_target_version_ext
 } else {

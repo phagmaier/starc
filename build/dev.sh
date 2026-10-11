@@ -5,20 +5,17 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 JOBS=${JOBS:-4}
 QMAKE=${QMAKE:-qmake6}
-CRASHPAD_ARCH=${CRASHPAD_ARCH:-x64}
-CRASHPAD_SOURCE="$ROOT/src/3rd_party/chromium/crashpad/crashpad"
 
 usage() {
     cat <<'EOF'
 Usage: ./build/dev.sh COMMAND [debug|release] [application arguments]
   doctor              Report tools, Qt modules, dependencies, and GUI session
   deps                Initialize only the two public PDF submodules
-  crashpad MODE       Fetch/sync and build Crashpad with upstream tooling
   build MODE          Configure and build in .build/MODE (default: debug)
   run MODE [ARGS...]   Launch .build/MODE/_build/starcapp (default: debug)
   compdb MODE         Build, then extract compile_commands.json from a dry run
 
-Environment: JOBS=4, QMAKE=qmake6, CRASHPAD_ARCH=x64 (or arm64/x86).
+Environment: JOBS=4, QMAKE=qmake6.
 STARC_PROFILE_DIR=/absolute/path gives run a separate XDG configuration,
 data, and cache directory. Without it, the application's normal profile is used.
 EOF
@@ -36,21 +33,13 @@ require_jobs() {
 require_mode() {
     [[ "$MODE" == debug || "$MODE" == release ]] || fail 'Configuration must be debug or release.'
 }
-crashpad_ready() {
-    local base="$ROOT/bin/crashpad/${1}_$CRASHPAD_ARCH" file
-    for file in crashpad_handler obj/client/libcommon.a obj/client/libclient.a \
-        obj/util/libutil.a obj/third_party/mini_chromium/mini_chromium/base/libbase.a; do
-        [[ -f "$base/$file" ]] || return 1
-    done
-    [[ -f "$CRASHPAD_SOURCE/client/crashpad_client.h" ]]
-}
 pdf_ready() {
     [[ -f "$ROOT/src/3rd_party/pdfhummus/pdfhummus.pro" && \
        -f "$ROOT/src/3rd_party/pdftextextraction/pdftextextraction.pro" ]]
 }
 
 doctor() {
-    local missing=0 tool qt_version headers qt_data qt_bins plugins module config
+    local missing=0 tool qt_version headers qt_data qt_bins plugins module
     printf 'Repository: %s\nBranch: %s\n' "$ROOT" "$(git -C "$ROOT" branch --show-current)"
     for tool in git g++ clang++ make cmake pkg-config python3 ninja "$QMAKE"; do
         if command -v "$tool" >/dev/null 2>&1; then
@@ -110,15 +99,6 @@ doctor() {
     else
         printf 'MISSING public PDF submodules: run ./build/dev.sh deps\n'; missing=1
     fi
-    local crashpad_found=0
-    for config in debug release; do
-        if crashpad_ready "$config"; then
-            printf 'OK Crashpad: %s %s\n' "$config" "$CRASHPAD_ARCH"; crashpad_found=1
-        else
-            printf 'Crashpad %s missing: run ./build/dev.sh crashpad %s\n' "$config" "$config"
-        fi
-    done
-    (( crashpad_found )) || missing=1
     printf 'GUI session: DISPLAY=%s WAYLAND_DISPLAY=%s XDG_SESSION_TYPE=%s\n' \
         "${DISPLAY:-unset}" "${WAYLAND_DISPLAY:-unset}" "${XDG_SESSION_TYPE:-unset}"
     if [[ -z ${DISPLAY:-} && -z ${WAYLAND_DISPLAY:-} ]]; then
@@ -134,12 +114,11 @@ configure() {
     command -v "$QMAKE" >/dev/null 2>&1 || fail "Missing $QMAKE; install Qt 6 or set QMAKE."
     [[ $("$QMAKE" -query QT_VERSION) == 6.* ]] || fail 'QMAKE must select Qt 6.'
     pdf_ready || fail 'Run ./build/dev.sh deps first.'
-    crashpad_ready "$MODE" || fail "Run ./build/dev.sh crashpad $MODE first."
     mkdir -p "$ROOT/.build/$MODE"
     cd "$ROOT/.build/$MODE"
     local qmake_args signature
     qmake_args=("$ROOT/src/starc.pro" "CONFIG-=$([[ "$MODE" == debug ]] && printf release || printf debug)"
-        "CONFIG+=$MODE" CONFIG-=debug_and_release "CRASHPAD_ARCH=$CRASHPAD_ARCH"
+        "CONFIG+=$MODE" CONFIG-=debug_and_release
         "QMAKE_CFLAGS+=-DHAVE_UNISTD_H=1")
     signature=$(printf '%s\n' "$(command -v "$QMAKE")" "$("$QMAKE" -query QT_VERSION)" "${qmake_args[@]}")
     "$QMAKE" "${qmake_args[@]}"
@@ -163,16 +142,6 @@ case "$COMMAND" in
         require_work_branch
         git -C "$ROOT" submodule update --init --recursive -- \
             src/3rd_party/pdfhummus src/3rd_party/pdftextextraction
-        ;;
-    crashpad)
-        (( $# <= 1 )) || fail 'crashpad takes one configuration.'
-        require_work_branch; require_mode; require_jobs
-        case "$CRASHPAD_ARCH" in x64|arm64|x86) ;; *) fail 'CRASHPAD_ARCH must be x64, arm64, or x86.' ;; esac
-        export JOBS
-        cd "$ROOT/build"
-        args=(-a "$CRASHPAD_ARCH")
-        [[ "$MODE" != debug ]] || args+=(-d)
-        bash ./build_crashpad.sh "${args[@]}"
         ;;
     build|compdb)
         (( $# <= 1 )) || fail "$COMMAND takes one configuration."
