@@ -1,0 +1,6 @@
+diff --git a/util/file/filesystem.h b/util/file/filesystem.h
+--- a/util/file/filesystem.h
++++ b/util/file/filesystem.h
+@@ -18 +18,2 @@
++#include <stdint.h>
+ #include <time.h>

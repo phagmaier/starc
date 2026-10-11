@@ -5,6 +5,8 @@ set -euo pipefail
 BUILD_MODE="release"
 TARGET_CPU="x64"
 UNIVERSAL_BUILD=false
+JOBS="${JOBS:-4}"
+[[ "$JOBS" =~ ^[1-9][0-9]*$ ]] || { echo 'JOBS must be a positive integer' >&2; exit 1; }
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -13,6 +15,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -a|--arch)
+            [[ $# -ge 2 ]] || { echo "$1 requires an architecture" >&2; exit 1; }
             TARGET_CPU="$2"
             shift 2
             ;;
@@ -36,7 +39,9 @@ if [ "$TARGET_CPU" != "x86" ] && [ "$TARGET_CPU" != "x64" ] && [ "$TARGET_CPU" !
     exit 1
 fi
 
-SCRIPT_DIR="$(pwd)"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+GN_DEBUG=false
+[[ "$BUILD_MODE" != debug ]] || GN_DEBUG=true
 echo "[*] Script directory: $SCRIPT_DIR"
 echo "[*] build: $BUILD_MODE"
 echo "[*] target_cpu: $TARGET_CPU"
@@ -96,9 +101,24 @@ fi
 # 4. Обновляем crashpad
 echo "[*] Syncing crashpad..."
 cd "$CRASHPAD_DIR"
+# Remove only our known compatibility patch before pulling; git pull --rebase
+# rejects a dirty checkout, even if the remote has not advanced. Reapply below.
+COMPAT_PATCH="$SCRIPT_DIR/patches/crashpad-filesystem-stdint.patch"
+if [ "$PLATFORM" = "linux" ] && git diff -- util/file/filesystem.h | grep -q '^+#include <stdint.h>'; then
+    git apply --reverse --check "$COMPAT_PATCH"
+    git apply --reverse "$COMPAT_PATCH"
+fi
 git checkout main
 git pull -r
 gclient sync
+
+# Current Linux toolchains require the header that declares uint64_t here;
+# do not depend on an incidental transitive include from the standard library.
+# Keep the compatibility change tracked in this repository, not just the cache.
+if [ "$PLATFORM" = "linux" ] && ! grep -Eq '^#include <(stdint.h|cstdint)>' util/file/filesystem.h; then
+    git apply --check "$COMPAT_PATCH"
+    git apply "$COMPAT_PATCH"
+fi
 
 # 5. Генерируем билд через gn
 BASE_OUT_DIR="$SCRIPT_DIR/../bin/crashpad"
@@ -111,20 +131,22 @@ if [ "$UNIVERSAL_BUILD" = true ] && [ "$PLATFORM" = "mac" ]; then
     OUT_DIR_X64="$BASE_OUT_DIR/${BUILD_MODE}_x64"
     mkdir -p "$OUT_DIR_X64"
     echo target_cpu=\"x64\" > "$OUT_DIR_X64/args.gn"
+    echo "is_debug=$GN_DEBUG" >> "$OUT_DIR_X64/args.gn"
     echo "[*] Contents of args.gn for x64:"
     cat "$OUT_DIR_X64/args.gn"
     gn gen "$OUT_DIR_X64"
-    ninja -C "$OUT_DIR_X64"
+    ninja -j "$JOBS" -C "$OUT_DIR_X64"
 
     # Собираем для arm64
     echo "[*] Building for arm64..."
     OUT_DIR_ARM64="$BASE_OUT_DIR/${BUILD_MODE}_arm64"
     mkdir -p "$OUT_DIR_ARM64"
     echo target_cpu=\"arm64\" > "$OUT_DIR_ARM64/args.gn"
+    echo "is_debug=$GN_DEBUG" >> "$OUT_DIR_ARM64/args.gn"
     echo "[*] Contents of args.gn for arm64:"
     cat "$OUT_DIR_ARM64/args.gn"
     gn gen "$OUT_DIR_ARM64"
-    ninja -C "$OUT_DIR_ARM64"
+    ninja -j "$JOBS" -C "$OUT_DIR_ARM64"
 
     # Объединяем библиотеки в универсальные бинарники
     echo "[*] Creating universal binaries..."
@@ -191,7 +213,18 @@ else
         fi
     fi
 
-    echo target_cpu=\"$TARGET_CPU\" >> "$OUT_DIR/args.gn"
+    # Replace the keys owned by this script without accumulating assignments
+    # or discarding any unrelated local GN options.
+    python3 - "$OUT_DIR/args.gn" "$TARGET_CPU" "$GN_DEBUG" <<'PY'
+from pathlib import Path
+import re
+import sys
+path = Path(sys.argv[1])
+lines = path.read_text().splitlines() if path.exists() else []
+lines = [line for line in lines if not re.match(r'^\s*(target_cpu|is_debug)\s*=', line)]
+lines += [f'target_cpu="{sys.argv[2]}"', f'is_debug={sys.argv[3]}']
+path.write_text('\n'.join(lines) + '\n')
+PY
 
     # Специальные доработки совместимости только для Mac-сборки под старые ОС
     if [ "$PLATFORM" = "mac" ]; then
@@ -205,12 +238,14 @@ else
         perl -pi -e 's/kIOMainPortDefault/kIOMasterPortDefault/g' ./util/mac/mac_util.cc
 
         # 2. ЖЕСТКО заставляем GN выставить Deployment Target = MAC_MIN_VERSION
-        echo "mac_deployment_target=\"$MAC_MIN_VERSION\"" >> "$OUT_DIR/args.gn"
+        {
+            echo "mac_deployment_target=\"$MAC_MIN_VERSION\""
 
         # 3. Передаем макросы контроля экспорта ABI libc++
 #        echo 'extra_cflags="-fvisibility=hidden -fvisibility-inlines-hidden -D_LIBCPP_DISABLE_AVAILABILITY -D_LIBCPP_BUILDING_LIBRARY -D_LIBCPP_SHARED_TEMPLATE_INLINE_VISIBILITY=hidden -Wno-error=deprecated-declarations"' >> "$OUT_DIR/args.gn"
-        echo "extra_cflags=\"-mmacosx-version-min=$MAC_MIN_VERSION -Wno-error=deprecated-declarations\"" >> "$OUT_DIR/args.gn"
-        echo "extra_ldflags=\"-mmacosx-version-min=$MAC_MIN_VERSION\"" >> "$OUT_DIR/args.gn"
+            echo "extra_cflags=\"-mmacosx-version-min=$MAC_MIN_VERSION -Wno-error=deprecated-declarations\""
+            echo "extra_ldflags=\"-mmacosx-version-min=$MAC_MIN_VERSION\""
+        } >> "$OUT_DIR/args.gn"
     fi
 
     # Выводим содержимое args.gn для отладки
@@ -222,7 +257,15 @@ else
 
     # 6. Собираем через ninja
     echo "[*] Building crashpad..."
-    ninja -v -C "$OUT_DIR"
+    if [ "$PLATFORM" = "linux" ]; then
+        # The desktop app needs these libraries and the handler, not Crashpad's
+        # full test/example targets on every development setup.
+        ninja -j "$JOBS" -C "$OUT_DIR" crashpad_handler \
+            obj/client/libcommon.a obj/client/libclient.a obj/util/libutil.a \
+            obj/third_party/mini_chromium/mini_chromium/base/libbase.a
+    else
+        ninja -j "$JOBS" -C "$OUT_DIR"
+    fi
 fi
 
 echo
@@ -252,7 +295,7 @@ done
 # 2. Проверяем минимальную версию ОС в бинарниках Crashpad
 echo
 echo "[2] Checking LC_VERSION_MIN / LC_BUILD_VERSION in crashpad_handler:"
-if [ -f "$OUT_DIR/crashpad_handler" ]; then
+if [ "$PLATFORM" = "mac" ] && [ -f "$OUT_DIR/crashpad_handler" ]; then
     otool -l "$OUT_DIR/crashpad_handler" | grep -A 4 -E "LC_VERSION_MIN_MACOSX|LC_BUILD_VERSION" || true
 fi
 

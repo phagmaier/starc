@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+case ${1:-} in preparing|prepared) ;; *) exit 0 ;; esac
+while read -r _old_oid _new_oid ref_name; do
+    if [[ $ref_name == refs/heads/master ]]; then
+        echo 'master is the frozen reference. Changing or deleting its local ref is blocked.' >&2
+        exit 1
+    fi
+done

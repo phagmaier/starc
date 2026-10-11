@@ -42,3 +42,11 @@ libtool
 POTFILES
 stamp-h1
 _en_source.qm
+
+# Local development builds and downloaded Chromium tooling
+/.build/
+/.build-*.log
+/src/_build/
+/bin/crashpad/
+/src/3rd_party/chromium/
+/compile_commands.json

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ $(git symbolic-ref --quiet --short HEAD || true) == master ]]; then
+    echo 'master is the frozen reference. Commit your work on dev or a branch based on dev.' >&2
+    exit 1
+fi

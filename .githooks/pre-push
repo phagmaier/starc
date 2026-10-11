@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+while read -r local_ref _local_oid remote_ref _remote_oid; do
+    if [[ $local_ref == refs/heads/master || $remote_ref == refs/heads/master ]]; then
+        echo 'master is the frozen reference. Updates and deletion are blocked by this fork.' >&2
+        exit 1
+    fi
+done
