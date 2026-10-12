@@ -2,7 +2,6 @@
 
 #include <ui/design_system/design_system.h>
 
-#include <QLocale>
 #include <QObject>
 
 namespace Ui {
@@ -66,8 +65,6 @@ signals:
     /**
      * @brief Изменились параметры приложения
      */
-    void applicationLanguageChanged(QLocale::Language _language);
-    void applicationLanguageFileChanged(const QString _filePath);
     void applicationUseSpellCheckerChanged(bool _use);
     void applicationSpellCheckerLanguageChanged(const QString& _languageCode);
     void applicationThemeChanged(Ui::ApplicationTheme _theme);
@@ -110,8 +107,6 @@ private:
     //
     // Сохранение параметров приложения
     //
-    void setApplicationLanguage(int _language);
-    void setApplicationLanguageFile(const QString& _filePath);
     void setApplicationTheme(Ui::ApplicationTheme _theme);
     void setApplicationCustomThemeColors(const Ui::DesignSystem::Color& _color);
     void setApplicationScaleFactor(qreal _scaleFactor);

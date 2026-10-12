@@ -124,8 +124,20 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Debug build, screenplay/interchange/storage regressions and private Xvfb
     open/reopen/notice/add-dialog checks passed. Both normal exits were 0; all 67
     document hashes and 16 change-history entries stayed intact. See `docs/PROJECT.md`.
-- [ ] **Translation catalogs.** 33 files in `src/core/translations/`, including
+- [x] **Translation catalogs.** 33 files in `src/core/translations/`, including
   the English source. We only need the english language.
+  - Done 2026-10-12: removed the 31 other languages (`.ts` and `.qm`), the
+    untranslated `_en_source.ts`, the Language row and dialog of the settings and
+    the language-id helper. The interface is always English and left to right;
+    the system language is not consulted. `translation_en.ts`/`.qm` stay, byte
+    for byte as upstream, because they hold the English plural forms ("1 scene").
+    A language stored by an earlier version stays in the settings, unread.
+  - Debug build, all six regressions and private Xvfb checks passed: a profile
+    with Hebrew stored opened in English with correct plurals and no Language
+    row; a fresh profile stored no language. Both Ctrl+Q exits were 0.
+  - Limit: the English catalog still lists strings of removed features. Pruning
+    it needs `lupdate`/`lrelease` (`qt6-tools`, not installed). See
+    `docs/PROJECT.md`.
 
 ## Add
 

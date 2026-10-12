@@ -19,39 +19,7 @@ HEADERS += \
     interfaces/ui/i_document_view.h
 
 TRANSLATIONS += \
-    core/translations/_en_source.ts \
-    core/translations/translation_ar.ts \
-    core/translations/translation_az.ts \
-    core/translations/translation_be.ts \
-    core/translations/translation_ca.ts \
-    core/translations/translation_da_DK.ts \
-    core/translations/translation_de.ts \
-    core/translations/translation_el.ts \
-    core/translations/translation_en.ts \
-    core/translations/translation_es.ts \
-    core/translations/translation_fa.ts \
-    core/translations/translation_fr.ts \
-    core/translations/translation_gl_ES.ts \
-    core/translations/translation_he.ts \
-    core/translations/translation_hi.ts \
-    core/translations/translation_hr.ts \
-    core/translations/translation_hu.ts \
-    core/translations/translation_id.ts \
-    core/translations/translation_it.ts \
-    core/translations/translation_ko.ts \
-    core/translations/translation_nl.ts \
-    core/translations/translation_pl.ts \
-    core/translations/translation_pt_BR.ts \
-    core/translations/translation_pt_PT.ts \
-    core/translations/translation_ro_RO.ts \
-    core/translations/translation_ru.ts \
-    core/translations/translation_sl.ts \
-    core/translations/translation_sv.ts \
-    core/translations/translation_ta.ts \
-    core/translations/translation_te.ts \
-    core/translations/translation_tr.ts \
-    core/translations/translation_uk.ts \
-    core/translations/translation_zh.ts
+    core/translations/translation_en.ts
 
 #
 # Настраиваем вывод в консоль в Windows в нормальной кодировке

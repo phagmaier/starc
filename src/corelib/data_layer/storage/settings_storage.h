@@ -40,10 +40,6 @@ const QString kApplicationGroupKey = "application";
 //
 // первый запуск приложения (false) или оно уже сконфигурировано (true)
 const QString kApplicationConfiguredKey = kApplicationGroupKey + "/configured";
-// язык приложения
-const QString kApplicationLanguagedKey = kApplicationGroupKey + "/language";
-const QString kApplicationLanguageQtVersionKey = kApplicationGroupKey + "/language-qt-version";
-const QString kApplicationLanguagedFileKey = kApplicationGroupKey + "/language-file";
 // тема приложения
 const QString kApplicationThemeKey = kApplicationGroupKey + "/theme";
 // параметры кастомной тема приложения

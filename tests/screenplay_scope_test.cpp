@@ -59,6 +59,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QLocale>
 #include <QMimeData>
 #include <QPainter>
 #include <QScopedPointer>
@@ -68,6 +69,7 @@
 #include <QStyleOptionGraphicsItem>
 #include <QTextDocument>
 #include <QTimer>
+#include <QTranslator>
 #include <QTreeView>
 
 #include <cstdio>
@@ -254,6 +256,54 @@ void checkRetainedUpdateFeed()
     ManagementLayer::NotificationsManager malformed;
     malformed.processNotifications({ { stable, "invalid JSON", readTime } });
     require(malformed.lastVersionDownloadLink().isEmpty(), "invalid update metadata has no link");
+}
+
+// The interface is English only: one embedded catalog, which still supplies the plural forms.
+void checkEnglishOnlyCatalog()
+{
+    require(QDir(":/translations").entryList() == QStringList{ "translation_en.qm" },
+            "only the English catalog is embedded");
+    QTranslator english;
+    require(english.load(":/translations/translation_en.qm"), "embedded English catalog loads");
+    const auto context = "Ui::ScreenplayTextStructureView";
+    require(QCoreApplication::translate(context, "%n scene(s)", "", 2) == "2 scene(s)",
+            "plural forms come from the catalog, not from the source text");
+    require(QApplication::installTranslator(&english), "install the English catalog");
+    require(QCoreApplication::translate(context, "%n scene(s)", "", 1) == "1 scene"
+                && QCoreApplication::translate(context, "%n scene(s)", "", 2) == "2 scenes"
+                && QCoreApplication::translate(context, "%n word(s)", "", 1) == "1 word"
+                && QCoreApplication::translate(context, "%n page(s)", "", 3) == "3 pages",
+            "English catalog supplies singular and plural forms");
+    require(QApplication::removeTranslator(&english), "remove the English catalog");
+}
+
+// Settings offer no interface language, and a choice stored by an earlier version is kept as is.
+void checkNoInterfaceLanguageChoice(const ManagementLayer::SettingsManager& _settings,
+                                    const QVariantMap& _storedLanguage)
+{
+    const auto view = _settings.view();
+    require(_settings.metaObject()->indexOfSignal("applicationLanguageChanged(QLocale::Language)")
+                    < 0
+                && _settings.metaObject()->indexOfSignal("applicationLanguageFileChanged(QString)")
+                    < 0
+                && view->metaObject()->indexOfSignal("applicationLanguagePressed()") < 0,
+            "settings have no interface language callbacks");
+    for (auto object : view->findChildren<QObject*>()) {
+        const QString name = object->metaObject()->className();
+        require(!name.contains("LanguageDialog") && !name.contains("PercentRadioButton"),
+                "no interface language chooser");
+    }
+    for (auto label : view->findChildren<AbstractLabel*>()) {
+        require(label->text() != "Language", "settings have no interface language row");
+    }
+    // The settings screen used to reread the stored language on every language change.
+    QEvent languageChange(QEvent::LanguageChange);
+    QApplication::sendEvent(view, &languageChange);
+    for (auto stored = _storedLanguage.begin(); stored != _storedLanguage.end(); ++stored) {
+        // A value read back from the settings file is text.
+        require(settingsValue(stored.key()).toString() == stored.value().toString(),
+                "stored interface language preference remains stored and ignored");
+    }
 }
 
 // Names of the retired formats and of the removed assistant must not be offered anywhere.
@@ -642,6 +692,7 @@ int main(int argc, char** argv)
                 && Domain::typeFor("application/x-starc/document/world") == Type::World,
             "persisted World identifiers and MIME mappings retained");
     checkStoryCardsWithoutCovers(evidence);
+    checkEnglishOnlyCatalog();
 
     // Dialogs require a top-level parent to overlay.
     QWidget host;
@@ -665,10 +716,20 @@ int main(int argc, char** argv)
         require(!Domain::isUnsupportedDocumentType(option->documentType()),
                 "no retired document choice");
     }
+    // An interface language, its Qt version and a translation file stored by an earlier version.
+    const QVariantMap storedLanguage = {
+        { "application/language", static_cast<int>(QLocale::Hebrew) },
+        { "application/language-qt-version", 6 },
+        { "application/language-file", evidence + "/custom-translation.qm" },
+    };
+    for (auto stored = storedLanguage.begin(); stored != storedLanguage.end(); ++stored) {
+        setSettingsValue(stored.key(), stored.value());
+    }
     // The settings screen as the application builds it, with its shortcut tables.
     ManagementLayer::PluginsBuilder plugins;
     ManagementLayer::ShortcutsManager shortcuts;
     ManagementLayer::SettingsManager settings(nullptr, &host, plugins, &shortcuts);
+    checkNoInterfaceLanguageChoice(settings, storedLanguage);
     auto onboarding = new Ui::OnboardingNavigator(&host);
     checkRetainedUpdateFeed();
     auto menu = new Ui::MenuView(&host);

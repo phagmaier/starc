@@ -37,7 +37,7 @@ The project is created by the team behind [KIT Scenarist](https://github.com/dim
 - **Story intelligence** — statistics, character dialogue reports, character relationships, location scenes, and other analytical views.
 - **Flexible workflow** — use multiple documents and multiple drafts inside a single project.
 - **Import and export** — exchange work with popular screenwriting and office formats, including Final Draft, Fountain, DOCX, ODT, PDF, Celtx, Trelby, and KIT Scenarist formats (availability varies by document type and direction).
-- **International interface** — dozens of UI translations and support for both left-to-right and right-to-left writing systems.
+- **English interface** — this fork ships the English interface only; scripts can be written in any language, in left-to-right and right-to-left writing systems.
 - **Cross-platform desktop app** — native packages for Windows, macOS, and Linux.
 
 <p align="center">
@@ -162,7 +162,7 @@ Please do not include unrelated formatting or generated build files in a pull re
 
 ## Localization
 
-Want to use Story Architect in your language or improve an existing translation? Join the project on [Transifex](https://www.transifex.com/story-apps/starc/) and see the [translation guide](https://github.com/story-apps/starc/wiki/How-to-add-the-translation-of-Story-Architect-to-your-native-language-or-improve-the-existing-version%3F).
+This fork ships the English interface only. Translations of the upstream application are maintained on [Transifex](https://www.transifex.com/story-apps/starc/).
 
 ## Feedback and bug reports
 

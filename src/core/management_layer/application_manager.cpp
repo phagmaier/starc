@@ -52,7 +52,6 @@
 #include <utils/helpers/dialog_helper.h>
 #include <utils/helpers/extension_helper.h>
 #include <utils/helpers/image_helper.h>
-#include <utils/helpers/language_helper.h>
 #include <utils/helpers/measurement_helper.h>
 #include <utils/helpers/platform_helper.h>
 #include <utils/logging.h>
@@ -68,7 +67,6 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
-#include <QFileSystemWatcher>
 #include <QFontDatabase>
 #include <QFutureWatcher>
 #include <QKeyEvent>
@@ -201,7 +199,7 @@ public:
     /**
      * @brief Установить перевод
      */
-    void setTranslation(QLocale::Language _language);
+    void setTranslation();
 
     /**
      * @brief Установить тему
@@ -743,183 +741,18 @@ void ApplicationManager::Implementation::showLastContent()
     applicationView->setHideNavigationButtonAvailable(lastContent.isHideNavigatorButtonAvailable);
 }
 
-void ApplicationManager::Implementation::setTranslation(QLocale::Language _language)
+void ApplicationManager::Implementation::setTranslation()
 {
     //
-    // Определим файл перевода
+    // The interface is English only. The system language and a language stored by an earlier
+    // version are not consulted; the English catalog supplies the plural forms
     //
-    const QLocale::Language currentLanguage
-        = _language != QLocale::AnyLanguage ? _language : QLocale::system().language();
-    QString translation;
-    switch (currentLanguage) {
-    default:
-    case QLocale::English: {
-        translation = "en";
-        break;
-    }
-
-    case QLocale::Arabic: {
-        translation = "ar";
-        break;
-    }
-
-    case QLocale::Azerbaijani: {
-        translation = "az";
-        break;
-    }
-
-    case QLocale::Belarusian: {
-        translation = "be";
-        break;
-    }
-
-    case QLocale::Catalan: {
-        translation = "ca";
-        break;
-    }
-
-    case QLocale::Chinese: {
-        translation = "zh";
-        break;
-    }
-
-    case QLocale::Croatian: {
-        translation = "hr";
-        break;
-    }
-
-    case QLocale::Danish: {
-        translation = "da_DK";
-        break;
-    }
-
-    case QLocale::Dutch: {
-        translation = "nl";
-        break;
-    }
-
-    case QLocale::French: {
-        translation = "fr";
-        break;
-    }
-
-    case QLocale::Galician: {
-        translation = "gl_ES";
-        break;
-    }
-
-    case QLocale::German: {
-        translation = "de";
-        break;
-    }
-
-    case QLocale::Greek: {
-        translation = "el";
-        break;
-    }
-
-    case QLocale::Hebrew: {
-        translation = "he";
-        break;
-    }
-
-    case QLocale::Hindi: {
-        translation = "hi";
-        break;
-    }
-
-    case QLocale::Hungarian: {
-        translation = "hu";
-        break;
-    }
-
-    case QLocale::Indonesian: {
-        translation = "id";
-        break;
-    }
-
-    case QLocale::Italian: {
-        translation = "it";
-        break;
-    }
-
-    case QLocale::Korean: {
-        translation = "ko";
-        break;
-    }
-
-    case QLocale::Persian: {
-        translation = "fa";
-        break;
-    }
-
-    case QLocale::Polish: {
-        translation = "pl";
-        break;
-    }
-
-    case QLocale::LastLanguage + 1: {
-        translation = "pt_PT";
-        break;
-    }
-
-    case QLocale::Portuguese: {
-        translation = "pt_BR";
-        break;
-    }
-
-    case QLocale::Romanian: {
-        translation = "ro_RO";
-        break;
-    }
-
-    case QLocale::Russian: {
-        translation = "ru";
-        break;
-    }
-
-    case QLocale::Slovenian: {
-        translation = "sl";
-        break;
-    }
-
-    case QLocale::Spanish: {
-        translation = "es";
-        break;
-    }
-
-    case QLocale::Swedish: {
-        translation = "sv";
-        break;
-    }
-
-    case QLocale::Tamil: {
-        translation = "ta";
-        break;
-    }
-
-    case QLocale::Telugu: {
-        translation = "te";
-        break;
-    }
-
-    case QLocale::Turkish: {
-        translation = "tr";
-        break;
-    }
-
-    case QLocale::Ukrainian: {
-        translation = "uk";
-        break;
-    }
-    }
-
-    QLocale::setDefault(QLocale(currentLanguage));
+    QLocale::setDefault(QLocale(QLocale::English));
 
     //
     // Подключим файл переводов программы
     //
-    Log::info("Setup translation for %1", translation);
+    Log::info("Setup translation for en");
     static QTranslator* appTranslator = [] {
         //
         // ... небольшой workaround для того, чтобы при запуске приложения кинуть событие о смене
@@ -930,51 +763,13 @@ void ApplicationManager::Implementation::setTranslation(QLocale::Language _langu
         return translator;
     }();
     //
-    // ... для DEV-версии проверим, не задан ли кастомный файл с переводом
+    // ... применяем файл с переводом из ресурсов приложения
     //
     QApplication::removeTranslator(appTranslator);
-    if (QApplication::applicationVersion().contains("dev")) {
-        const auto translationFilePath
-            = settingsValue(DataStorageLayer::kApplicationLanguagedFileKey).toString();
-        //
-        // ... если файл задан, то установим его в качестве источника перевода
-        //
-        if (!translationFilePath.isEmpty()) {
-            appTranslator->load(translationFilePath);
-            QApplication::installTranslator(appTranslator);
-            //
-            // ... подписываемся на изменения файла, чтобы автоматически перезагрузить его
-            //
-            auto watcher = new QFileSystemWatcher(q);
-            watcher->addPath(translationFilePath);
-            connect(watcher, &QFileSystemWatcher::fileChanged, q, [this, watcher] {
-                setTranslation(QLocale().language());
-                watcher->deleteLater();
-            });
-            //
-            // ... а эту переменную очищаем, чтобы далее не применялся стандартный перевод вшитый в
-            //     программу
-            //
-            translation.clear();
-        }
-    }
-    //
-    // ... применяем файл с переводом из ресурсов приложения, если задан язык
-    //
-    if (!translation.isEmpty()) {
-        appTranslator->load(":/translations/translation_" + translation + ".qm");
-        QApplication::installTranslator(appTranslator);
-    }
+    appTranslator->load(":/translations/translation_en.qm");
+    QApplication::installTranslator(appTranslator);
 
-    //
-    // Для языков, которые пишутся справа-налево настроим соответствующее выравнивание интерфейса
-    //
-    if (currentLanguage == QLocale::Arabic || currentLanguage == QLocale::Hebrew
-        || currentLanguage == QLocale::Persian) {
-        QApplication::setLayoutDirection(Qt::RightToLeft);
-    } else {
-        QApplication::setLayoutDirection(Qt::LeftToRight);
-    }
+    QApplication::setLayoutDirection(Qt::LeftToRight);
 
     //
     // Настроим дизайн систему так, чтобы она использовала шрифт подходящий для используемого языка
@@ -2261,32 +2056,7 @@ void ApplicationManager::exec(const QString& _fileToOpenPath)
     //
     // Настраиваем язык приложения
     //
-    auto language
-        = settingsValue(DataStorageLayer::kApplicationLanguagedKey).value<QLocale::Language>();
-    //
-    // ... cперва осуществим маппинг языков между версиями Qt если это необходимо
-    //
-    if (const auto languageQtVersion
-        = settingsValue(DataStorageLayer::kApplicationLanguageQtVersionKey, 5).toInt();
-        languageQtVersion > 0) {
-#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
-        if (languageQtVersion < 6) {
-            language = static_cast<QLocale::Language>(
-                LanguageHelper::qt5LanguageIdToQt6Id(static_cast<int>(language)));
-        }
-#else
-        if (languageQtVersion == 6) {
-            language = static_cast<QLocale::Language>(
-                LanguageHelper::qt6LanguageIdToQt5Id(static_cast<int>(language)));
-        }
-#endif
-    }
-    //
-    // ... сохраняем корректный вариант языка и версию Qt в которой он был получен
-    //
-    setSettingsValue(DataStorageLayer::kApplicationLanguagedKey, language);
-    setSettingsValue(DataStorageLayer::kApplicationLanguageQtVersionKey, (QT_VERSION >> 16) & 0xFF);
-    d->setTranslation(language);
+    d->setTranslation();
 
 
     //
@@ -2539,7 +2309,6 @@ void ApplicationManager::initConnections()
     //
     connect(d->onboardingManager.data(), &OnboardingManager::finished, this, [this](bool _sync) {
         setSettingsValue(DataStorageLayer::kApplicationConfiguredKey, true);
-        setSettingsValue(DataStorageLayer::kApplicationLanguagedKey, QLocale::system().language());
         setSettingsValue(DataStorageLayer::kApplicationThemeKey,
                          static_cast<int>(Ui::DesignSystem::theme()));
         if (Ui::DesignSystem::theme() == Ui::ApplicationTheme::Custom) {
@@ -2698,10 +2467,6 @@ void ApplicationManager::initConnections()
     //
     connect(d->settingsManager.data(), &SettingsManager::closeSettingsRequested, this,
             [this] { d->showLastContent(); });
-    connect(d->settingsManager.data(), &SettingsManager::applicationLanguageChanged, this,
-            [this](QLocale::Language _language) { d->setTranslation(_language); });
-    connect(d->settingsManager.data(), &SettingsManager::applicationLanguageFileChanged, this,
-            [this] { d->setTranslation(QLocale().language()); });
     //
     auto postSpellingChangeEvent = [this] {
         auto event = new TextEditingOptionsChangeEvent;

@@ -159,6 +159,10 @@ retired. The scope check verifies that stored cover PNG bytes and UUID reference
 survive name/description editing and save/reopen, absent image references remain
 intact, cached poster records survive, and story cards render without covers in
 both text directions.
+The interface is English only: the check requires `translation_en.qm` to be the
+single embedded catalog and to supply singular and plural forms, the settings to
+have no Language row, chooser or language callbacks, and an interface language
+stored by an earlier version to stay in the settings untouched.
 It builds
 `tests/screenplay_scope_test.cpp`
 against the debug build and runs it offscreen with a disposable project and

@@ -1038,3 +1038,82 @@ right-click blank captures are retained but excluded from settled GUI evidence;
 show the verified surfaces. Owner projects/keyring/desktop, real remote sync,
 private cloud modules, other platforms and release packaging were not exercised.
 Translation catalogs and later TODO items remain outside this task.
+
+## Translation catalogs reduced to English
+
+Completed 2026-10-12, limited to the next unchecked Cut item. Removed the `.ts`
+and `.qm` catalogs of the 31 other interface languages and the untranslated
+`_en_source.ts` template (63 files, about 46 MB). `src/starc.pro` and
+`src/core/translations.qrc` list only `translation_en`. Both English files are
+byte for byte the upstream ones (`git hash-object` equals the `master` blobs).
+They stay because the source strings are English but plural forms are not:
+without the catalog `tr("%n scene(s)")` renders "2 scene(s)".
+
+`ApplicationManager::Implementation::setTranslation()` now takes no language. It
+sets the default locale to English, installs the embedded English catalog and a
+left-to-right layout, once at startup. The system language, the stored language
+and the developer translation-file override are not consulted. The settings
+Language row, `LanguageDialog`, the `SettingsManager`/`SettingsView` language
+signals and setters, `LanguageHelper` (Qt 5/6 language-id mapping) and
+`PercentRadioButton` (used only by the dialog) are removed with their qmake
+entries. Onboarding no longer stores the system language.
+
+The settings `application/language`, `application/language-qt-version` and
+`application/language-file` lost their key constants and default. Values stored
+by an earlier version are neither read nor rewritten. A full settings reset
+clears them like any other setting. Spelling dictionaries, screenplay templates
+for other regions and right-to-left script text are separate and unchanged.
+
+Evidence:
+
+- `./build/dev.sh doctor` and `./build/dev.sh build debug`: passed after
+  `make qmake_all`, before and after the files were deleted from disk. Optional
+  translation utilities remain absent.
+- `./tools/check-screenplay-scope.sh`: passed. New checks require one embedded
+  catalog, "2 scene(s)" without it and "1 scene"/"2 scenes"/"1 word"/"3 pages"
+  with it, no language signals, chooser classes or "Language" label in the
+  settings, and unchanged stored Hebrew/Qt-version/file values after the settings
+  screen is built and receives a language-change event.
+- `./tools/check-screenplay-interchange.sh`, `check-writing-session-storage.sh`,
+  `check-backup-retention.sh`, `check-project-sync.sh` and
+  `check-github-credential-storage.sh`: passed on the final tree.
+- The actual application on private Xvfb, with no network and a private bus
+  without a keyring provider: a configured profile seeded with Hebrew (`103`),
+  Qt version `6` and a translation-file path opened a disposable copy of the
+  mixed project in English, left to right. The scene navigator showed "5 pages",
+  "1 scene", "1133 words"; the settings page starts at "User interface" with no
+  Language row. After Ctrl+Q (exit `0`) the three stored values were unchanged.
+  A fresh profile showed the English first-run page, and after "Set up later"
+  and Ctrl+Q (exit `0`) held no interface-language key. Both logs record
+  `Setup translation for en`.
+- Source search found no remaining reference to the removed classes, keys or
+  catalogs; `libcoreplugin.so` has no `LanguageDialog` string and `libcorelib.so`
+  exports no `LanguageHelper`/`PercentRadioButton` symbol. Changed-code
+  formatting and `git diff --check` passed. Graph coverage was checked;
+  `application_manager.cpp` is only partly indexed (the private `setTranslation`
+  is absent from the graph), so its callers were traced in source.
+
+Evidence: `.build/evidence/translations-english-only-eiBpVH/` holds the
+doctor/qmake/build/regression logs (`logs/`) and the Xvfb driver, command and
+exit logs, application logs, profiles and screenshots (`ui/`). Regressions on the
+final tree: `.build/evidence/screenplay-scope-reFZ6B/`,
+`.build/evidence/screenplay-interchange-1CdUZE/`,
+`.build/evidence/writing-session-storage-VeGkuq/`,
+`.build/evidence/backup-retention-rpMPd1/`,
+`.build/evidence/project-sync-jtxOvC/` and
+`.build/evidence/github-credentials-VGruIs/`.
+
+Limits: Linux debug/offscreen and private Xvfb only. The Xvfb run used the build
+made before the retired files were deleted from disk; the rebuild afterwards
+left `libcoreplugin.so` as it was. The new scope checks were not run against the
+build from before the cut. The startup keyring warning was expected and
+dismissed; no credentials were edited. `translation_en.ts` still lists strings
+of removed features (and three English "translations" that differ from the
+source by whitespace); pruning or regenerating it needs `lupdate`/`lrelease`
+from `qt6-tools`, which need sudo to install, so the catalog was left as is.
+Code that reads `QLocale()` was not pruned: the per-language interface fonts in
+`DesignSystem`, the Russian branches of `about_application_dialog.cpp` and
+`price_helper.cpp`, and right-to-left branches of delegates now always take the
+English path. Typographic quote replacement and the DOCX language code follow
+that locale, as they already did with English selected. Upstream CI and packaging
+scripts were not run or changed. Later TODO items remain outside this task.

@@ -29,7 +29,6 @@
 #include <QAction>
 #include <QFileDialog>
 #include <QGridLayout>
-#include <QLocale>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QStandardItemModel>
@@ -216,11 +215,6 @@ public:
     Card* applicationCard = nullptr;
     QGridLayout* applicationCardLayout = nullptr;
     H5Label* applicationTitle = nullptr;
-    //
-    // ... Common
-    //
-    Body1Label* language = nullptr;
-    Button* changeLanuage = nullptr;
     //
     // ... User interface
     //
@@ -431,8 +425,6 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     , applicationCard(new Card(content))
     , applicationCardLayout(new QGridLayout)
     , applicationTitle(new H5Label(applicationCard))
-    , language(new Body1Label(applicationCard))
-    , changeLanuage(new Button(applicationCard))
     , applicationUserInterfaceTitle(new H6Label(applicationCard))
     , applicationThemesLayout(new QHBoxLayout)
     , lightTheme(new ThemePreview(applicationCard))
@@ -632,13 +624,6 @@ void SettingsView::Implementation::initApplicationCard()
     applicationCardLayout->setSpacing(0);
     int itemIndex = 0;
     applicationCardLayout->addWidget(applicationTitle, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(language, 0, Qt::AlignCenter);
-        layout->addWidget(changeLanuage);
-        layout->addStretch();
-        applicationCardLayout->addLayout(layout, itemIndex++, 0);
-    }
     //
     // ... интерфейс
     //
@@ -1118,7 +1103,6 @@ SettingsView::SettingsView(QWidget* _parent)
         }
     });
     //
-    connect(d->changeLanuage, &Button::clicked, this, &SettingsView::applicationLanguagePressed);
     for (auto theme : {
              d->lightTheme,
              d->darkAndLightTheme,
@@ -1771,120 +1755,6 @@ void SettingsView::showAdvanced()
     d->scrollToTitle(d->advancedTitle);
 }
 
-void SettingsView::setApplicationLanguage(int _language)
-{
-    auto languageString = [_language]() -> QString {
-        switch (_language) {
-        case QLocale::Arabic: {
-            return "اَلْعَرَبِيَّةُ";
-        }
-        case QLocale::Armenian: {
-            return "Հայերեն";
-        }
-        case QLocale::Azerbaijani: {
-            return "Azərbaycan";
-        }
-        case QLocale::Belarusian: {
-            return "Беларуский";
-        }
-        case QLocale::Catalan: {
-            return "Català";
-        }
-        case QLocale::Chinese: {
-            return "汉语";
-        }
-        case QLocale::Croatian: {
-            return "Hrvatski";
-        }
-        case QLocale::Danish: {
-            return "Dansk";
-        }
-        case QLocale::English: {
-            return "English";
-        }
-        case QLocale::Esperanto: {
-            return "Esperanto";
-        }
-        case QLocale::French: {
-            return "Français";
-        }
-        case QLocale::Galician: {
-            return "Galego";
-        }
-        case QLocale::German: {
-            return "Deutsch";
-        }
-        case QLocale::Greek: {
-            return "ελληνικά";
-        }
-        case QLocale::Hebrew: {
-            return "עִבְרִית";
-        }
-        case QLocale::Hindi: {
-            return "हिन्दी";
-        }
-        case QLocale::Hungarian: {
-            return "Magyar";
-        }
-        case QLocale::Indonesian: {
-            return "Indonesian";
-        }
-        case QLocale::Italian: {
-            return "Italiano";
-        }
-        case QLocale::Korean: {
-            return "한국어";
-        }
-        case QLocale::Persian: {
-            return "فارسی";
-        }
-        case QLocale::Polish: {
-            return "Polski";
-        }
-        case QLocale::LastLanguage + 1: {
-            return "Português";
-        }
-        case QLocale::Portuguese: {
-            return "Português Brasileiro";
-        }
-        case QLocale::Romanian: {
-            return "Română";
-        }
-        case QLocale::Russian: {
-            return "Русский";
-        }
-        case QLocale::Slovenian: {
-            return "Slovenski";
-        }
-        case QLocale::Spanish: {
-            return "Español";
-        }
-        case QLocale::Swedish: {
-            return "Svenska";
-        }
-        case QLocale::Filipino: {
-            return "Tagalog";
-        }
-        case QLocale::Tamil: {
-            return "தமிழ்";
-        }
-        case QLocale::Telugu: {
-            return "తెలుగు";
-        }
-        case QLocale::Turkish: {
-            return "Türkçe";
-        }
-        case QLocale::Ukrainian: {
-            return "Українська";
-        }
-        default: {
-            return QLocale::languageToString(static_cast<QLocale::Language>(_language));
-        }
-        }
-    };
-    d->changeLanuage->setText(languageString());
-}
-
 void SettingsView::setApplicationScaleFactor(qreal _scaleFactor)
 {
     d->scaleFactor->setValue((_scaleFactor - 0.5) * 1000.0);
@@ -2383,7 +2253,6 @@ void SettingsView::resizeEvent(QResizeEvent* _event)
 void SettingsView::updateTranslations()
 {
     d->applicationTitle->setText(tr("Application settings"));
-    d->language->setText(tr("Language"));
     d->scaleFactorTitle->setText(tr("Size of the user interface elements:"));
     d->scaleFactorSmallInfo->setText(tr("small"));
     d->scaleFactorBigInfo->setText(tr("big"));
@@ -2779,7 +2648,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     labelMargins.setTop(static_cast<int>(DesignSystem::button().shadowMargins().top()));
     labelMargins.setBottom(static_cast<int>(DesignSystem::button().shadowMargins().bottom()));
     for (auto label : std::vector<Widget*>{
-             d->language,
              d->scaleFactorTitle,
              d->scaleFactorSmallInfo,
              d->scaleFactorBigInfo,
@@ -2925,11 +2793,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
          }) {
         icon->setContentsMargins(isLeftToRight() ? 0 : DesignSystem::layout().px16(), 0,
                                  isLeftToRight() ? DesignSystem::layout().px16() : 0, 0);
-    }
-
-    for (auto button : { d->changeLanuage }) {
-        button->setBackgroundColor(DesignSystem::color().accent());
-        button->setTextColor(DesignSystem::color().accent());
     }
 
     for (auto theme : {

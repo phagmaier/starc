@@ -100,6 +100,22 @@ access; old show-dev/last-read settings remain stored and ignored. Its qmake
 entries remain, while the page-only views' entries are gone. No private cloud
 module or updater/download workflow was removed or exercised.
 
+The interface is English only. `ApplicationManager::Implementation::setTranslation()`
+runs once at startup: it sets the default locale to English, installs
+`:/translations/translation_en.qm` and sets a left-to-right layout. That catalog
+is the only entry of `src/core/translations.qrc`; it is kept because it holds
+the English plural forms ("1 scene", "2 scenes"), which `tr()` cannot produce
+from the source text. `LanguageDialog`, the Language row of `SettingsView`, the
+`SettingsManager` language signals, `LanguageHelper` and `PercentRadioButton`
+are removed. The settings `application/language`, `language-qt-version` and
+`language-file` have no key constants and are neither read nor written; values
+stored by an earlier version stay in the settings file. `DesignSystem::updateLanguage()`
+is still called from `setTranslation()` to rebuild the fonts once the locale is set.
+Code that asks `QLocale()` now always gets English: interface font families in
+`DesignSystem`, typographic quotes in `BaseTextEdit`, the language code of DOCX
+export, and the right-to-left branches of delegates, widgets and exporters. The
+direction of script text comes from the text itself and is unaffected.
+
 `ProjectsManager::createProject` -> `CreateProjectDialog` ->
 `createLocalProjectRequested` -> `ApplicationManager::createLocalProject` is the
 new-story route. It has no cloud/team selector or sign-in/subscription prompt.

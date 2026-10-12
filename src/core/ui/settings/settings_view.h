@@ -43,7 +43,6 @@ public:
     //
     // Задание параметров приложения
     //
-    void setApplicationLanguage(int _language);
     void setApplicationScaleFactor(qreal _scaleFactor);
     void setApplicationDensity(int _density);
     void setApplicationUseAutoSave(bool _use);
@@ -123,11 +122,6 @@ public:
     void setAdvancedUseExtendedLogging(bool _use);
 
 signals:
-    /**
-     * @brief Пользователь нажал кнопку выборя языка
-     */
-    void applicationLanguagePressed();
-
     //
     // Уведомление об изменении параметров приложения
     //

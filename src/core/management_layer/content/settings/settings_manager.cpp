@@ -11,7 +11,6 @@
 #include <data_layer/storage/settings_storage.h>
 #include <data_layer/storage/storage_facade.h>
 #include <domain/document_object.h>
-#include <ui/settings/language_dialog.h>
 #include <ui/settings/settings_navigator.h>
 #include <ui/settings/settings_tool_bar.h>
 #include <ui/settings/settings_view.h>
@@ -124,7 +123,6 @@ SettingsManager::Implementation::Implementation(SettingsManager* _q, QWidget* _p
 
 void SettingsManager::Implementation::loadApplicationSettings()
 {
-    view->setApplicationLanguage(settingsValue(DataStorageLayer::kApplicationLanguagedKey).toInt());
     view->setApplicationScaleFactor(
         settingsValue(DataStorageLayer::kApplicationScaleFactorKey).toReal());
     view->setApplicationDensity(settingsValue(DataStorageLayer::kApplicationDensityKey).toInt());
@@ -605,24 +603,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
         QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
     });
 
-    connect(d->view, &Ui::SettingsView::applicationLanguagePressed, this, [this, _parentWidget] {
-        auto dialog = new Ui::LanguageDialog(_parentWidget);
-        dialog->setCurrentLanguage(QLocale().language());
-        dialog->showDialog();
-        //
-        // Сначала сохраняем, а потом используем, чтобы в дев-версии корректно обрабатывался кейс,
-        // когда пользователь установил файл перевода внучную
-        //
-        connect(dialog, &Ui::LanguageDialog::languageChanged, this,
-                &SettingsManager::setApplicationLanguage);
-        connect(dialog, &Ui::LanguageDialog::languageChanged, this,
-                &SettingsManager::applicationLanguageChanged);
-        connect(dialog, &Ui::LanguageDialog::languageFileChanged, this,
-                &SettingsManager::setApplicationLanguageFile);
-        connect(dialog, &Ui::LanguageDialog::languageFileChanged, this,
-                &SettingsManager::applicationLanguageFileChanged);
-        connect(dialog, &Ui::LanguageDialog::disappeared, dialog, &Ui::LanguageDialog::deleteLater);
-    });
     connect(
         d->view, &Ui::SettingsView::applicationThemePressed, this,
         [this](Ui::ApplicationTheme _theme) {
@@ -1061,27 +1041,10 @@ void SettingsManager::reloadSettings()
 bool SettingsManager::eventFilter(QObject* _watched, QEvent* _event)
 {
     if (_event->type() == QEvent::LanguageChange && _watched == d->view) {
-        d->view->setApplicationLanguage(
-            settingsValue(DataStorageLayer::kApplicationLanguagedKey).toInt());
         d->loadShortcutsSettings();
     }
 
     return QObject::eventFilter(_watched, _event);
-}
-
-void SettingsManager::setApplicationLanguage(int _language)
-{
-    setSettingsValue(DataStorageLayer::kApplicationLanguagedKey, _language);
-
-    //
-    // При задании конкретного языка, стираем информацию о кастомном файле
-    //
-    setSettingsValue(DataStorageLayer::kApplicationLanguagedFileKey, {});
-}
-
-void SettingsManager::setApplicationLanguageFile(const QString& _filePath)
-{
-    setSettingsValue(DataStorageLayer::kApplicationLanguagedFileKey, _filePath);
 }
 
 void SettingsManager::setApplicationTheme(Ui::ApplicationTheme _theme)

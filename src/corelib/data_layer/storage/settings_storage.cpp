@@ -9,7 +9,6 @@
 
 #include <QDir>
 #include <QKeySequence>
-#include <QLocale>
 #include <QSettings>
 #include <QStandardPaths>
 
@@ -97,7 +96,6 @@ SettingsStorage::Implementation::Implementation()
     // Для приложения
     //
     defaultSettings.insert(kApplicationConfiguredKey, false);
-    defaultSettings.insert(kApplicationLanguagedKey, QLocale::AnyLanguage);
     defaultSettings.insert(kApplicationThemeKey, static_cast<int>(Ui::ApplicationTheme::Dark));
     defaultSettings.insert(
         kApplicationCustomThemeColorsKey,
