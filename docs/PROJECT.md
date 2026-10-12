@@ -904,3 +904,61 @@ an isolated profile/Secret Service and network-isolated application children.
 No owner projects/keyring, external cover search, real remote GitHub, private
 cloud build, other platform or release packaging was exercised. Later TODO
 items and existing translation catalogs remain outside this task.
+
+## Automatic upstream font downloads removed
+
+Completed 2026-10-12 after owner approval of the bounded scope. Removed
+`ApplicationManager::Implementation::loadMissedFonts`, its startup and
+language-change calls, the language/emoji URL map, and the `fonts-loading`
+progress task. Its sole missing-font detector, `DesignSystem::Font::missedFonts`,
+is removed as well. The updater retains its own `NetworkRequest` include and
+download route; other network consumers are unchanged.
+
+The bundled interface, icon and screenplay font resources, their startup
+registration, and the existing local font-cache loader are unchanged. Existing
+valid cached fonts still load, and installed fonts remain available. English
+screenplay fonts need no upstream download. Missing emoji/non-English glyphs
+now depend on available local fonts. No template, document format, font file,
+translation catalog, or later TODO item changed.
+
+Validation:
+
+- `./build/dev.sh doctor` and `JOBS=4 ./build/dev.sh build debug`: passed,
+  including the final build after replacing the downloader-only include with
+  the request header needed by the updater.
+- `./tools/check-screenplay-scope.sh`: passed, including keyboard editing,
+  Undo/Redo, save/reopen, pagination, exports, exact legacy-document/image
+  preservation and independent DOCX/PDF inspection (seven PDF pages).
+- `./tools/check-writing-session-storage.sh`: passed for anonymous/account
+  filtering, retained writing-session rows and reopen.
+- The retained `font-startup-probe.cpp` uses the real `Application` and actual
+  core plugin, a private D-Bus without a keyring provider, disposable profiles,
+  an empty Fontconfig font directory and network-isolated application processes.
+  Fresh English, English with a cached font, and Chinese with a cached font all
+  passed and exited `0` after normal window-close requests. Each verifies
+  bundled interface/icons/Courier families, actual Courier Prime selection and
+  English glyph coverage, no font-loading task despite missing emoji/Chinese
+  fonts, and no new font-cache files. Cached cases verify that the fixture font
+  becomes available and retains its exact bytes.
+- Source/binary audits confirm removed downloader symbols/endpoint/task,
+  byte-identical bundled/cache startup code and unchanged font resources.
+  `git diff --check` passed. Graph coverage was checked; parser gaps and ignored
+  probe/driver sources were verified directly.
+
+Evidence: `.build/evidence/font-download-removal-2404kqlc/` contains build logs,
+audits, probe sources/binaries, private-bus logs and per-process exit results;
+the passing font cases are under `lifecycle-startup/`. Regression evidence is
+`.build/evidence/screenplay-scope-IfDXN7/` and
+`.build/evidence/writing-session-storage-B5paic/`. Failed attempts are retained:
+the sandbox denied the first private-bus socket; an initial probe incorrectly
+required synchronous close acceptance; a plain `QApplication` probe then left
+the manager alive until after Qt teardown and crashed in `QStandardPaths`
+(GDB trace retained). Using the application's existing manager ownership fixed
+the probe lifetime without application lifecycle changes. A probe-only compile
+failure and its subsequent missing-executable run are also retained.
+
+Limits: Linux debug/offscreen startup and in-process screenplay checks only.
+No visible desktop/Xvfb interaction, owner projects/keyring, real remote sync,
+upstream font request, private cloud build, other platform or release packaging
+was exercised. The removal prevents these font downloads; it does not change
+other network behavior or guarantee glyphs for unavailable local fonts.

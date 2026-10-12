@@ -101,8 +101,14 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Debug build, screenplay/storage regressions and private Xvfb information
     editing/save/reopen/story-card checks passed; both process exits were 0.
     Missing-image references also survive open/save. See `docs/PROJECT.md`.
-- [ ] **Font downloads from `starc.app`** for missing fonts
+- [x] **Font downloads from `starc.app`** for missing fonts
   (`application_manager.cpp`). I only need english.
+  - Done 2026-10-12: removed automatic language/emoji font downloads, their
+    startup/language-change hooks and progress task. Bundled interface/screenplay
+    fonts, installed fonts and loading of existing local cached fonts remain.
+  - Debug build, screenplay/storage regressions and isolated startup font checks
+    passed. Missing emoji/language fonts trigger no download; cached font bytes
+    survive. All three normal closes exited 0. Evidence/limits: `docs/PROJECT.md`.
 - [x] **Novel and screenplay series.** Decided 2026-10-11: this fork is for
   screenplays only. Both are retired like the earlier formats: nothing creates,
   imports, exports or configures them, their source is deleted, and documents

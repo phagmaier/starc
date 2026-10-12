@@ -493,62 +493,6 @@ DesignSystem::Font::Implementation::Implementation(qreal _scaleFactor)
 
 DesignSystem::Font::~Font() = default;
 
-QVector<QString> DesignSystem::Font::missedFonts() const
-{
-    QVector<QString> fontFamilies;
-    switch (QLocale().language()) {
-    case QLocale::Arabic:
-    case QLocale::Persian: {
-        fontFamilies.prepend(QLatin1String("Noto Sans Arabic"));
-        break;
-    }
-
-    case QLocale::Chinese: {
-        fontFamilies.prepend(QLatin1String("Noto Sans SC"));
-        break;
-    }
-
-    case QLocale::Hebrew: {
-        fontFamilies.prepend(QLatin1String("Noto Sans Hebrew"));
-        break;
-    }
-
-    case QLocale::Tamil: {
-        fontFamilies.prepend(QLatin1String("Noto Sans Tamil"));
-        break;
-    }
-
-    case QLocale::Telugu: {
-        fontFamilies.prepend(QLatin1String("Noto Sans Telugu"));
-        break;
-    }
-
-    case QLocale::Korean: {
-        fontFamilies.prepend(QLatin1String("Noto Sans KR"));
-        break;
-    }
-
-    default: {
-        break;
-    }
-    }
-
-    fontFamilies.append("Noto Color Emoji");
-
-    //
-    // Ищем неустановленные шрифты
-    //
-    QFontDatabase fontDatabase;
-    QVector<QString> missedFonts;
-    for (int index = 0; index < fontFamilies.size(); ++index) {
-        const auto& fontFamily = fontFamilies.at(index);
-        if (!fontDatabase.hasFamily(fontFamily)) {
-            missedFonts.append(fontFamily);
-        }
-    }
-    return missedFonts;
-}
-
 const QFont& DesignSystem::Font::h1() const
 {
     return d->h1;

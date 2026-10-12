@@ -75,6 +75,11 @@ FDX's sequential dual-dialogue export and the bounded support policy explicitly.
 
 `ApplicationManager` constructs the local project, editor, settings and GitHub
 managers; it no longer constructs `AccountManager` or switches to account content.
+Its startup and language-change routes no longer download missing language or
+emoji fonts. The downloader and `DesignSystem::Font::missedFonts` detector are
+removed. Bundled font registration and loading valid fonts from the existing
+application-data `fonts/` directory remain; local font selection/fallback and
+screenplay templates are unchanged.
 `MenuView` has no upstream sign-in/account/purchase actions. Writing statistics
 and the sprint timer are ordinary drawer actions without an account header.
 `LoglineGeneratorDialog` keeps its help toggle on the question pages and hides
