@@ -1,13 +1,8 @@
 #include "templates_facade.h"
 
-#include "novel_template.h"
 #include "screenplay_template.h"
 #include "simple_text_template.h"
 
-#include <business_layer/model/novel/novel_information_model.h>
-#include <business_layer/model/novel/novel_synopsis_model.h>
-#include <business_layer/model/novel/novel_title_page_model.h>
-#include <business_layer/model/novel/text/novel_text_model.h>
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/screenplay_synopsis_model.h>
 #include <business_layer/model/screenplay/screenplay_title_page_model.h>
@@ -26,7 +21,6 @@ namespace {
 
 const QLatin1String kSimpleTextTemplatesDirectory("templates/text");
 const QLatin1String kScreenplayTemplatesDirectory("templates/screenplay");
-const QLatin1String kNovelTemplatesDirectory("templates/novel");
 
 /**
  * @brief Параметры группы шаблонов
@@ -84,7 +78,6 @@ public:
 
     TemplateInfo<SimpleTextTemplate> text;
     TemplateInfo<ScreenplayTemplate> screenplay;
-    TemplateInfo<NovelTemplate> novel;
 };
 
 template<>
@@ -98,11 +91,6 @@ TemplateInfo<ScreenplayTemplate>& TemplatesFacade::Implementation::templateInfo<
     ScreenplayTemplate>()
 {
     return screenplay;
-}
-template<>
-TemplateInfo<NovelTemplate>& TemplatesFacade::Implementation::templateInfo<NovelTemplate>()
-{
-    return novel;
 }
 
 template<typename TemplateType>
@@ -356,11 +344,6 @@ QStandardItemModel* TemplatesFacade::screenplayTemplates()
     return instance().d->templatesModel<ScreenplayTemplate>();
 }
 
-QStandardItemModel* TemplatesFacade::novelTemplates()
-{
-    return instance().d->templatesModel<NovelTemplate>();
-}
-
 const TextTemplate& TemplatesFacade::textTemplate(const TextModel* _model)
 {
     //
@@ -372,14 +355,6 @@ const TextTemplate& TemplatesFacade::textTemplate(const TextModel* _model)
         return screenplayTemplate(model->informationModel()->templateId()).titlePageTemplate();
     } else if (auto model = qobject_cast<const ScreenplaySynopsisModel*>(_model)) {
         return screenplayTemplate(model->informationModel()->templateId()).synopsisTemplate();
-    }
-    //
-    else if (auto model = qobject_cast<const NovelTextModel*>(_model)) {
-        return novelTemplate(model->informationModel()->templateId());
-    } else if (auto model = qobject_cast<const NovelTitlePageModel*>(_model)) {
-        return novelTemplate(model->informationModel()->templateId()).titlePageTemplate();
-    } else if (auto model = qobject_cast<const NovelSynopsisModel*>(_model)) {
-        return novelTemplate(model->informationModel()->templateId()).synopsisTemplate();
     }
     return simpleTextTemplate();
 }
@@ -394,11 +369,6 @@ const ScreenplayTemplate& TemplatesFacade::screenplayTemplate(const QString& _te
     return instance().d->getTemplate<ScreenplayTemplate>(_templateId);
 }
 
-const NovelTemplate& TemplatesFacade::novelTemplate(const QString& _templateId)
-{
-    return instance().d->getTemplate<NovelTemplate>(_templateId);
-}
-
 void TemplatesFacade::setDefaultSimpleTextTemplate(const QString& _templateId)
 {
     instance().d->setDefaultTemplate<SimpleTextTemplate>(_templateId);
@@ -407,11 +377,6 @@ void TemplatesFacade::setDefaultSimpleTextTemplate(const QString& _templateId)
 void TemplatesFacade::setDefaultScreenplayTemplate(const QString& _templateId)
 {
     instance().d->setDefaultTemplate<ScreenplayTemplate>(_templateId);
-}
-
-void TemplatesFacade::setDefaultNovelTemplate(const QString& _templateId)
-{
-    instance().d->setDefaultTemplate<NovelTemplate>(_templateId);
 }
 
 void TemplatesFacade::saveSimpleTextTemplate(const SimpleTextTemplate& _template)
@@ -424,11 +389,6 @@ void TemplatesFacade::saveScreenplayTemplate(const ScreenplayTemplate& _template
     instance().d->saveTemplate<ScreenplayTemplate>(kScreenplayTemplatesDirectory, _template);
 }
 
-void TemplatesFacade::saveNovelTemplate(const NovelTemplate& _template)
-{
-    instance().d->saveTemplate<NovelTemplate>(kNovelTemplatesDirectory, _template);
-}
-
 void TemplatesFacade::removeSimpleTextTemplate(const QString& _templateId)
 {
     instance().d->removeTemplate<SimpleTextTemplate>(kSimpleTextTemplatesDirectory, _templateId);
@@ -439,16 +399,10 @@ void TemplatesFacade::removeScreenplayTemplate(const QString& _templateId)
     instance().d->removeTemplate<ScreenplayTemplate>(kScreenplayTemplatesDirectory, _templateId);
 }
 
-void TemplatesFacade::removeNovelTemplate(const QString& _templateId)
-{
-    instance().d->removeTemplate<NovelTemplate>(kNovelTemplatesDirectory, _templateId);
-}
-
 void TemplatesFacade::updateTranslations()
 {
     instance().d->updateTranslations<SimpleTextTemplate>();
     instance().d->updateTranslations<ScreenplayTemplate>();
-    instance().d->updateTranslations<NovelTemplate>();
 }
 
 TemplatesFacade::~TemplatesFacade() = default;
@@ -481,16 +435,6 @@ TemplatesFacade::TemplatesFacade()
                                              QLatin1String("telugu"),
                                              QLatin1String("us"),
                                          });
-    d->loadTemplates<NovelTemplate>(kNovelTemplatesDirectory,
-                                    {
-                                        QLatin1String("manuscript_cp_a4"),
-                                        QLatin1String("manuscript_cn_a4"),
-                                        QLatin1String("manuscript_t_a4"),
-                                        QLatin1String("manuscript_cp_letter"),
-                                        QLatin1String("manuscript_t_letter"),
-                                        QLatin1String("modern_a4"),
-                                        QLatin1String("modern_letter"),
-                                    });
 }
 
 TemplatesFacade& TemplatesFacade::instance()

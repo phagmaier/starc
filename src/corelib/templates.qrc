@@ -12,13 +12,6 @@
         <file>templates/text/mono_cn_a4</file>
         <file>templates/text/sans_letter</file>
         <file>templates/text/sans_a4</file>
-        <file>templates/novel/manuscript_cn_a4</file>
-        <file>templates/novel/manuscript_cp_a4</file>
-        <file>templates/novel/manuscript_cp_letter</file>
-        <file>templates/novel/manuscript_t_a4</file>
-        <file>templates/novel/manuscript_t_letter</file>
-        <file>templates/novel/modern_a4</file>
-        <file>templates/novel/modern_letter</file>
         <file>templates/screenplay/telugu</file>
     </qresource>
 </RCC>

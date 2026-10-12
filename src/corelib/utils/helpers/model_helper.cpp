@@ -1,12 +1,9 @@
 #include "model_helper.h"
 
-#include <business_layer/model/novel/novel_information_model.h>
-#include <business_layer/model/novel/novel_title_page_model.h>
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/screenplay_title_page_model.h>
 #include <business_layer/model/text/text_model_text_item.h>
 #include <business_layer/model/text/text_model_xml.h>
-#include <business_layer/templates/novel_template.h>
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/templates_facade.h>
 #include <domain/document_object.h>
@@ -59,9 +56,6 @@ void ModelHelper::resetTitlePageModel(BusinessLayer::SimpleTextModel* _model)
     if (auto model = qobject_cast<BusinessLayer::ScreenplayTitlePageModel*>(_model)) {
         titlePage = TemplatesFacade::screenplayTemplate(model->informationModel()->templateId())
                         .titlePage();
-    } else if (auto model = qobject_cast<BusinessLayer::NovelTitlePageModel*>(_model)) {
-        titlePage
-            = TemplatesFacade::novelTemplate(model->informationModel()->templateId()).titlePage();
     }
 
     const auto oldContent = _model->document()->content();

@@ -77,7 +77,7 @@ void noAi(QWidget* _widget)
 void requireRetained(const QString& _text)
 {
     for (const auto retired : { "comic", "audioplay", "audio drama", "audio play", "stageplay",
-                                "stage play", "ai assistant" }) {
+                                "stage play", "novel", "ai assistant" }) {
         if (_text.contains(QLatin1String(retired), Qt::CaseInsensitive)) {
             std::fprintf(stderr, "FAIL: retired choice offered: %s\n", qPrintable(_text));
             std::exit(1);
@@ -193,6 +193,7 @@ int main(int argc, char** argv)
     static_assert(static_cast<int>(Type::Audioplay) == 10300);
     static_assert(static_cast<int>(Type::Stageplay) == 10400);
     static_assert(static_cast<int>(Type::Novel) == 10500);
+    static_assert(static_cast<int>(Type::ScreenplaySeries) == 10110);
     static_assert(static_cast<int>(Type::ScreenplayText) == 10104);
 
     // Dialogs require a top-level parent to overlay.
@@ -229,12 +230,10 @@ int main(int argc, char** argv)
         }
     }
     {
-        int components = 0;
+        // The components are the second group of the settings list.
         const auto navigation = settings.navigator()->findChild<Tree*>()->model();
-        for (int row = 0; row < navigation->rowCount(); ++row) {
-            components = qMax(components, navigation->rowCount(navigation->index(row, 0)));
-        }
-        require(components == 3, "settings list simple text, screenplay and novel components");
+        require(navigation->rowCount(navigation->index(1, 0)) == 2,
+                "settings list simple text and screenplay components");
     }
 
     const QString path = evidence + "/mixed-project.starc";
@@ -303,10 +302,13 @@ int main(int argc, char** argv)
             "seed mind map and character documents");
     QHash<QUuid, QByteArray> retired;
     QVector<QUuid> retiredText;
-    // All 18 persisted format identifiers, plus drafts and binary/image data.
-    for (const int base : { 10200, 10300, 10400 }) {
+    // All 32 persisted format identifiers, plus drafts and binary/image data. A novel and a
+    // series have one document more than the other retired formats.
+    BusinessLayer::StructureModelItem* episodes = nullptr;
+    for (const int base : { 10200, 10300, 10400, 10500, 10110 }) {
         BusinessLayer::StructureModelItem* bundle = nullptr;
-        for (int offset = 0; offset <= 5; ++offset) {
+        const int lastOffset = base == 10500 || base == 10110 ? 6 : 5;
+        for (int offset = 0; offset <= lastOffset; ++offset) {
             const auto uuid = QUuid::createUuid();
             const auto documentType = static_cast<Type>(base + offset);
             const QByteArray bytes = QByteArray::fromHex("efbbbf") + "<legacy unknown='keep'>\r\n"
@@ -317,6 +319,8 @@ int main(int argc, char** argv)
             structure->appendItem(item, bundle, bytes);
             if (offset == 0)
                 bundle = item;
+            if (documentType == Type::ScreenplaySeriesEpisodes)
+                episodes = item;
             retired.insert(uuid, bytes);
             require(storage->document(uuid)->content() == bytes, "seed legacy bytes");
             if (offset == 3) {
@@ -329,6 +333,20 @@ int main(int argc, char** argv)
         require(!structure->addDocument(static_cast<Type>(base), "Refused").isValid(),
                 "reject retired format creation");
     }
+    // The episodes of a series are ordinary screenplays. They stay in a retired series and can
+    // be opened and moved out of it like any other screenplay.
+    require(episodes, "seed the episodes document of a series");
+    const auto episode
+        = structure->addDocument(Type::Screenplay, "Kept episode", structure->indexForItem(episodes));
+    require(episode.isValid() && structure->itemForIndex(episode)->parent() == episodes,
+            "screenplay inside a retired series");
+    const auto episodeUuid = structure->itemForIndex(episode)->uuid();
+    QUuid episodeScriptUuid;
+    for (int i = 0; i < structure->itemForIndex(episode)->childCount(); ++i) {
+        if (structure->itemForIndex(episode)->childAt(i)->type() == Type::ScreenplayText)
+            episodeScriptUuid = structure->itemForIndex(episode)->childAt(i)->uuid();
+    }
+    require(!episodeScriptUuid.isNull(), "episode has its screenplay text");
     for (const auto documentType : { Type::ImageData, Type::BinaryData }) {
         const auto uuid = QUuid::createUuid();
         auto doc = storage->createDocument(uuid, documentType);
@@ -359,6 +377,13 @@ int main(int argc, char** argv)
     const auto proxyIndex = [&](const QUuid& _uuid) {
         return proxy->mapFromSource(structure->indexForItem(structure->itemForUuid(_uuid)));
     };
+    navigator->setCurrentIndex(proxyIndex(episodeScriptUuid));
+    require(manager.currentDocument() && manager.currentDocument()->uuid() == episodeScriptUuid
+                && !unsupportedNoticeShown(manager.view()),
+            "episode of a retired series opens as a screenplay");
+    require(structure->flags(structure->indexForItem(structure->itemForUuid(episodeUuid)))
+                & Qt::ItemIsDragEnabled,
+            "episode can be moved out of a retired series");
     require(proxyIndex(statisticsUuid).isValid() == statisticsView,
             "statistics are listed only with a view for them");
     for (const auto& uuid : { mindMapUuid, characterUuid }) {
@@ -464,8 +489,10 @@ int main(int argc, char** argv)
         for (const auto& uuid : retiredText) {
             require(!facade.modelFor(uuid), "retired model refused");
         }
-        for (const int base : { 10200, 10300, 10400 }) {
-            require(!facade.modelFor(static_cast<Type>(base + 4)),
+        for (const auto dictionaries :
+             { Type::ComicBookDictionaries, Type::AudioplayDictionaries,
+               Type::StageplayDictionaries, Type::NovelDictionaries }) {
+            require(!facade.modelFor(dictionaries),
                     "retired dictionaries are not created on request");
         }
     }
@@ -607,26 +634,16 @@ int main(int argc, char** argv)
     require(screenplayOffered, "screenplay is offered");
     delete addDocument;
 
-    // The information page of a screenplay, a series and a novel has an option that shows the
-    // statistics of the document in the project. It is there only with a view for them, in
-    // either panel, and hiding it leaves the choice it holds and the item as they are.
-    struct DocumentSet {
-        Type document;
-        Type statistics;
-        QUuid uuid;
-    };
-    for (auto set : {
-             DocumentSet{ Type::Screenplay, Type::ScreenplayStatistics, screenplayUuid },
-             DocumentSet{ Type::ScreenplaySeries, Type::ScreenplaySeriesStatistics, {} },
-             DocumentSet{ Type::Novel, Type::NovelStatistics, {} },
-         }) {
-        if (!hasEditor(plugins, set.document)) {
-            continue;
-        }
-        if (set.uuid.isNull()) {
-            set.uuid = structure->itemForIndex(structure->addDocument(set.document, "Kept set"))
-                           ->uuid();
-        }
+    // The information page of a screenplay has an option that shows its statistics in the
+    // project. It is there only with a view for them, in either panel, and hiding it leaves the
+    // choice it holds and the item as they are.
+    {
+        struct {
+            Type document = Type::Screenplay;
+            Type statistics = Type::ScreenplayStatistics;
+            QUuid uuid;
+        } set;
+        set.uuid = screenplayUuid;
         const bool available = hasEditor(plugins, set.statistics);
         navigator->setCurrentIndex(proxyIndex(set.uuid));
         QApplication::processEvents();
@@ -710,6 +727,24 @@ int main(int argc, char** argv)
                         "remembered presentation is kept only with an editor for it");
             }
         }
+        delete importDialog;
+
+        // A Markdown file was offered as a novel before that format was retired.
+        ManagementLayer::ImportManager markdownImport(nullptr, &parent, plugins);
+        markdownImport.import({ evidence + "/notes.md" });
+        QApplication::processEvents();
+        importDialog = parent.findChild<Ui::ImportDialog*>();
+        require(importDialog, "import dialog for a Markdown file");
+        importTo = importDialog->findChild<ComboBox*>();
+        require(importTo && importTo->model() && importTo->model()->rowCount() > 0,
+                "import dialog lists the document types for Markdown");
+        bool simpleTextOffered = false;
+        for (int row = 0; row < importTo->model()->rowCount(); ++row) {
+            const auto type = importTo->model()->index(row, 0).data().toString();
+            requireRetained(type);
+            simpleTextOffered = simpleTextOffered || type == "Simple text";
+        }
+        require(simpleTextOffered, "Markdown file can be imported as simple text");
         delete importDialog;
     }
     manager.closeCurrentProject(path);

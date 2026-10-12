@@ -12,10 +12,6 @@
 #include <business_layer/export/locations/location_pdf_exporter.h>
 #include <business_layer/export/locations/locations_docx_exporter.h>
 #include <business_layer/export/locations/locations_pdf_exporter.h>
-#include <business_layer/export/novel/novel_docx_exporter.h>
-#include <business_layer/export/novel/novel_export_options.h>
-#include <business_layer/export/novel/novel_markdown_exporter.h>
-#include <business_layer/export/novel/novel_pdf_exporter.h>
 #include <business_layer/export/screenplay/screenplay_docx_exporter.h>
 #include <business_layer/export/screenplay/screenplay_export_options.h>
 #include <business_layer/export/screenplay/screenplay_fdx_exporter.h>
@@ -33,8 +29,6 @@
 #include <business_layer/model/characters/characters_model.h>
 #include <business_layer/model/locations/location_model.h>
 #include <business_layer/model/locations/locations_model.h>
-#include <business_layer/model/novel/novel_information_model.h>
-#include <business_layer/model/novel/text/novel_text_model.h>
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model.h>
 #include <business_layer/model/simple_text/simple_text_model.h>
@@ -49,7 +43,6 @@
 #include <ui/export/characters_export_dialog.h>
 #include <ui/export/location_export_dialog.h>
 #include <ui/export/locations_export_dialog.h>
-#include <ui/export/novel_export_dialog.h>
 #include <ui/export/screenplay_export_dialog.h>
 #include <ui/export/simple_text_export_dialog.h>
 #include <ui/export/world_export_dialog.h>
@@ -216,8 +209,6 @@ public:
                            int _currentModelIndex);
     void exportScreenplay(BusinessLayer::AbstractModel* _model,
                           const BusinessLayer::ScreenplayExportOptions& _options);
-    void exportNovels(const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models,
-                      int _currentModelIndex);
     //
     void exportSimpleText(BusinessLayer::AbstractModel* _model);
     void exportCharacter(BusinessLayer::AbstractModel* _model);
@@ -236,7 +227,6 @@ public:
     QWidget* topLevelWidget = nullptr;
 
     Ui::ScreenplayExportDialog* screenplayExportDialog = nullptr;
-    Ui::NovelExportDialog* novelExportDialog = nullptr;
     Ui::SimpleTextExportDialog* simpleTextExportDialog = nullptr;
     Ui::CharacterExportDialog* characterExportDialog = nullptr;
     Ui::CharactersExportDialog* charactersExportDialog = nullptr;
@@ -384,109 +374,6 @@ void ExportManager::Implementation::exportScreenplay(
         return;
     }
     exporter->exportTo(screenplayTextModel, exportOptions);
-}
-
-void ExportManager::Implementation::exportNovels(
-    const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models, int _currentModelIndex)
-{
-    using namespace BusinessLayer;
-
-    if (novelExportDialog == nullptr) {
-        const auto currentDraft = _models.constFirst().second;
-        novelExportDialog = new Ui::NovelExportDialog(currentDraft->document()->uuid().toString(),
-                                                      topLevelWidget);
-        connect(novelExportDialog, &Ui::NovelExportDialog::exportRequested, novelExportDialog,
-                [this, _models] {
-                    //
-                    // Выбираем файл для экспорта
-                    //
-                    auto model = _models.at(novelExportDialog->selectedDraftIndex()).second;
-                    const auto textModel = qobject_cast<BusinessLayer::NovelTextModel*>(model);
-                    auto exportOptions = novelExportDialog->exportOptions();
-                    const auto exportFilePath = buildExportFilePath(
-                        exportOptions.fileFormat, textModel->informationModel()->name(),
-                        novelExportDialog->selectedDraftName(), textModel, topLevelWidget);
-                    if (exportFilePath.isEmpty()) {
-                        return;
-                    }
-
-                    //
-                    // Если файл был выбран
-                    //
-                    exportOptions.filePath = exportFilePath;
-                    //
-                    // ... проверяем возможность записи в файл
-                    //
-                    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-                        return;
-                    }
-
-                    //
-                    // ... донастроим параметры экспорта
-                    //
-                    const auto novelInformation = textModel->informationModel();
-                    exportOptions.templateId = novelInformation->templateId();
-                    exportOptions.header = novelInformation->header();
-                    exportOptions.printHeaderOnTitlePage
-                        = novelInformation->printHeaderOnTitlePage();
-                    exportOptions.footer = novelInformation->footer();
-                    exportOptions.printFooterOnTitlePage
-                        = novelInformation->printFooterOnTitlePage();
-                    //
-                    // ... обновим папку, куда в следующий раз он предположительно опять будет
-                    //     экспортировать
-                    //
-                    setSettingsValue(DataStorageLayer::kProjectExportFolderKey,
-                                     QFileInfo(exportFilePath).dir().absolutePath());
-                    //
-                    // ... и экспортируем документ
-                    //
-                    QScopedPointer<BusinessLayer::AbstractExporter> exporter;
-                    switch (exportOptions.fileFormat) {
-                    default:
-                    case ExportFileFormat::Pdf: {
-                        exporter.reset(new BusinessLayer::NovelPdfExporter);
-                        break;
-                    }
-                    case ExportFileFormat::Docx: {
-                        exporter.reset(new BusinessLayer::NovelDocxExporter);
-                        break;
-                    }
-                    case ExportFileFormat::Markdown: {
-                        exporter.reset(new BusinessLayer::NovelMarkdownExporter);
-                        break;
-                    }
-                    }
-                    if (exporter.isNull()) {
-                        return;
-                    }
-                    exporter->exportTo(textModel, exportOptions);
-
-                    //
-                    // Если необходимо, откроем экспортированный документ
-                    //
-                    if (novelExportDialog->openDocumentAfterExport()) {
-                        QDesktopServices::openUrl(QUrl::fromLocalFile(exportOptions.filePath));
-                    }
-                    //
-                    // ... и закрываем диалог экспорта
-                    //
-                    novelExportDialog->hideDialog();
-                });
-        connect(novelExportDialog, &Ui::NovelExportDialog::canceled, novelExportDialog,
-                &Ui::NovelExportDialog::hideDialog);
-        connect(novelExportDialog, &Ui::NovelExportDialog::disappeared, novelExportDialog, [this] {
-            novelExportDialog->deleteLater();
-            novelExportDialog = nullptr;
-        });
-    }
-
-    QVector<QString> drafts;
-    for (const auto& draft : _models) {
-        drafts.append(draft.first);
-    }
-    novelExportDialog->setDrafts(drafts, _currentModelIndex);
-    novelExportDialog->showDialog();
 }
 
 void ExportManager::Implementation::exportSimpleText(BusinessLayer::AbstractModel* _model)
@@ -1097,13 +984,6 @@ bool ExportManager::canExportDocument(BusinessLayer::AbstractModel* _model) cons
     case Domain::DocumentObjectType::ScreenplayText:
     case Domain::DocumentObjectType::ScreenplayStatistics:
     //
-    case Domain::DocumentObjectType::Novel:
-    case Domain::DocumentObjectType::NovelTitlePage:
-    case Domain::DocumentObjectType::NovelSynopsis:
-    case Domain::DocumentObjectType::NovelOutline:
-    case Domain::DocumentObjectType::NovelText:
-    case Domain::DocumentObjectType::NovelStatistics:
-    //
     case Domain::DocumentObjectType::SimpleText:
     //
     case Domain::DocumentObjectType::Character:
@@ -1137,11 +1017,6 @@ void ExportManager::exportDocument(
     switch (firstModel->document()->type()) {
     case Domain::DocumentObjectType::ScreenplayText: {
         d->exportScreenplays(_models, _currentModelIndex);
-        break;
-    }
-
-    case Domain::DocumentObjectType::NovelText: {
-        d->exportNovels(_models, _currentModelIndex);
         break;
     }
 

@@ -133,32 +133,6 @@ signals:
     /** @} */
 
     /**
-     * @brief Сменилась видимость элемента сериала
-     */
-    /** @{ */
-    void screenplaySeriesTitlePageVisibilityChanged(BusinessLayer::AbstractModel* _model,
-                                                    bool _visible);
-    void screenplaySeriesSynopsisVisibilityChanged(BusinessLayer::AbstractModel* _model,
-                                                   bool _visible);
-    void screenplaySeriesTreatmentVisibilityChanged(BusinessLayer::AbstractModel* _model,
-                                                    bool _visible);
-    void screenplaySeriesTextVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void screenplaySeriesStatisticsVisibilityChanged(BusinessLayer::AbstractModel* _model,
-                                                     bool _visible);
-    /** @} */
-
-    /**
-     * @brief Сменилась видимость элемента сценария
-     */
-    /** @{ */
-    void novelTitlePageVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void novelSynopsisVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void novelOutlineVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void novelTextVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void novelStatisticsVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    /** @} */
-
-    /**
      * @brief Необходимо создать персонажа с заданным именем
      */
     void createCharacterRequested(const QString& _name, const QByteArray& _content);

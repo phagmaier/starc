@@ -65,11 +65,6 @@ public:
     void setInsertionParent(const QString& _parentName);
 
     /**
-     * @brief Количество эпизодов
-     */
-    int episodesAmount() const;
-
-    /**
      * @brief Желает ли пользователь вставлять элемент в заданного родителя
      */
     bool needInsertIntoParent() const;

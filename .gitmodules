@@ -40,12 +40,6 @@
 [submodule "src/core/management_layer/plugins/world_information"]
     path = src/core/management_layer/plugins/world_information
     url = git@github.com:story-apps/starc-world-information-plugin.git
-[submodule "src/core/management_layer/plugins/novel_cards"]
-	path = src/core/management_layer/plugins/novel_cards
-	url = git@github.com:story-apps/starc-novel-cards-plugin.git 
-[submodule "src/core/management_layer/plugins/novel_statistics"]
-    path = src/core/management_layer/plugins/novel_statistics
-    url = git@github.com:story-apps/starc-novel-statistics-plugin.git
 [submodule "src/core/management_layer/plugins/screenplay_breakdown"]
     path = src/core/management_layer/plugins/screenplay_breakdown
     url = git@github.com:story-apps/starc-screenplay-breakdown-plugin.git 
@@ -61,15 +55,6 @@
 [submodule "src/core/management_layer/plugins/screenplay_timeline"]
     path = src/core/management_layer/plugins/screenplay_timeline
     url = git@github.com:story-apps/starc-screenplay-timeline-plugin.git
-[submodule "src/core/management_layer/plugins/novel_timeline"]
-    path = src/core/management_layer/plugins/novel_timeline
-    url = git@github.com:story-apps/starc-novel-timeline-plugin.git
-[submodule "src/core/management_layer/plugins/screenplay_series_statistics"]
-    path = src/core/management_layer/plugins/screenplay_series_statistics
-    url = git@github.com:story-apps/starc-screenplay-series-statistics-plugin.git
-[submodule "src/core/management_layer/plugins/screenplay_series_plan"]
-    path = src/core/management_layer/plugins/screenplay_series_plan
-    url = git@github.com:story-apps/starc-screenplay-series-plan-plugin.git
 [submodule "src/core/management_layer/plugins/presentation"]
 	path = src/core/management_layer/plugins/presentation
 	url = git@github.com:story-apps/starc-presentation-plugin.git

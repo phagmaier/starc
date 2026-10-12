@@ -9,13 +9,10 @@
 #include <business_layer/export/simple_text/simple_text_markdown_exporter.h>
 #include <business_layer/import/text/simple_text_markdown_importer.h>
 #include <business_layer/model/characters/character_model.h>
-#include <business_layer/model/novel/novel_information_model.h>
-#include <business_layer/model/novel/novel_title_page_model.h>
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/screenplay_title_page_model.h>
 #include <business_layer/model/simple_text/simple_text_model.h>
 #include <business_layer/model/text/text_model_text_item.h>
-#include <business_layer/templates/novel_template.h>
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/simple_text_template.h>
 #include <business_layer/templates/templates_facade.h>
@@ -141,8 +138,6 @@ void TitlePageEdit::initWithModel(BusinessLayer::TitlePageModel* _model)
 {
     if (auto titlePageModel = qobject_cast<BusinessLayer::ScreenplayTitlePageModel*>(d->model)) {
         titlePageModel->informationModel()->disconnect(this);
-    } else if (auto titlePageModel = qobject_cast<BusinessLayer::NovelTitlePageModel*>(d->model)) {
-        titlePageModel->informationModel()->disconnect(this);
     }
 
     d->model = _model;
@@ -179,39 +174,6 @@ void TitlePageEdit::initWithModel(BusinessLayer::TitlePageModel* _model)
                 updateFooter);
         connect(titlePageModel->informationModel(),
                 &BusinessLayer::ScreenplayInformationModel::footerChanged, this, updateFooter);
-    }
-
-    //
-    // Роман
-    //
-    else if (auto titlePageModel = qobject_cast<BusinessLayer::NovelTitlePageModel*>(d->model)) {
-        auto updateHeader = [this, titlePageModel] {
-            setHeader(titlePageModel->informationModel()->printHeaderOnTitlePage()
-                          ? titlePageModel->informationModel()->header()
-                          : QString());
-        };
-        updateHeader();
-        connect(titlePageModel->informationModel(),
-                &BusinessLayer::NovelInformationModel::printHeaderOnTitlePageChanged, this,
-                updateHeader);
-        connect(titlePageModel->informationModel(),
-                &BusinessLayer::NovelInformationModel::headerChanged, this, updateHeader);
-
-        auto updateFooter = [this, titlePageModel] {
-            setFooter(titlePageModel->informationModel()->printFooterOnTitlePage()
-                          ? titlePageModel->informationModel()->footer()
-                          : QString());
-        };
-        updateFooter();
-        connect(titlePageModel->informationModel(),
-                &BusinessLayer::NovelInformationModel::printFooterOnTitlePageChanged, this,
-                updateFooter);
-        connect(titlePageModel->informationModel(),
-                &BusinessLayer::NovelInformationModel::footerChanged, this, updateFooter);
-
-        connect(titlePageModel->informationModel(),
-                &BusinessLayer::NovelInformationModel::templateIdChanged, this,
-                &TitlePageEdit::reinit);
     }
 
     //

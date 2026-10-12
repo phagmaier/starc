@@ -14,17 +14,16 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Done 2026-10-11. What is offered follows the plugin files in `plugins/`
     (`PluginsBuilder::editorsInfoFor`); a plugin added later shows up after a
     restart.
-  - Limit: a screenplay or novel created while there is no statistics view has
-    no Statistics item and does not get one if a view is added later. Older
+  - Limit: a screenplay created while there is no statistics view has no
+    Statistics item and does not get one if a view is added later. Older
     projects keep theirs; it is only hidden.
-  - Also done 2026-10-11: the "Statistics" checkbox on the screenplay, novel
-    and series information pages is hidden while the statistics have no view
+  - Also done 2026-10-11: the "Statistics" checkbox on the screenplay
+    information page is hidden while the statistics have no view
     (`IDocumentManager::setDocumentsWithEditors`); the choice it holds is kept.
     The import dialog offers only document types that have an editor, so
     "Presentation" is gone for PDF files, and a type remembered for a file
     falls back to the first one offered.
-  - Left open: "Split to episodes" creates an "Episodes" item that has no
-    editor.
+  - "Split to episodes" went away with the series (see Cut).
 - [ ] **Keep backups for longer than one writing session.** Every save writes a
   full copy and only the newest 7 are kept, while autosave runs every 3 minutes.
   Keep a few recent copies plus one per day. Start at
@@ -53,8 +52,14 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   Decide: cut the search, or keep it knowingly.
 - [ ] **Font downloads from `starc.app`** for missing fonts
   (`application_manager.cpp`). Decide: bundle what is needed, or drop it.
-- [ ] **Novel and Worlds.** Decide whether they stay. Existing project data has
-  to be kept either way, as with the retired formats.
+- [x] **Novel and screenplay series.** Decided 2026-10-11: this fork is for
+  screenplays only. Both are retired like the earlier formats: nothing creates,
+  imports, exports or configures them, their source is deleted, and documents
+  an existing project already has are kept untouched and shown as unsupported.
+  The episodes of an old series are ordinary screenplays and still open.
+- [ ] **Worlds.** Decide whether they stay. Only the navigator plugin is in
+  this checkout, so a world can be listed but has no editor. Existing project
+  data has to be kept either way, as with the retired formats.
 - [ ] **Translation catalogs.** 33 files in `src/core/translations/`, including
   the English source. Decide whether to keep languages other than English.
 

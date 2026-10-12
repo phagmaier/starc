@@ -33,7 +33,6 @@ public:
      * @brief Импортировать все возможные данные из указанного файла
      */
     void importScreenplay(const QString& _filePath, bool _importDocuments = true);
-    void importNovel(const QString& _filePath);
 
     /**
      * @brief Импортировать данные файла в заданный документ
@@ -61,7 +60,6 @@ signals:
      * @brief Документ загружен
      */
     void simpleTextImported(const QString& _name, const QString& _text);
-    void novelImported(const QString& _name, const QString& _screenplay);
     void screenplayImported(const QString& _name, const QString& _titlePage,
                             const QString& _synopsis, const QString& _treatment,
                             const QString& _screenplay);

@@ -45,10 +45,6 @@ const QVector<QPair<const Domain::DocumentObjectType, const QString>> kDocumentT
             QApplication::translate("Ui::ImportDialog", "Simple text"),
         },
         {
-            Domain::DocumentObjectType::Novel,
-            QApplication::translate("Ui::ImportDialog", "Novel"),
-        },
-        {
             Domain::DocumentObjectType::Screenplay,
             QApplication::translate("Ui::ImportDialog", "Screenplay"),
         },
@@ -114,13 +110,11 @@ QVector<Domain::DocumentObjectType> importTypesForFile(const QString& _path)
     } else if (fileIs(ExtensionHelper::markdown())) {
         return {
             DocumentObjectType::SimpleText,
-            DocumentObjectType::Novel,
         };
     } else if (fileIs(ExtensionHelper::plainText())) {
         return {
             DocumentObjectType::SimpleText,
             DocumentObjectType::Screenplay,
-            DocumentObjectType::Novel,
         };
     }
     //
@@ -384,10 +378,6 @@ void ImportDialog::Implementation::updateImportTextLabel()
     switch (currentType()) {
     case Domain::DocumentObjectType::Screenplay: {
         importText->setText(tr("Import script text"));
-        break;
-    }
-    case Domain::DocumentObjectType::Novel: {
-        importText->setText(tr("Import novel text"));
         break;
     }
     case Domain::DocumentObjectType::Presentation: {

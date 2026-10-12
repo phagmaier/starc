@@ -66,31 +66,6 @@ const QString kScreenplayBreakdownNavigatorMime = QStringLiteral("application/x-
 const QString kScreenplayStatisticsViewMime = QStringLiteral("application/x-starc/view/screenplay/statistics");
 const QString kScreenplayStatisticsNavigatorMime = QStringLiteral("application/x-starc/navigator/screenplay/statistics");
 //
-const QString kScreenplaySeriesEpisodesPlanEditorMime = QStringLiteral("application/x-starc/editor/screenplay-series/episodes/plan");
-const QString kScreenplaySeriesTitlePageEditorMime = QStringLiteral("application/x-starc/editor/screenplay-series/title-page");
-const QString kScreenplaySeriesTreatmentEditorMime = QStringLiteral("application/x-starc/editor/screenplay-series/treatment/text");
-const QString kScreenplaySeriesTreatmentNavigatorMime = QStringLiteral("application/x-starc/navigator/screenplay-series/treatment");
-const QString kScreenplaySeriesTreatmentCardsMime = QStringLiteral("application/x-starc/editor/screenplay-series/treatment/cards");
-const QString kScreenplaySeriesTextEditorMime = QStringLiteral("application/x-starc/editor/screenplay-series/text/text");
-const QString kScreenplaySeriesTextNavigatorMime = QStringLiteral("application/x-starc/navigator/screenplay-series/text");
-const QString kScreenplaySeriesTextCardsMime = QStringLiteral("application/x-starc/editor/screenplay-series/text/cards");
-const QString kScreenplaySeriesTextTimelineMime = QStringLiteral("application/x-starc/editor/screenplay-series/text/timeline");
-const QString kScreenplaySeriesTextBreakdownMime = QStringLiteral("application/x-starc/editor/screenplay-series/text/breakdown");
-const QString kScreenplaySeriesBreakdownNavigatorMime = QStringLiteral("application/x-starc/navigator/screenplay-series/breakdown");
-const QString kScreenplaySeriesStatisticsViewMime = QStringLiteral("application/x-starc/view/screenplay-series/statistics");
-const QString kScreenplaySeriesStatisticsNavigatorMime = QStringLiteral("application/x-starc/navigator/screenplay-series/statistics");
-//
-const QString kNovelTitlePageEditorMime = QStringLiteral("application/x-starc/editor/novel/title-page");
-const QString kNovelOutlineEditorMime = QStringLiteral("application/x-starc/editor/novel/outline/text");
-const QString kNovelOutlineNavigatorMime = QStringLiteral("application/x-starc/navigator/novel/outline");
-const QString kNovelOutlineCardsMime = QStringLiteral("application/x-starc/editor/novel/outline/cards");
-const QString kNovelTextEditorMime = QStringLiteral("application/x-starc/editor/novel/text/text");
-const QString kNovelTextNavigatorMime = QStringLiteral("application/x-starc/navigator/novel/text");
-const QString kNovelTextCardsMime = QStringLiteral("application/x-starc/editor/novel/text/cards");
-const QString kNovelTextTimelineMime = QStringLiteral("application/x-starc/editor/novel/text/timeline");
-const QString kNovelStatisticsViewMime = QStringLiteral("application/x-starc/view/novel/statistics");
-const QString kNovelStatisticsNavigatorMime = QStringLiteral("application/x-starc/navigator/novel/statistics");
-//
 const QString kMindMapMime = QStringLiteral("application/x-starc/editor/mind_map/mind_map");
 const QString kImagesGalleryMime = QStringLiteral("application/x-starc/editor/images/images-gallery");
 const QString kPresentationMime = QStringLiteral("application/x-starc/view/presentation");
@@ -110,19 +85,6 @@ const QHash<QString, QString> kEditorToNavigator
         { kScreenplayTextTimelineMime, kScreenplayTextNavigatorMime },
         { kScreenplayTextBreakdownMime, kScreenplayBreakdownNavigatorMime },
         { kScreenplayStatisticsViewMime, kScreenplayStatisticsNavigatorMime },
-        { kScreenplaySeriesTreatmentEditorMime, kScreenplaySeriesTreatmentNavigatorMime },
-        { kScreenplaySeriesTreatmentCardsMime, kScreenplaySeriesTreatmentNavigatorMime },
-        { kScreenplaySeriesTextEditorMime, kScreenplaySeriesTextNavigatorMime },
-        { kScreenplaySeriesTextCardsMime, kScreenplaySeriesTextNavigatorMime },
-        { kScreenplaySeriesTextTimelineMime, kScreenplaySeriesTextNavigatorMime },
-        { kScreenplaySeriesTextBreakdownMime, kScreenplaySeriesBreakdownNavigatorMime },
-        { kScreenplaySeriesStatisticsViewMime, kScreenplaySeriesStatisticsNavigatorMime },
-        { kNovelOutlineEditorMime, kNovelOutlineNavigatorMime },
-        { kNovelOutlineCardsMime, kNovelTextNavigatorMime },
-        { kNovelTextEditorMime, kNovelTextNavigatorMime },
-        { kNovelTextCardsMime, kNovelTextNavigatorMime },
-        { kNovelTextTimelineMime, kNovelTextNavigatorMime },
-//        { kNovelStatisticsViewMime, kNovelStatisticsNavigatorMime },
       };
 
 /**
@@ -145,32 +107,6 @@ const QHash<QString, QVector<PluginsBuilder::EditorInfo>> kDocumentToEditors
                                                                   { kScreenplayTextTimelineMime, u8"\U000F066C" },
                                                                   { kScreenplayTextBreakdownMime, u8"\U000F14DD" } } },
         { "application/x-starc/document/screenplay/statistics", { { kScreenplayStatisticsViewMime, u8"\U000f0127" } } },
-        //
-        { "application/x-starc/document/screenplay-series", { { "application/x-starc/editor/screenplay-series/information", u8"\U000f02fd" },
-                                                              { "application/x-starc/editor/screenplay-series/parameters", u8"\U000f0493" } } },
-        { "application/x-starc/document/screenplay-series/episodes",   { { kScreenplaySeriesEpisodesPlanEditorMime, u8"\U000f0554" } } },
-        { "application/x-starc/document/screenplay-series/title-page", { { kScreenplaySeriesTitlePageEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/screenplay-series/synopsis",   { { kSimpleTextEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/screenplay-series/treatment",  { { kScreenplaySeriesTreatmentEditorMime, u8"\U000f09ed" },
-                                                                         { kScreenplaySeriesTreatmentCardsMime, u8"\U000f0554" },
-                                                                       /*{ "application/x-starc/editor/screenplay-series/beatboard", u8"\U000F13D2" }*/ } },
-        { "application/x-starc/document/screenplay-series/text",       { { kScreenplaySeriesTextEditorMime, u8"\U000f09ed" },
-                                                                         { kScreenplaySeriesTextCardsMime, u8"\U000f0554" },
-                                                                         { kScreenplaySeriesTextTimelineMime, u8"\U000F066C" },
-                                                                         { kScreenplaySeriesTextBreakdownMime, u8"\U000F14DD" } } },
-        { "application/x-starc/document/screenplay-series/statistics", { { kScreenplaySeriesStatisticsViewMime, u8"\U000f0127" } } },
-        //
-        { "application/x-starc/document/novel", { { "application/x-starc/editor/novel/information", u8"\U000f02fd" },
-                                                       { "application/x-starc/editor/novel/parameters", u8"\U000f0493" } } },
-        { "application/x-starc/document/novel/title-page", { { kNovelTitlePageEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/novel/synopsis",   { { kSimpleTextEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/novel/outline",  { { kNovelOutlineEditorMime, u8"\U000f09ed" },
-                                                           { kNovelOutlineCardsMime, u8"\U000f0554" },
-                                                                  /*{ "application/x-starc/editor/novel/beatboard", u8"\U000F13D2" }*/ } },
-        { "application/x-starc/document/novel/text",       { { kNovelTextEditorMime, u8"\U000f09ed" },
-                                                             { kNovelTextCardsMime, u8"\U000f0554" },
-                                                             { kNovelTextTimelineMime, u8"\U000F066C" } } },
-        { "application/x-starc/document/novel/statistics", { { kNovelStatisticsViewMime, u8"\U000f0127" } } },
         //
         { "application/x-starc/document/characters",  { { kCharactersRelationsMime, u8"\U000F0D3D" } } },
         { "application/x-starc/document/character",  { { kCharacterEditorMime, u8"\U000f02fd" },
@@ -220,35 +156,6 @@ const QHash<QString, QString> kMimeToPlugin
         { kScreenplayBreakdownNavigatorMime, "*screenplaybreakdownstructureplugin*" },
         { kScreenplayStatisticsViewMime, "*screenplaystatisticsplugin*" },
         { kScreenplayStatisticsNavigatorMime, "*screenplaystatisticsstructureplugin*" },
-        //
-        { "application/x-starc/editor/screenplay-series/information", "*screenplayseriesinformationplugin*" },
-        { "application/x-starc/editor/screenplay-series/parameters", "*screenplayseriesparametersplugin*" },
-        { kScreenplaySeriesEpisodesPlanEditorMime, "*screenplayseriesplanplugin*" },
-        { kScreenplaySeriesTitlePageEditorMime, "*titlepageplugin*" },
-        { kScreenplaySeriesTreatmentEditorMime, "*screenplayseriestreatmentplugin*" },
-        { kScreenplaySeriesTreatmentNavigatorMime, "*screenplayseriestreatmentstructureplugin*" },
-        { kScreenplaySeriesTreatmentCardsMime, "*screenplayseriescardsplugin*" },
-        { kScreenplaySeriesTextEditorMime, "*screenplayseriestextplugin*" },
-        { kScreenplaySeriesTextNavigatorMime, "*screenplayseriestextstructureplugin*" },
-        { kScreenplaySeriesTextCardsMime, "*screenplayseriescardsplugin*" },
-        { kScreenplaySeriesTextTimelineMime, "*screenplayseriestimelineplugin*" },
-        { kScreenplaySeriesTextBreakdownMime, "*screenplayseriesbreakdownplugin*" },
-        { kScreenplaySeriesBreakdownNavigatorMime, "*screenplayseriesbreakdownstructureplugin*" },
-        { kScreenplaySeriesStatisticsViewMime, "*screenplayseriesstatisticsplugin*" },
-        { kScreenplaySeriesStatisticsNavigatorMime, "*screenplayseriesstatisticsstructureplugin*" },
-        //
-        { "application/x-starc/editor/novel/information", "*novelinformationplugin*" },
-        { "application/x-starc/editor/novel/parameters", "*novelparametersplugin*" },
-        { kNovelTitlePageEditorMime, "*titlepageplugin*" },
-        { kNovelOutlineEditorMime, "*noveloutlineplugin*" },
-        { kNovelOutlineNavigatorMime, "*noveloutlinestructureplugin*" },
-        { kNovelOutlineCardsMime, "*novelcardsplugin*" },
-        { kNovelTextEditorMime, "*noveltextplugin*" },
-        { kNovelTextNavigatorMime, "*noveltextstructureplugin*" },
-        { kNovelTextCardsMime, "*novelcardsplugin*" },
-        { kNovelTextTimelineMime, "*noveltimelineplugin*" },
-        { kNovelStatisticsViewMime, "*novelstatisticsplugin*" },
-        { kNovelStatisticsNavigatorMime, "*novelstatisticsstructureplugin*" },
         //
         { kCharactersRelationsMime, "*charactersrelationsplugin*" },
         { kCharacterEditorMime, "*characterinformationplugin*" },
@@ -594,69 +501,6 @@ QString PluginsBuilder::editorDescription(const QString& _documentMimeType,
               { { kScreenplayStatisticsViewMime,
                   QApplication::translate("ProjectPluginsBuilder", "Statistics") } } },
             //
-            { "application/x-starc/document/screenplay-series",
-              { { "application/x-starc/editor/screenplay-series/information",
-                  QApplication::translate("ProjectPluginsBuilder", "Information about series") },
-                { "application/x-starc/editor/screenplay-series/parameters",
-                  QApplication::translate("ProjectPluginsBuilder", "Series parameters") } } },
-            { "application/x-starc/document/screenplay-series/episodes",
-              { { kScreenplaySeriesEpisodesPlanEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Episodes plan") } } },
-            { "application/x-starc/document/screenplay-series/title-page",
-              { { kScreenplaySeriesTitlePageEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Title page text") } } },
-            { "application/x-starc/document/screenplay-series/synopsis",
-              { { kSimpleTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Synopsis text") } } },
-            { "application/x-starc/document/screenplay-series/treatment",
-              { { kScreenplaySeriesTreatmentEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Treatment text") },
-                { "application/x-starc/editor/screenplay-series/treatment/beatboard",
-                  QApplication::translate("ProjectPluginsBuilder", "Beats") },
-                { kScreenplaySeriesTreatmentCardsMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Cards") } } },
-            { "application/x-starc/document/screenplay-series/text",
-              { { kScreenplaySeriesTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Screenplay text") },
-                { kScreenplaySeriesTextCardsMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Cards") },
-                { kScreenplaySeriesTextTimelineMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Timeline") },
-                { kScreenplaySeriesTextBreakdownMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Breakdown") } } },
-            { "application/x-starc/document/screenplay-series/statistics",
-              { { kScreenplaySeriesStatisticsViewMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Statistics") } } },
-            //
-            { "application/x-starc/document/novel",
-              { { "application/x-starc/editor/novel/information",
-                  QApplication::translate("ProjectPluginsBuilder", "Information about novel") },
-                { "application/x-starc/editor/novel/parameters",
-                  QApplication::translate("ProjectPluginsBuilder", "Novel parameters") } } },
-            { "application/x-starc/document/novel/title-page",
-              { { kNovelTitlePageEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Title page text") } } },
-            { "application/x-starc/document/novel/synopsis",
-              { { kSimpleTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Synopsis text") } } },
-            { "application/x-starc/document/novel/outline",
-              { { kNovelOutlineEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Outline text") },
-                { "application/x-starc/editor/novel/outline/beatboard",
-                  QApplication::translate("ProjectPluginsBuilder", "Beats") },
-                { kNovelOutlineCardsMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Cards") } } },
-            { "application/x-starc/document/novel/text",
-              { { kNovelTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Novel text") },
-                { kNovelTextCardsMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Cards") },
-                { kNovelTextTimelineMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Timeline") } } },
-            { "application/x-starc/document/novel/statistics",
-              { { kNovelStatisticsViewMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Statistics") } } },
-            //
             { "application/x-starc/document/characters",
               { { kCharactersRelationsMime,
                   QApplication::translate("ProjectPluginsBuilder", "Characters relations") } } },
@@ -939,8 +783,6 @@ void PluginsBuilder::reconfigureSimpleTextEditor(const QStringList& _changedSett
 {
     reconfigurePlugin(kSimpleTextEditorMime, _changedSettingsKeys);
     reconfigurePlugin(kScreenplayTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kNovelTitlePageEditorMime, _changedSettingsKeys);
 }
 
 void PluginsBuilder::reconfigureSimpleTextNavigator() const
@@ -957,14 +799,6 @@ void PluginsBuilder::reconfigureScreenplayEditor(const QStringList& _changedSett
     reconfigurePlugin(kScreenplayTextCardsMime, _changedSettingsKeys);
     reconfigurePlugin(kScreenplayTextTimelineMime, _changedSettingsKeys);
     reconfigurePlugin(kScreenplayTextBreakdownMime, _changedSettingsKeys);
-    //
-    reconfigurePlugin(kScreenplaySeriesTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTreatmentEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTreatmentCardsMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTextEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTextCardsMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTextTimelineMime, _changedSettingsKeys);
-    reconfigurePlugin(kScreenplaySeriesTextBreakdownMime, _changedSettingsKeys);
 }
 
 void PluginsBuilder::reconfigureScreenplayNavigator() const
@@ -972,24 +806,6 @@ void PluginsBuilder::reconfigureScreenplayNavigator() const
     reconfigurePlugin(kScreenplayTreatmentNavigatorMime, {});
     reconfigurePlugin(kScreenplayTextNavigatorMime, {});
     reconfigurePlugin(kScreenplayBreakdownNavigatorMime, {});
-    //
-    reconfigurePlugin(kScreenplaySeriesTreatmentNavigatorMime, {});
-    reconfigurePlugin(kScreenplaySeriesTextNavigatorMime, {});
-    reconfigurePlugin(kScreenplaySeriesBreakdownNavigatorMime, {});
-}
-
-void PluginsBuilder::reconfigureNovelEditor(const QStringList& _changedSettingsKeys) const
-{
-    reconfigurePlugin(kNovelTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kNovelOutlineEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kNovelTextEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kNovelTextCardsMime, _changedSettingsKeys);
-    reconfigurePlugin(kNovelTextTimelineMime, _changedSettingsKeys);
-}
-
-void PluginsBuilder::reconfigureNovelNavigator() const
-{
-    reconfigurePlugin(kNovelTextNavigatorMime, {});
 }
 
 void PluginsBuilder::setProjectInfo(

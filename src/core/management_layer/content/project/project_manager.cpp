@@ -575,8 +575,6 @@ ProjectManager::Implementation::Implementation(ProjectManager* _q, QWidget* _par
     QSet<Domain::DocumentObjectType> statisticsWithoutView;
     for (const auto type : {
              Domain::DocumentObjectType::ScreenplayStatistics,
-             Domain::DocumentObjectType::ScreenplaySeriesStatistics,
-             Domain::DocumentObjectType::NovelStatistics,
          }) {
         if (!hasEditorFor(type)) {
             statisticsWithoutView.insert(type);
@@ -1134,8 +1132,8 @@ void ProjectManager::Implementation::addDocument(Domain::DocumentObjectType _typ
                 //
                 // Определим индекс элемента для выделения
                 //
-                const auto addedItemIndex = projectStructureModel->addDocument(
-                    _type, _name, parentIndex, {}, true, createDocumentDialog->episodesAmount());
+                const auto addedItemIndex
+                    = projectStructureModel->addDocument(_type, _name, parentIndex, {}, true);
                 QModelIndex itemForSelectIndex = addedItemIndex;
                 //
                 // ... в зависимости от типа, выбираем потенциально желаемый к редактированию
@@ -1145,8 +1143,7 @@ void ProjectManager::Implementation::addDocument(Domain::DocumentObjectType _typ
                 constexpr int invalidIndex = -1;
                 int childIndex = invalidIndex;
                 switch (_type) {
-                case Domain::DocumentObjectType::Screenplay:
-                case Domain::DocumentObjectType::Novel: {
+                case Domain::DocumentObjectType::Screenplay: {
                     childIndex = 3;
                     break;
                 }
@@ -1246,8 +1243,7 @@ BusinessLayer::StructureModelItem* ProjectManager::Implementation::aliasedItemFo
     const QModelIndex& _index)
 {
     auto item = projectStructureModel->itemForIndex(_index);
-    if (item->type() != Domain::DocumentObjectType::ScreenplayTreatment
-        && item->type() != Domain::DocumentObjectType::NovelOutline) {
+    if (item->type() != Domain::DocumentObjectType::ScreenplayTreatment) {
         return item;
     }
 
@@ -3258,54 +3254,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                                       _visible);
             });
     //
-    connect(&d->modelsFacade, &ProjectModelsFacade::screenplaySeriesTitlePageVisibilityChanged,
-            this, [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::ScreenplaySeriesTitlePage,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::screenplaySeriesSynopsisVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::ScreenplaySeriesSynopsis,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::screenplaySeriesTreatmentVisibilityChanged,
-            this, [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::ScreenplaySeriesTreatment,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::screenplaySeriesTextVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::ScreenplaySeriesText,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::screenplaySeriesStatisticsVisibilityChanged,
-            this, [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(
-                    _model, Domain::DocumentObjectType::ScreenplaySeriesStatistics, _visible);
-            });
-    //
-    connect(&d->modelsFacade, &ProjectModelsFacade::novelTitlePageVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::NovelTitlePage, _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::novelSynopsisVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::NovelSynopsis, _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::novelOutlineVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::NovelOutline, _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::novelTextVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::NovelText, _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::novelStatisticsVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::NovelStatistics,
-                                      _visible);
-            });
-    //
     connect(&d->modelsFacade, &ProjectModelsFacade::emptyRecycleBinRequested, this,
             [this] { d->emptyRecycleBin(); });
     //
@@ -3451,16 +3399,6 @@ void ProjectManager::reconfigureScreenplayDuration()
 
         screenplayModel->recalculateCounters();
     }
-}
-
-void ProjectManager::reconfigureNovelEditor(const QStringList& _changedSettingsKeys)
-{
-    d->pluginsBuilder.reconfigureNovelEditor(_changedSettingsKeys);
-}
-
-void ProjectManager::reconfigureNovelNavigator()
-{
-    d->pluginsBuilder.reconfigureNovelNavigator();
 }
 
 void ProjectManager::checkAvailabilityToEdit()
@@ -3815,60 +3753,6 @@ void ProjectManager::storeSimpleText(const QString& _name, const QString& _text)
     d->setCurrentItem(simpleTextItem);
 }
 
-void ProjectManager::storeNovel(const QString& _name, const QString& _text)
-{
-    //
-    // Если ожидаем драфт, то наполняем контейнер для импорта
-    //
-    if (d->documentImportingContainer.waitForDocument) {
-        d->documentImportingContainer.waitForDocument = false;
-        d->documentImportingContainer.name = _name;
-        d->documentImportingContainer.text = _text;
-        return;
-    }
-
-    //
-    // ATTENTION: Копипаста из StructureModel::addDocument, быть внимательным при обновлении
-    //
-
-    using namespace Domain;
-
-    auto createItem = [](DocumentObjectType _type, const QString& _name) {
-        auto uuid = QUuid::createUuid();
-        const auto visible = true;
-        const auto readOnly = false;
-        const auto comparison = false;
-        return new BusinessLayer::StructureModelItem(uuid, _type, _name, tr("First draft"), {},
-                                                     visible, readOnly, comparison);
-    };
-
-    auto rootItem = d->projectStructureModel->itemForIndex({});
-    auto novelItem = createItem(DocumentObjectType::Novel, _name);
-    d->projectStructureModel->appendItem(novelItem, rootItem);
-
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::NovelTitlePage, tr("Title page")), novelItem, {});
-    auto synopsisItem = createItem(DocumentObjectType::NovelSynopsis, tr("Synopsis"));
-    d->projectStructureModel->appendItem(synopsisItem, novelItem, {});
-    d->projectStructureModel->appendItem(createItem(DocumentObjectType::NovelText, tr("Novel")),
-                                         novelItem, _text.toUtf8());
-    if (d->hasEditorFor(DocumentObjectType::NovelStatistics)) {
-        d->projectStructureModel->appendItem(
-            createItem(DocumentObjectType::NovelStatistics, tr("Statistics")), novelItem, {});
-    }
-    //
-    // Вставляем план после всех документов, т.к. он является алиасом к документу романа
-    // и чтобы его сконструировать, нужны другие документы
-    //
-    d->projectStructureModel->insertItem(
-        createItem(DocumentObjectType::NovelOutline, tr("Outline")), synopsisItem, {});
-
-    //
-    // Фокусируем добавленный документ
-    //
-    d->setCurrentItem(novelItem);
-}
-
 void ProjectManager::storeScreenplay(const QString& _name, const QString& _titlePage,
                                      const QString& _synopsis, const QString& _treatment,
                                      const QString& _text)
@@ -4090,9 +3974,7 @@ BusinessLayer::AbstractModel* ProjectManager::firstScriptModel() const
     for (auto row = 0; row < model->rowCount(); ++row) {
         const auto index = model->index(row, 0);
         const auto item = d->projectStructureModel->itemForIndex(index);
-        if (item != nullptr
-            && (item->type() == Domain::DocumentObjectType::Screenplay
-                || item->type() == Domain::DocumentObjectType::Novel)) {
+        if (item != nullptr && item->type() == Domain::DocumentObjectType::Screenplay) {
             constexpr int scriptTextIndex = 2;
             return d->modelsFacade.modelFor(item->childAt(scriptTextIndex)->uuid());
         }
@@ -5640,7 +5522,7 @@ void ProjectManager::createDocument(Domain::DocumentObjectType _type)
     //
     // Создаём новый документ
     //
-    d->projectStructureModel->addDocument(_type, {}, parentIndex, {}, true, 0);
+    d->projectStructureModel->addDocument(_type, {}, parentIndex, {}, true);
 }
 
 void ProjectManager::updateCurrentDocument(BusinessLayer::AbstractModel* _model,

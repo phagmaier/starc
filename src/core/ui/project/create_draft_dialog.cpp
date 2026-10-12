@@ -214,10 +214,6 @@ void CreateDraftDialog::setDrafts(const QStringList& _drafts, int _selectDraftIn
         d->importFilters = DialogHelper::filtersForImportScreenplay();
         break;
     }
-    case Domain::DocumentObjectType::NovelText: {
-        d->importFilters = DialogHelper::filtersForImportNovel();
-        break;
-    }
     default: {
         break;
     }

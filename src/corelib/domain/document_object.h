@@ -126,6 +126,20 @@ inline bool isUnsupportedDocumentType(DocumentObjectType _type)
     case DocumentObjectType::StageplayText:
     case DocumentObjectType::StageplayDictionaries:
     case DocumentObjectType::StageplayStatistics:
+    case DocumentObjectType::ScreenplaySeries:
+    case DocumentObjectType::ScreenplaySeriesEpisodes:
+    case DocumentObjectType::ScreenplaySeriesTitlePage:
+    case DocumentObjectType::ScreenplaySeriesSynopsis:
+    case DocumentObjectType::ScreenplaySeriesTreatment:
+    case DocumentObjectType::ScreenplaySeriesText:
+    case DocumentObjectType::ScreenplaySeriesStatistics:
+    case DocumentObjectType::Novel:
+    case DocumentObjectType::NovelTitlePage:
+    case DocumentObjectType::NovelSynopsis:
+    case DocumentObjectType::NovelOutline:
+    case DocumentObjectType::NovelText:
+    case DocumentObjectType::NovelDictionaries:
+    case DocumentObjectType::NovelStatistics:
         return true;
     default:
         return false;

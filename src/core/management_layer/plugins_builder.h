@@ -132,8 +132,6 @@ public:
     void reconfigureSimpleTextNavigator() const;
     void reconfigureScreenplayEditor(const QStringList& _changedSettingsKeys) const;
     void reconfigureScreenplayNavigator() const;
-    void reconfigureNovelEditor(const QStringList& _changedSettingsKeys) const;
-    void reconfigureNovelNavigator() const;
 
     /**
      * @brief Задать информацию о проекте в плагин

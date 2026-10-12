@@ -184,23 +184,6 @@ QString DialogHelper::filtersForImportScreenplay()
     return filtersForImport();
 }
 
-QString DialogHelper::filtersForImportNovel()
-{
-    QString filters = makeFilter(QApplication::translate("DialogHelper", "All supported files"),
-                                 {
-                                     ExtensionHelper::markdown(),
-                                     ExtensionHelper::plainText(),
-                                 });
-    for (const auto& filter : {
-             markdownFilter(),
-             plainTextFilter(),
-         }) {
-        filters.append(";;");
-        filters.append(filter);
-    }
-    return filters;
-}
-
 QString DialogHelper::filtersForSceneImage()
 {
     return pngFilter();

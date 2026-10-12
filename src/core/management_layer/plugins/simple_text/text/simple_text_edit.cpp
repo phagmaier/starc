@@ -8,8 +8,6 @@
 #include <business_layer/export/export_options.h>
 #include <business_layer/export/simple_text/simple_text_markdown_exporter.h>
 #include <business_layer/import/text/simple_text_markdown_importer.h>
-#include <business_layer/model/novel/novel_information_model.h>
-#include <business_layer/model/novel/novel_synopsis_model.h>
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/screenplay_synopsis_model.h>
 #include <business_layer/model/simple_text/simple_text_model.h>
@@ -206,9 +204,6 @@ void SimpleTextEdit::initWithModel(BusinessLayer::SimpleTextModel* _model)
 
         if (auto synopsisModel = qobject_cast<BusinessLayer::ScreenplaySynopsisModel*>(d->model)) {
             synopsisModel->informationModel()->disconnect(this);
-        } else if (auto synopsisModel
-                   = qobject_cast<BusinessLayer::NovelSynopsisModel*>(d->model)) {
-            synopsisModel->informationModel()->disconnect(this);
         }
     }
 
@@ -234,27 +229,6 @@ void SimpleTextEdit::initWithModel(BusinessLayer::SimpleTextModel* _model)
         updateFooter();
         connect(synopsisModel->informationModel(),
                 &BusinessLayer::ScreenplayInformationModel::footerChanged, this, updateFooter);
-    }
-
-    //
-    // Роман
-    //
-    else if (auto synopsisModel = qobject_cast<BusinessLayer::NovelSynopsisModel*>(d->model)) {
-        auto updateHeader
-            = [this, synopsisModel] { setHeader(synopsisModel->informationModel()->header()); };
-        updateHeader();
-        connect(synopsisModel->informationModel(),
-                &BusinessLayer::NovelInformationModel::headerChanged, this, updateHeader);
-
-        auto updateFooter
-            = [this, synopsisModel] { setFooter(synopsisModel->informationModel()->footer()); };
-        updateFooter();
-        connect(synopsisModel->informationModel(),
-                &BusinessLayer::NovelInformationModel::footerChanged, this, updateFooter);
-
-        connect(synopsisModel->informationModel(),
-                &BusinessLayer::NovelInformationModel::templateIdChanged, this,
-                &SimpleTextEdit::reinit);
     }
 
     //

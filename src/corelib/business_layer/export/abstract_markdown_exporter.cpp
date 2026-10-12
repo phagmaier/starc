@@ -1,13 +1,12 @@
 
 #include "abstract_markdown_exporter.h"
 
-#include <business_layer/document/novel/text/novel_text_document.h>
 #include <business_layer/document/simple_text/simple_text_document.h>
 #include <business_layer/document/text/text_block_data.h>
 #include <business_layer/document/text/text_cursor.h>
 #include <business_layer/export/export_options.h>
 #include <business_layer/model/simple_text/simple_text_model.h>
-#include <business_layer/templates/novel_template.h>
+#include <business_layer/templates/text_template.h>
 #include <ui/widgets/text_edit/page/page_text_edit.h>
 #include <utils/helpers/measurement_helper.h>
 

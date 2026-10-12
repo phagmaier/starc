@@ -91,9 +91,6 @@ CreateProjectDialog::Implementation::Implementation(QWidget* _parent)
     if (settingsValue(DataStorageLayer::kComponentsScreenplayAvailableKey).toBool()) {
         projectTypeModel->appendRow(makeItem(Domain::DocumentObjectType::Screenplay));
     }
-    if (settingsValue(DataStorageLayer::kComponentsNovelAvailableKey).toBool()) {
-        projectTypeModel->appendRow(makeItem(Domain::DocumentObjectType::Novel));
-    }
 
     localProject->setChecked(true);
 
@@ -408,11 +405,6 @@ void CreateProjectDialog::updateTranslations()
 
         case Domain::DocumentObjectType::Screenplay: {
             item->setText(tr("Screenplay"));
-            break;
-        }
-
-        case Domain::DocumentObjectType::Novel: {
-            item->setText(tr("Novel"));
             break;
         }
         }

@@ -239,8 +239,7 @@ void ScreenplayTemplatePageView::configureTemplateFor(Domain::DocumentObjectType
              d->pageSplitterLeft,
              d->pageSplitterRight,
          }) {
-        widget->setVisible(_type != Domain::DocumentObjectType::SimpleText
-                           && _type != Domain::DocumentObjectType::Novel);
+        widget->setVisible(_type != Domain::DocumentObjectType::SimpleText);
     }
 }
 

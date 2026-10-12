@@ -84,8 +84,6 @@ signals:
     void screenplayEditorChanged(const QStringList& _changedSettingsKeys);
     void screenplayNavigatorChanged();
     void screenplayDurationChanged();
-    void novelEditorChanged(const QStringList& _changedSettingsKeys);
-    void novelNavigatorChanged();
 
     /**
      * @brief Изменились расширенные параметры приложения
@@ -181,16 +179,6 @@ private:
     void setScreenplayDurationUseEighths(bool _use);
 
     //
-    // Сохранение параметров редактора сценария
-    //
-    void setNovelAvailable(bool _available);
-    //
-    void setNovelEditorDefaultTemplate(const QString& _templateId);
-    //
-    void setNovelNavigatorShowSceneText(bool _show, int _lines);
-    void setNovelNavigatorCounterType(int _type);
-
-    //
     // Сохранение параметров горячих клавиш
     //
     void setShortcutForApplication(const QString& _actionName, const QString& _shortcut);
@@ -200,9 +188,6 @@ private:
     void setShortcutsForScreenplayEdit(const QString& _blockType, const QString& _shortcut,
                                        const QString& _jumpByTab, const QString& _jumpByEnter,
                                        const QString& _changeByTab, const QString& _changeByEnter);
-    void setShortcutsForNovelEdit(const QString& _blockType, const QString& _shortcut,
-                                  const QString& _jumpByTab, const QString& _jumpByEnter,
-                                  const QString& _changeByTab, const QString& _changeByEnter);
 
     //
     // Сохранение расширенных параметров

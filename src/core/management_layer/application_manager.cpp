@@ -2936,8 +2936,6 @@ void ApplicationManager::initConnections()
             });
     connect(d->importManager.data(), &ImportManager::simpleTextImported, d->projectManager.data(),
             &ProjectManager::storeSimpleText);
-    connect(d->importManager.data(), &ImportManager::novelImported, d->projectManager.data(),
-            &ProjectManager::storeNovel);
     connect(d->importManager.data(), &ImportManager::screenplayImported, d->projectManager.data(),
             &ProjectManager::storeScreenplay);
     connect(d->importManager.data(), &ImportManager::presentationImported, d->projectManager.data(),
@@ -3040,13 +3038,6 @@ void ApplicationManager::initConnections()
         d->projectManager->reconfigureScreenplayNavigator();
         d->projectManager->reconfigureScreenplayDuration();
     });
-    //
-    connect(d->settingsManager.data(), &SettingsManager::novelEditorChanged, this,
-            [this](const QStringList& _changedSettingsKeys) {
-                d->projectManager->reconfigureNovelEditor(_changedSettingsKeys);
-            });
-    connect(d->settingsManager.data(), &SettingsManager::novelNavigatorChanged, this,
-            [this] { d->projectManager->reconfigureNovelNavigator(); });
     //
     connect(d->settingsManager.data(), &SettingsManager::advancedAccurateMetricsHandlingChanged,
             this, [this] {

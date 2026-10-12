@@ -55,8 +55,6 @@ public:
     Body1Label* documentInfo = nullptr;
     TextField* documentName = nullptr;
     bool insertIntoParentEnabled = false;
-    CheckBox* makeEpisodic = nullptr;
-    TextField* episodesAmount = nullptr;
     TextField* importFilePath = nullptr;
     CheckBox* insertIntoParent = nullptr;
 
@@ -80,8 +78,6 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
     , title(new H6Label(_parent))
     , documentInfo(new Body1Label(_parent))
     , documentName(new TextField(_parent))
-    , makeEpisodic(new CheckBox(_parent))
-    , episodesAmount(new TextField(_parent))
     , importFilePath(new TextField(_parent))
     , insertIntoParent(new CheckBox(_parent))
     , blockedFeatureContainer(new Body1Label(_parent))
@@ -113,9 +109,6 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
         storyOptionsLayout->setSpacing(0);
         if (settingsValue(DataStorageLayer::kComponentsScreenplayAvailableKey).toBool()) {
             storyOptionsLayout->addWidget(makeOption(Domain::DocumentObjectType::Screenplay));
-        }
-        if (settingsValue(DataStorageLayer::kComponentsNovelAvailableKey).toBool()) {
-            storyOptionsLayout->addWidget(makeOption(Domain::DocumentObjectType::Novel));
         }
         optionsLayout->addLayout(storyOptionsLayout, 1);
         optionsGroups.append({ storyTitle, storyOptionsLayout });
@@ -155,14 +148,10 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
     UiHelper::setFocusPolicyRecursively(content, Qt::NoFocus);
 
     documentName->setSpellCheckPolicy(SpellCheckPolicy::Manual);
-    episodesAmount->setSpellCheckPolicy(SpellCheckPolicy::Manual);
-    episodesAmount->setText("8");
     importFilePath->setSpellCheckPolicy(SpellCheckPolicy::Manual);
     importFilePath->setTrailingIcon(u8"\U000f0256");
 
     insertIntoParent->hide();
-    makeEpisodic->hide();
-    episodesAmount->hide();
 
     auto blockedFeaturesLayout = new QVBoxLayout;
     blockedFeaturesLayout->setContentsMargins({});
@@ -187,7 +176,6 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
         { Domain::DocumentObjectType::Location, tr("Add location") },
         { Domain::DocumentObjectType::World, tr("Add world") },
         { Domain::DocumentObjectType::Screenplay, tr("Add screenplay") },
-        { Domain::DocumentObjectType::Novel, tr("Add novel") },
         { Domain::DocumentObjectType::MindMap, tr("Add mind map") },
         { Domain::DocumentObjectType::ImagesGallery, tr("Add image gallery") },
         { Domain::DocumentObjectType::Presentation, tr("Add presentation") },
@@ -208,8 +196,6 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
         { Domain::DocumentObjectType::Screenplay,
           tr("Create a document set to streamline your work on the feature film, series, or "
              "animation.") },
-        { Domain::DocumentObjectType::Novel,
-          tr("Create a document set to streamline your work on the fiction book.") },
         { Domain::DocumentObjectType::MindMap,
           tr("Create a mind map to brainstorm ideas and plan your story development.") },
         { Domain::DocumentObjectType::ImagesGallery,
@@ -239,14 +225,6 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
         NamesGenerator::bind(documentName);
     } else {
         NamesGenerator::unbind(documentName);
-    }
-
-    if (_type == Domain::DocumentObjectType::Screenplay) {
-        makeEpisodic->show();
-        episodesAmount->setVisible(makeEpisodic->isChecked());
-    } else {
-        makeEpisodic->hide();
-        episodesAmount->hide();
     }
 
     if (_isBlocked) {
@@ -280,8 +258,6 @@ CreateDocumentDialog::CreateDocumentDialog(QWidget* _parent)
     contentsLayout()->addWidget(d->title, row++, 1, 1, 1);
     contentsLayout()->addWidget(d->documentInfo, row++, 1, 1, 1);
     contentsLayout()->addWidget(d->documentName, row++, 1, 1, 1);
-    contentsLayout()->addWidget(d->makeEpisodic, row++, 1, 1, 1);
-    contentsLayout()->addWidget(d->episodesAmount, row++, 1, 1, 1);
     contentsLayout()->addWidget(d->importFilePath, row++, 1, 1, 1);
     contentsLayout()->addWidget(d->insertIntoParent, row++, 1, 1, 1);
     contentsLayout()->addWidget(d->blockedFeatureContainer, row++, 1, 1, 1);
@@ -310,22 +286,6 @@ CreateDocumentDialog::CreateDocumentDialog(QWidget* _parent)
     }
     connect(d->documentName, &TextField::textChanged, this,
             [this] { d->documentName->clearError(); });
-    connect(d->makeEpisodic, &CheckBox::checkedChanged, this, [this](bool _checked) {
-        d->episodesAmount->setVisible(d->makeEpisodic->isVisible() && _checked);
-    });
-    connect(d->episodesAmount, &TextField::textChanged, this, [this] {
-        d->episodesAmount->clearError();
-
-        if (d->episodesAmount->text().isEmpty()) {
-            return;
-        }
-
-        bool ok = false;
-        const auto amount = d->episodesAmount->text().toInt(&ok);
-        if (!ok || amount < 0) {
-            d->episodesAmount->setError(tr("Should be a number"));
-        }
-    });
     connect(d->importFilePath, &TextField::textChanged, d->importFilePath, &TextField::clearError);
     connect(d->importFilePath, &TextField::trailingIconPressed, this, [this] {
         const auto projectImportFolder
@@ -365,30 +325,6 @@ CreateDocumentDialog::CreateDocumentDialog(QWidget* _parent)
                 d->documentName->setError(errorMessage);
                 return;
             }
-        }
-
-        //
-        // Если нужно, преобразуем тип в эпизодический
-        //
-        if (d->makeEpisodic->isVisibleTo(this) && d->makeEpisodic->isChecked()) {
-            switch (documentType) {
-            default: {
-                break;
-            }
-
-            case Domain::DocumentObjectType::Screenplay: {
-                documentType = Domain::DocumentObjectType::ScreenplaySeries;
-                break;
-            }
-            }
-        }
-
-        //
-        // Количество эпизодов должно быть задано корректно
-        //
-        if (d->episodesAmount->isVisibleTo(this) && !d->episodesAmount->error().isEmpty()) {
-            d->episodesAmount->setFocus();
-            return;
         }
 
         //
@@ -558,11 +494,6 @@ void CreateDocumentDialog::setInsertionParent(const QString& _parentName)
     d->insertIntoParent->show();
 }
 
-int CreateDocumentDialog::episodesAmount() const
-{
-    return d->episodesAmount->text().toInt();
-}
-
 bool CreateDocumentDialog::needInsertIntoParent() const
 {
     return d->insertIntoParent->isChecked();
@@ -592,8 +523,6 @@ void CreateDocumentDialog::updateTranslations()
         }
     }
     d->documentName->setLabel(tr("Name"));
-    d->makeEpisodic->setText(tr("Split to episodes"));
-    d->episodesAmount->setLabel(tr("Episodes amount"));
     d->importFilePath->setLabel(tr("Choose file for importing"));
     d->importFilePath->setTrailingIconToolTip(tr("Choose file for importing"));
     d->blockedFeatureLabel->setText(
@@ -650,11 +579,6 @@ void CreateDocumentDialog::designSystemChangeEvent(DesignSystemChangeEvent* _eve
     d->documentInfo->setContentsMargins(documentInfoMargins);
     d->documentInfo->setTextColor(DesignSystem::color().onBackground());
     d->documentInfo->setBackgroundColor(DesignSystem::color().background());
-
-    d->makeEpisodic->setTextColor(DesignSystem::color().onBackground());
-    d->makeEpisodic->setBackgroundColor(DesignSystem::color().background());
-    d->episodesAmount->setTextColor(DesignSystem::color().onBackground());
-    d->episodesAmount->setBackgroundColor(DesignSystem::color().onBackground());
 
     d->insertIntoParent->setTextColor(DesignSystem::color().onBackground());
     d->insertIntoParent->setBackgroundColor(DesignSystem::color().background());

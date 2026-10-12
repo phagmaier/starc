@@ -33,7 +33,6 @@ signals:
     void componentsPressed();
     void componentsSimpleTextPressed();
     void componentsScreenplayPressed();
-    void componentsNovelPressed();
     void shortcutsPressed();
     void advancedPressed();
 

@@ -235,11 +235,6 @@ void CreateDocumentDialogOption::updateTranslations()
         break;
     }
 
-    case DocumentObjectType::Novel: {
-        d->documentName = tr("Novel");
-        break;
-    }
-
     case DocumentObjectType::MindMap: {
         d->documentName = tr("Mind map");
         break;

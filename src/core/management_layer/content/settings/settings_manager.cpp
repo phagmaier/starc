@@ -4,7 +4,6 @@
 #include "template_options_manager.h"
 
 #include <3rd_party/webloader/src/NetworkRequest.h>
-#include <business_layer/templates/novel_template.h>
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/simple_text_template.h>
 #include <business_layer/templates/templates_facade.h>
@@ -73,12 +72,10 @@ public:
     void loadComponentsSettings();
     void loadSimpleTextSettings();
     void loadScreenplaySettings();
-    void loadNovelSettings();
     void loadShortcutsSettings();
     void loadShortcutsForApplicationSettings();
     void loadShortcutsForSimpleTextSettings();
     void loadShortcutsForScreenplaySettings();
-    void loadShortcutsForNovelSettings();
 
     /**
      * @brief Загрузить дополнительные параметры
@@ -175,7 +172,6 @@ void SettingsManager::Implementation::loadComponentsSettings()
 {
     loadSimpleTextSettings();
     loadScreenplaySettings();
-    loadNovelSettings();
 }
 
 void SettingsManager::Implementation::loadSimpleTextSettings()
@@ -291,27 +287,11 @@ void SettingsManager::Implementation::loadScreenplaySettings()
         settingsValue(DataStorageLayer::kComponentsScreenplayDurationUseEighthsKey).toBool());
 }
 
-void SettingsManager::Implementation::loadNovelSettings()
-{
-    view->setNovelAvailable(settingsValue(DataStorageLayer::kComponentsNovelAvailableKey).toBool());
-    const auto defaultTemplate
-        = settingsValue(DataStorageLayer::kComponentsNovelEditorDefaultTemplateKey).toString();
-    view->setNovelEditorDefaultTemplate(defaultTemplate);
-    BusinessLayer::TemplatesFacade::setDefaultNovelTemplate(defaultTemplate);
-    //
-    view->setNovelNavigatorShowSceneText(
-        settingsValue(DataStorageLayer::kComponentsNovelNavigatorShowSceneTextKey).toBool(),
-        settingsValue(DataStorageLayer::kComponentsNovelNavigatorSceneTextLinesKey).toInt());
-    view->setNovelNavigatorCounterType(
-        settingsValue(DataStorageLayer::kComponentsNovelNavigatorCounterTypeKey).toInt());
-}
-
 void SettingsManager::Implementation::loadShortcutsSettings()
 {
     loadShortcutsForApplicationSettings();
     loadShortcutsForSimpleTextSettings();
     loadShortcutsForScreenplaySettings();
-    loadShortcutsForNovelSettings();
 }
 
 void SettingsManager::Implementation::loadShortcutsForApplicationSettings()
@@ -494,80 +474,6 @@ void SettingsManager::Implementation::loadShortcutsForScreenplaySettings()
     view->setShortcutsForScreenplayModel(model);
 }
 
-void SettingsManager::Implementation::loadShortcutsForNovelSettings()
-{
-    using namespace BusinessLayer;
-
-    //
-    // Сформировать строку таблицы переходов между блоками для заданного типа
-    //
-    auto blocksJumpsModelRow = [](TextParagraphType _type) {
-        const auto shortcut = ShortcutsHelper::novelShortcut(_type);
-        const auto jumpForTab = ShortcutsHelper::novelJumpByTab(_type);
-        const auto jumpForEnter = ShortcutsHelper::novelJumpByEnter(_type);
-        const auto changeForTab = ShortcutsHelper::novelChangeByTab(_type);
-        const auto changeForEnter = ShortcutsHelper::novelChangeByEnter(_type);
-
-        QList<QStandardItem*> result;
-        result << new QStandardItem(toDisplayString(_type)) << new QStandardItem(shortcut)
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(jumpForTab)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(jumpForEnter)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(changeForTab)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(changeForEnter)));
-        result.first()->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        return result;
-    };
-    //
-    // ... таблика переходов между разными блоками
-    //
-    const int rows = 0;
-    const int columns = 6;
-    QStandardItemModel* blocksJumpsModel = new QStandardItemModel(rows, columns, view);
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::SceneHeading));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::BeatHeading));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Text));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::InlineNote));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::UnformattedText));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::ChapterHeading));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::PartHeading));
-    //
-    // ... модель переходов между блоками, её заголовок и делегат
-    //
-    QStandardItemModel* blockJumpsHeaderModel = new QStandardItemModel(view);
-    {
-        auto columnAfterText = new QStandardItem();
-        {
-            auto tab = new QStandardItem("Tab");
-            tab->setData(u8"\U000F0312", Qt::DecorationRole);
-            columnAfterText->appendColumn({ tab });
-
-            auto enter = new QStandardItem("Enter");
-            enter->setData(u8"\U000F0311", Qt::DecorationRole);
-            columnAfterText->appendColumn({ enter });
-        }
-        auto columnEmptyText = new QStandardItem();
-        {
-            auto tab = new QStandardItem("Tab");
-            tab->setData(u8"\U000F0312", Qt::DecorationRole);
-            columnEmptyText->appendColumn({ tab });
-
-            auto enter = new QStandardItem("Enter");
-            enter->setData(u8"\U000F0311", Qt::DecorationRole);
-            columnEmptyText->appendColumn({ enter });
-        }
-
-        blockJumpsHeaderModel->setItem(0, 0, new QStandardItem());
-        blockJumpsHeaderModel->setItem(0, 1, new QStandardItem());
-        blockJumpsHeaderModel->setItem(0, 2, columnAfterText);
-        blockJumpsHeaderModel->setItem(0, 3, columnEmptyText);
-    }
-
-    auto model = new HierarchicalModel(view);
-    model->setSourceModel(blocksJumpsModel);
-    model->setHeaderModel(blockJumpsHeaderModel);
-    view->setShortcutsForNovelModel(model);
-}
-
 void SettingsManager::Implementation::loadAdvancedSettings()
 {
     view->setAdvancedAccurateMetricsHandling(
@@ -635,8 +541,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             &Ui::SettingsView::showComponentsSimpleText);
     connect(d->navigator, &Ui::SettingsNavigator::componentsScreenplayPressed, d->view,
             &Ui::SettingsView::showComponentsScreenplay);
-    connect(d->navigator, &Ui::SettingsNavigator::componentsNovelPressed, d->view,
-            &Ui::SettingsView::showComponentsNovel);
     connect(d->navigator, &Ui::SettingsNavigator::shortcutsPressed, d->view,
             &Ui::SettingsView::showShortcuts);
     connect(d->navigator, &Ui::SettingsNavigator::advancedPressed, d->view,
@@ -850,19 +754,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             &SettingsManager::setScreenplayDurationConfigurablePerEvery50ForSceneHeading);
     connect(d->view, &Ui::SettingsView::screenplayDurationUseEighthsChanged, this,
             &SettingsManager::setScreenplayDurationUseEighths);
-    //
-    // ... роман
-    //
-    connect(d->view, &Ui::SettingsView::novelAvailableChanged, this,
-            &SettingsManager::setNovelAvailable);
-    //
-    connect(d->view, &Ui::SettingsView::novelEditorDefaultTemplateChanged, this,
-            &SettingsManager::setNovelEditorDefaultTemplate);
-    //
-    connect(d->view, &Ui::SettingsView::novelNavigatorShowSceneTextChanged, this,
-            &SettingsManager::setNovelNavigatorShowSceneText);
-    connect(d->view, &Ui::SettingsView::novelNavigatorCounterTypeChanged, this,
-            &SettingsManager::setNovelNavigatorCounterType);
 
     //
     // Работа с библиотекой шаблонов сценария
@@ -984,61 +875,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             BusinessLayer::TemplatesFacade::setDefaultScreenplayTemplate(screenplayTemplate.id());
             d->view->setScreenplayEditorDefaultTemplate(screenplayTemplate.id());
         });
-
-    //
-    // ... роман
-    //
-    connect(d->view, &Ui::SettingsView::editCurrentNovelEditorTemplateRequested, this,
-            [this, showTemplateOptionsEditor](const QString& _templateId) {
-                d->templateOptionsManager->setCurrentDocumentType(
-                    Domain::DocumentObjectType::Novel);
-                d->templateOptionsManager->editTemplate(_templateId);
-                showTemplateOptionsEditor();
-            });
-    connect(d->view, &Ui::SettingsView::duplicateCurrentNovelEditorTemplateRequested, this,
-            [this, showTemplateOptionsEditor](const QString& _templateId) {
-                d->templateOptionsManager->setCurrentDocumentType(
-                    Domain::DocumentObjectType::Novel);
-                d->templateOptionsManager->duplicateTemplate(_templateId);
-                showTemplateOptionsEditor();
-            });
-    connect(d->view, &Ui::SettingsView::saveToFileCurrentNovelEditorTemplateRequested, this,
-            [this](const QString& _templateId) {
-                const auto novelTemplate
-                    = BusinessLayer::TemplatesFacade::novelTemplate(_templateId);
-                auto saveToFilePath = QFileDialog::getSaveFileName(
-                    d->view->topLevelWidget(), tr("Choose the file to save template"),
-                    QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/"
-                        + novelTemplate.name(),
-                    DialogHelper::starcTemplateFilter());
-                if (saveToFilePath.isEmpty()) {
-                    return;
-                }
-
-                if (!saveToFilePath.endsWith(ExtensionHelper::starct())) {
-                    saveToFilePath.append(QString(".%1").arg(ExtensionHelper::starct()));
-                }
-                novelTemplate.saveToFile(saveToFilePath);
-            });
-    connect(d->view, &Ui::SettingsView::removeCurrentNovelEditorTemplateRequested, this,
-            [](const QString& _templateId) {
-                BusinessLayer::TemplatesFacade::removeNovelTemplate(_templateId);
-            });
-    connect(d->view, &Ui::SettingsView::loadFromFileNovelEditorTemplateRequested, this, [this] {
-        const auto templateFilePath = QFileDialog::getOpenFileName(
-            d->view->topLevelWidget(), tr("Choose the file with template to load"),
-            QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
-            DialogHelper::starcTemplateFilter());
-        if (templateFilePath.isEmpty()) {
-            return;
-        }
-
-        const BusinessLayer::NovelTemplate novelTemplate(templateFilePath);
-        BusinessLayer::TemplatesFacade::saveNovelTemplate(novelTemplate);
-
-        BusinessLayer::TemplatesFacade::setDefaultNovelTemplate(novelTemplate.id());
-        d->view->setNovelEditorDefaultTemplate(novelTemplate.id());
-    });
     //
     // ... сам менеджер шаблона
     //
@@ -1052,11 +888,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
 
                 case Domain::DocumentObjectType::Screenplay: {
                     d->view->setScreenplayEditorDefaultTemplate(_templateId);
-                    break;
-                }
-
-                case Domain::DocumentObjectType::Novel: {
-                    d->view->setNovelEditorDefaultTemplate(_templateId);
                     break;
                 }
 
@@ -1087,11 +918,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
                 { DataStorageLayer::kComponentsScreenplayEditorDefaultTemplateKey });
             break;
         }
-
-        case Domain::DocumentObjectType::Novel: {
-            emit novelEditorChanged({ DataStorageLayer::kComponentsNovelEditorDefaultTemplateKey });
-            break;
-        }
         }
     });
     connect(d->templateOptionsManager, &TemplateOptionsManager::showViewRequested, this,
@@ -1109,8 +935,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             &SettingsManager::setShortcutsForSimpleTextEdit);
     connect(d->view, &Ui::SettingsView::shortcutsForScreenplayEditorChanged, this,
             &SettingsManager::setShortcutsForScreenplayEdit);
-    connect(d->view, &Ui::SettingsView::shortcutsForNovelEditorChanged, this,
-            &SettingsManager::setShortcutsForNovelEdit);
 
     //
     // Дополнительные параметры
@@ -1305,7 +1129,6 @@ void SettingsManager::setApplicationShowDocumentsPages(bool _show)
     setSettingsValue(DataStorageLayer::kApplicationShowDocumentsPagesKey, _show);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationShowDocumentsPagesKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationShowDocumentsPagesKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationShowDocumentsPagesKey });
 }
 
 void SettingsManager::setApplicationUseTypeWriterSound(bool _use)
@@ -1538,7 +1361,6 @@ void SettingsManager::setApplicationHighlightCurrentLine(bool _highlight)
     setSettingsValue(DataStorageLayer::kApplicationHighlightCurrentLineKey, _highlight);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationHighlightCurrentLineKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationHighlightCurrentLineKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationHighlightCurrentLineKey });
 }
 
 void SettingsManager::setApplicationFocusCurrentParagraph(bool _focus)
@@ -1546,7 +1368,6 @@ void SettingsManager::setApplicationFocusCurrentParagraph(bool _focus)
     setSettingsValue(DataStorageLayer::kApplicationFocusCurrentParagraphKey, _focus);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationFocusCurrentParagraphKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationFocusCurrentParagraphKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationFocusCurrentParagraphKey });
 }
 
 void SettingsManager::setApplicationUseTypewriterScrolling(bool _use)
@@ -1554,7 +1375,6 @@ void SettingsManager::setApplicationUseTypewriterScrolling(bool _use)
     setSettingsValue(DataStorageLayer::kApplicationUseTypewriterScrollingKey, _use);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationUseTypewriterScrollingKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationUseTypewriterScrollingKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationUseTypewriterScrollingKey });
 }
 
 void SettingsManager::setApplicationCorrectDoubleCapitals(bool _correct)
@@ -1562,7 +1382,6 @@ void SettingsManager::setApplicationCorrectDoubleCapitals(bool _correct)
     setSettingsValue(DataStorageLayer::kApplicationCorrectDoubleCapitalsKey, _correct);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationCorrectDoubleCapitalsKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationCorrectDoubleCapitalsKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationCorrectDoubleCapitalsKey });
 }
 
 void SettingsManager::setApplicationCapitalizeSingleILetter(bool _capitalize)
@@ -1570,7 +1389,6 @@ void SettingsManager::setApplicationCapitalizeSingleILetter(bool _capitalize)
     setSettingsValue(DataStorageLayer::kApplicationCapitalizeSingleILetterKey, _capitalize);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationCapitalizeSingleILetterKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationCapitalizeSingleILetterKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationCapitalizeSingleILetterKey });
 }
 
 void SettingsManager::setApplicationReplaceThreeDotsWithEllipsis(bool _replace)
@@ -1578,7 +1396,6 @@ void SettingsManager::setApplicationReplaceThreeDotsWithEllipsis(bool _replace)
     setSettingsValue(DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey, _replace);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey });
 }
 
 void SettingsManager::setApplicationUseSmartQuotes(bool _use)
@@ -1586,7 +1403,6 @@ void SettingsManager::setApplicationUseSmartQuotes(bool _use)
     setSettingsValue(DataStorageLayer::kApplicationSmartQuotesKey, _use);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationSmartQuotesKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationSmartQuotesKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationSmartQuotesKey });
 }
 
 void SettingsManager::setApplicationReplaceTwoDashesWithEmDash(bool _replace)
@@ -1594,7 +1410,6 @@ void SettingsManager::setApplicationReplaceTwoDashesWithEmDash(bool _replace)
     setSettingsValue(DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey, _replace);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey });
 }
 
 void SettingsManager::setApplicationAvoidMultipleSpaces(bool _avoid)
@@ -1602,7 +1417,6 @@ void SettingsManager::setApplicationAvoidMultipleSpaces(bool _avoid)
     setSettingsValue(DataStorageLayer::kApplicationAvoidMultipleSpacesKey, _avoid);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
-    emit novelEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
 }
 
 void SettingsManager::setSimpleTextAvailable(bool _available)
@@ -1831,32 +1645,6 @@ void SettingsManager::setScreenplayDurationUseEighths(bool _use)
     emit screenplayDurationChanged();
 }
 
-void SettingsManager::setNovelAvailable(bool _available)
-{
-    setSettingsValue(DataStorageLayer::kComponentsNovelAvailableKey, _available);
-}
-
-void SettingsManager::setNovelEditorDefaultTemplate(const QString& _templateId)
-{
-    setSettingsValue(DataStorageLayer::kComponentsNovelEditorDefaultTemplateKey, _templateId);
-    BusinessLayer::TemplatesFacade::setDefaultNovelTemplate(_templateId);
-    emit simpleTextEditorChanged({ DataStorageLayer::kComponentsNovelEditorDefaultTemplateKey });
-    emit novelEditorChanged({ DataStorageLayer::kComponentsNovelEditorDefaultTemplateKey });
-}
-
-void SettingsManager::setNovelNavigatorShowSceneText(bool _show, int _lines)
-{
-    setSettingsValue(DataStorageLayer::kComponentsNovelNavigatorShowSceneTextKey, _show);
-    setSettingsValue(DataStorageLayer::kComponentsNovelNavigatorSceneTextLinesKey, _lines);
-    emit novelNavigatorChanged();
-}
-
-void SettingsManager::setNovelNavigatorCounterType(int _type)
-{
-    setSettingsValue(DataStorageLayer::kComponentsNovelNavigatorCounterTypeKey, _type);
-    emit novelNavigatorChanged();
-}
-
 void SettingsManager::setShortcutForApplication(const QString& _actionName,
                                                 const QString& _shortcut)
 {
@@ -1895,25 +1683,6 @@ void SettingsManager::setShortcutsForScreenplayEdit(
     ShortcutsHelper::setScreenplayChangeByEnter(
         blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByEnter));
     emit screenplayEditorChanged({ DataStorageLayer::kComponentsScreenplayEditorShortcutsKey });
-}
-
-void SettingsManager::setShortcutsForNovelEdit(const QString& _blockType, const QString& _shortcut,
-                                               const QString& _jumpByTab,
-                                               const QString& _jumpByEnter,
-                                               const QString& _changeByTab,
-                                               const QString& _changeByEnter)
-{
-    const auto blockType = BusinessLayer::textParagraphTypeFromDisplayString(_blockType);
-    ShortcutsHelper::setNovelShortcut(blockType, _shortcut);
-    ShortcutsHelper::setNovelJumpByTab(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_jumpByTab));
-    ShortcutsHelper::setNovelJumpByEnter(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_jumpByEnter));
-    ShortcutsHelper::setNovelChangeByTab(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByTab));
-    ShortcutsHelper::setNovelChangeByEnter(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByEnter));
-    emit novelEditorChanged({ DataStorageLayer::kComponentsNovelEditorShortcutsKey });
 }
 
 void SettingsManager::setAdvancedAccurateMetricsHandling(bool _accurate)

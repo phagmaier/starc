@@ -12,7 +12,6 @@ namespace BusinessLayer {
 
 class TextModel;
 class TextTemplate;
-class NovelTemplate;
 class ScreenplayTemplate;
 class SimpleTextTemplate;
 
@@ -32,7 +31,6 @@ public:
      */
     static QStandardItemModel* simpleTextTemplates();
     static QStandardItemModel* screenplayTemplates();
-    static QStandardItemModel* novelTemplates();
 
     /**
      * @brief Получить шаблон используемый для заданной модели
@@ -45,28 +43,24 @@ public:
      */
     static const SimpleTextTemplate& simpleTextTemplate(const QString& _templateId = {});
     static const ScreenplayTemplate& screenplayTemplate(const QString& _templateId = {});
-    static const NovelTemplate& novelTemplate(const QString& _templateId = {});
 
     /**
      * @brief Задать стандартный шаблон
      */
     static void setDefaultSimpleTextTemplate(const QString& _templateId);
     static void setDefaultScreenplayTemplate(const QString& _templateId);
-    static void setDefaultNovelTemplate(const QString& _templateId);
 
     /**
      * @brief Сохранить стиль в библиотеке шаблонов
      */
     static void saveSimpleTextTemplate(const SimpleTextTemplate& _template);
     static void saveScreenplayTemplate(const ScreenplayTemplate& _template);
-    static void saveNovelTemplate(const NovelTemplate& _template);
 
     /**
      * @brief Удалить шаблон по заданному имены
      */
     static void removeSimpleTextTemplate(const QString& _templateId);
     static void removeScreenplayTemplate(const QString& _templateId);
-    static void removeNovelTemplate(const QString& _templateId);
 
     /**
      * @brief Обновить переводы

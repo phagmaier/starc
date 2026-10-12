@@ -6,7 +6,6 @@
 
 #include <business_layer/document/text/text_block_data.h>
 #include <business_layer/document/text/text_cursor.h>
-#include <business_layer/model/novel/novel_synopsis_model.h>
 #include <business_layer/model/screenplay/screenplay_synopsis_model.h>
 #include <business_layer/model/simple_text/simple_text_model.h>
 #include <business_layer/model/text/text_model_text_item.h>
@@ -931,8 +930,6 @@ void SimpleTextView::reconfigure(const QStringList& _changedSettingsKeys)
     QString defaultTemplateKey = DataStorageLayer::kComponentsSimpleTextEditorDefaultTemplateKey;
     if (qobject_cast<BusinessLayer::ScreenplaySynopsisModel*>(d->model)) {
         defaultTemplateKey = DataStorageLayer::kComponentsScreenplayEditorDefaultTemplateKey;
-    } else if (qobject_cast<BusinessLayer::NovelSynopsisModel*>(d->model)) {
-        defaultTemplateKey = DataStorageLayer::kComponentsNovelEditorDefaultTemplateKey;
     }
     if (_changedSettingsKeys.isEmpty() || _changedSettingsKeys.contains(defaultTemplateKey)) {
         d->reconfigureTemplate();

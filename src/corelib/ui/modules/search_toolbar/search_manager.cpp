@@ -6,7 +6,6 @@
 #include <business_layer/document/text/text_cursor.h>
 #include <business_layer/model/text/text_model_group_item.h>
 #include <business_layer/model/text/text_model_text_item.h>
-#include <business_layer/templates/novel_template.h>
 #include <business_layer/templates/text_template.h>
 #include <utils/helpers/text_helper.h>
 #include <utils/shugar.h>

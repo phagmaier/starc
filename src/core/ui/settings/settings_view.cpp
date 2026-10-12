@@ -3,7 +3,6 @@
 #include "widgets/theme_preview.h"
 
 #include <business_layer/chronometry/chronometer.h>
-#include <business_layer/templates/novel_template.h>
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/simple_text_template.h>
 #include <business_layer/templates/templates_facade.h>
@@ -151,21 +150,6 @@ QStringListModel* buildScreenplayParagraphTypesModel(QObject* _parent,
                                         TextParagraphType::UnformattedText,
                                     });
 }
-QStringListModel* buildNovelParagraphTypesModel(QObject* _parent,
-                                                QStringListModel* _model = nullptr)
-{
-    using namespace BusinessLayer;
-    return buildParagraphTypesModel(_parent, _model,
-                                    {
-                                        TextParagraphType::SceneHeading,
-                                        TextParagraphType::BeatHeading,
-                                        TextParagraphType::Text,
-                                        TextParagraphType::InlineNote,
-                                        TextParagraphType::UnformattedText,
-                                        TextParagraphType::ChapterHeading,
-                                        TextParagraphType::PartHeading,
-                                    });
-}
 
 /**
  * @brief Колонки таблицы горячих клавиш специализированного редактора текста
@@ -196,7 +180,6 @@ public:
      */
     void initSimpleTextCard();
     void initScreenplayCard();
-    void initNovelCard();
 
     /**
      * @brief Настроить карточку горячих клавиш
@@ -391,35 +374,6 @@ public:
     RadioButton* screenplayDurationUseEighths = nullptr;
     //
     int screenplayCardBottomSpacerIndex = 0;
-    //
-    // Simple text
-    //
-    Card* novelCard = nullptr;
-    QGridLayout* novelCardLayout = nullptr;
-    H5Label* novelTitle = nullptr;
-    Toggle* novelAvailable = nullptr;
-    //
-    // ... Novel text editor
-    //
-    H6Label* novelEditorTitle = nullptr;
-    ComboBox* novelEditorDefaultTemplate = nullptr;
-    IconButton* novelEditorDefaultTemplateOptions = nullptr;
-    //
-    // ... Novel text navigator
-    //
-    H6Label* novelNavigatorTitle = nullptr;
-    CheckBox* novelNavigatorShowSceneText = nullptr;
-    RadioButton* novelNavigatorSceneDescriptionLines1 = nullptr;
-    RadioButton* novelNavigatorSceneDescriptionLines2 = nullptr;
-    RadioButton* novelNavigatorSceneDescriptionLines3 = nullptr;
-    RadioButton* novelNavigatorSceneDescriptionLines4 = nullptr;
-    RadioButton* novelNavigatorSceneDescriptionLines5 = nullptr;
-    Subtitle1Label* novelNavigatorCounterType = nullptr;
-    RadioButton* novelNavigatorCounterUseWords = nullptr;
-    RadioButton* novelNavigatorCounterUseCharacters = nullptr;
-    RadioButton* novelNavigatorCounterUseCharactersWithSpaces = nullptr;
-    //
-    int novelCardBottomSpacerIndex = 0;
 
     //
     // Shortcuts
@@ -452,15 +406,6 @@ public:
     QStringListModel* screenplayParagraphTypesModel = nullptr;
     ComboBoxItemDelegate* screenplayParagraphAddTypeDelegate = nullptr;
     ComboBoxItemDelegate* screenplayParagraphChangeTypeDelegate = nullptr;
-    //
-    // ... Novel
-    //
-    H6Label* shortcutsForNovelTitle = nullptr;
-    Tree* shortcutsForNovel = nullptr;
-    HierarchicalModel* shortcutsForNovelModel = nullptr;
-    QStringListModel* novelParagraphTypesModel = nullptr;
-    ComboBoxItemDelegate* novelParagraphAddTypeDelegate = nullptr;
-    ComboBoxItemDelegate* novelParagraphChangeTypeDelegate = nullptr;
     //
     int shortcutsCardBottomSpacerIndex = 0;
 
@@ -592,25 +537,6 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     , screenplayDurationConfigurablePerEvery50ForSceneHeading(new TextField(screenplayCard))
     , screenplayDurationUseEighths(new RadioButton(screenplayCard))
     //
-    , novelCard(new Card(content))
-    , novelCardLayout(new QGridLayout)
-    , novelTitle(new H5Label(novelCard))
-    , novelAvailable(new Toggle(novelCard))
-    , novelEditorTitle(new H6Label(novelCard))
-    , novelEditorDefaultTemplate(new ComboBox(novelCard))
-    , novelEditorDefaultTemplateOptions(new IconButton(novelCard))
-    , novelNavigatorTitle(new H6Label(novelCard))
-    , novelNavigatorShowSceneText(new CheckBox(novelCard))
-    , novelNavigatorSceneDescriptionLines1(new RadioButton(novelCard))
-    , novelNavigatorSceneDescriptionLines2(new RadioButton(novelCard))
-    , novelNavigatorSceneDescriptionLines3(new RadioButton(novelCard))
-    , novelNavigatorSceneDescriptionLines4(new RadioButton(novelCard))
-    , novelNavigatorSceneDescriptionLines5(new RadioButton(novelCard))
-    , novelNavigatorCounterType(new Subtitle1Label(novelCard))
-    , novelNavigatorCounterUseWords(new RadioButton(novelCard))
-    , novelNavigatorCounterUseCharacters(new RadioButton(novelCard))
-    , novelNavigatorCounterUseCharactersWithSpaces(new RadioButton(novelCard))
-    //
     , shortcutsCard(new Card(content))
     , shortcutsCardLayout(new QGridLayout)
     , shortcutsTitle(new H5Label(shortcutsCard))
@@ -634,14 +560,6 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     , screenplayParagraphChangeTypeDelegate(
           new ComboBoxItemDelegate(shortcutsForScreenplay, screenplayParagraphTypesModel))
     //
-    , shortcutsForNovelTitle(new H6Label(shortcutsCard))
-    , shortcutsForNovel(new Tree(shortcutsCard))
-    , novelParagraphTypesModel(buildNovelParagraphTypesModel(shortcutsForNovel))
-    , novelParagraphAddTypeDelegate(
-          new ComboBoxItemDelegate(shortcutsForNovel, novelParagraphTypesModel))
-    , novelParagraphChangeTypeDelegate(
-          new ComboBoxItemDelegate(shortcutsForNovel, novelParagraphTypesModel))
-    //
     , advancedCard(new Card(content))
     , advancedCardLayout(new QGridLayout)
     , advancedTitle(new H5Label(advancedCard))
@@ -656,7 +574,6 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     initApplicationCard();
     initSimpleTextCard();
     initScreenplayCard();
-    initNovelCard();
     initShortcutsCard();
     initAdvancedCard();
 
@@ -665,7 +582,6 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     layout->addWidget(componentsTitle);
     layout->addWidget(simpleTextCard);
     layout->addWidget(screenplayCard);
-    layout->addWidget(novelCard);
     layout->addWidget(shortcutsCard);
     layout->addWidget(advancedCard);
     layout->addStretch();
@@ -1062,89 +978,11 @@ void SettingsView::Implementation::initScreenplayCard()
     screenplayCard->setContentLayout(screenplayCardLayout);
 }
 
-void SettingsView::Implementation::initNovelCard()
-{
-    novelEditorDefaultTemplate->setSpellCheckPolicy(SpellCheckPolicy::Manual);
-    novelEditorDefaultTemplate->setModel(BusinessLayer::TemplatesFacade::novelTemplates());
-    novelEditorDefaultTemplateOptions->setIcon(u8"\U000F01D9");
-    //
-    auto linesGroup = new RadioButtonGroup(novelCard);
-    linesGroup->add(novelNavigatorSceneDescriptionLines1);
-    linesGroup->add(novelNavigatorSceneDescriptionLines2);
-    linesGroup->add(novelNavigatorSceneDescriptionLines3);
-    linesGroup->add(novelNavigatorSceneDescriptionLines4);
-    linesGroup->add(novelNavigatorSceneDescriptionLines5);
-    novelNavigatorSceneDescriptionLines1->setEnabled(false);
-    novelNavigatorSceneDescriptionLines1->setChecked(true);
-    novelNavigatorSceneDescriptionLines2->setEnabled(false);
-    novelNavigatorSceneDescriptionLines3->setEnabled(false);
-    novelNavigatorSceneDescriptionLines4->setEnabled(false);
-    novelNavigatorSceneDescriptionLines5->setEnabled(false);
-    auto typesGroup = new RadioButtonGroup(novelCard);
-    typesGroup->add(novelNavigatorCounterUseWords);
-    typesGroup->add(novelNavigatorCounterUseCharacters);
-    typesGroup->add(novelNavigatorCounterUseCharactersWithSpaces);
-    novelNavigatorCounterUseWords->setChecked(true);
-
-
-    //
-    // Компоновка
-    //
-    novelCardLayout->setContentsMargins({});
-    novelCardLayout->setSpacing(0);
-    int itemIndex = 0;
-    {
-        auto layout = makeLayout();
-        layout->addWidget(novelTitle);
-        layout->addStretch();
-        layout->addWidget(novelAvailable, 0, Qt::AlignVCenter);
-        novelCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    // ... редактор текста
-    //
-    novelCardLayout->addWidget(novelEditorTitle, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(novelEditorDefaultTemplate, 1);
-        layout->addWidget(novelEditorDefaultTemplateOptions);
-        novelCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    // ... навигатор текста
-    //
-    novelCardLayout->addWidget(novelNavigatorTitle, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(novelNavigatorShowSceneText);
-        layout->addWidget(novelNavigatorSceneDescriptionLines1);
-        layout->addWidget(novelNavigatorSceneDescriptionLines2);
-        layout->addWidget(novelNavigatorSceneDescriptionLines3);
-        layout->addWidget(novelNavigatorSceneDescriptionLines4);
-        layout->addWidget(novelNavigatorSceneDescriptionLines5);
-        layout->addStretch();
-        novelCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    {
-        auto layout = makeLayout();
-        layout->addWidget(novelNavigatorCounterType);
-        layout->addWidget(novelNavigatorCounterUseWords);
-        layout->addWidget(novelNavigatorCounterUseCharacters);
-        layout->addWidget(novelNavigatorCounterUseCharactersWithSpaces);
-        layout->addStretch();
-        novelCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    novelCardBottomSpacerIndex = itemIndex;
-    novelCard->setContentLayout(novelCardLayout);
-}
-
 void SettingsView::Implementation::initShortcutsCard()
 {
     shortcutsForApplication->setHeader(new HierarchicalHeaderView(shortcutsForApplication));
     shortcutsForSimpleText->setHeader(new HierarchicalHeaderView(shortcutsForSimpleText));
     shortcutsForScreenplay->setHeader(new HierarchicalHeaderView(shortcutsForScreenplay));
-    shortcutsForNovel->setHeader(new HierarchicalHeaderView(shortcutsForNovel));
 
     shortcutsCardLayout->setContentsMargins({});
     shortcutsCardLayout->setSpacing(0);
@@ -1157,8 +995,6 @@ void SettingsView::Implementation::initShortcutsCard()
     shortcutsCardLayout->addWidget(shortcutsForSimpleText, itemIndex++, 0);
     shortcutsCardLayout->addWidget(shortcutsForScreenplayTitle, itemIndex++, 0);
     shortcutsCardLayout->addWidget(shortcutsForScreenplay, itemIndex++, 0);
-    shortcutsCardLayout->addWidget(shortcutsForNovelTitle, itemIndex++, 0);
-    shortcutsCardLayout->addWidget(shortcutsForNovel, itemIndex++, 0);
     //
     shortcutsCardBottomSpacerIndex = itemIndex;
     shortcutsCard->setContentLayout(shortcutsCardLayout);
@@ -1216,7 +1052,6 @@ void SettingsView::Implementation::updateTablesGeometry()
     updateTableGeometry(shortcutsForApplication, 0.25);
     updateTableGeometry(shortcutsForSimpleText, 0.25);
     updateTableGeometry(shortcutsForScreenplay, 0.25);
-    updateTableGeometry(shortcutsForNovel, 0.25);
 }
 
 
@@ -1838,144 +1673,6 @@ SettingsView::SettingsView(QWidget* _parent)
             });
     connect(d->screenplayDurationUseEighths, &RadioButton::checkedChanged, this,
             &SettingsView::screenplayDurationUseEighthsChanged);
-    //
-    // ... Редактор романа
-    //
-    connect(d->novelAvailable, &Toggle::checkedChanged, this, [this](bool _available) {
-        for (auto widget : std::vector<QWidget*>{
-                 d->novelEditorTitle,
-                 d->novelEditorDefaultTemplate,
-                 d->novelEditorDefaultTemplateOptions,
-                 d->novelNavigatorTitle,
-                 d->novelNavigatorShowSceneText,
-                 d->novelNavigatorSceneDescriptionLines1,
-                 d->novelNavigatorSceneDescriptionLines2,
-                 d->novelNavigatorSceneDescriptionLines3,
-                 d->novelNavigatorSceneDescriptionLines4,
-                 d->novelNavigatorSceneDescriptionLines5,
-                 d->novelNavigatorCounterType,
-                 d->novelNavigatorCounterUseWords,
-                 d->novelNavigatorCounterUseCharacters,
-                 d->novelNavigatorCounterUseCharactersWithSpaces,
-                 d->shortcutsForNovelTitle,
-                 d->shortcutsForNovel,
-             }) {
-            widget->setVisible(_available);
-        }
-        d->novelCardLayout->setRowMinimumHeight(d->novelCardBottomSpacerIndex,
-                                                _available ? DesignSystem::layout().px24()
-                                                           : DesignSystem::layout().px12());
-        d->updateTablesGeometry();
-
-        emit novelAvailableChanged(_available);
-    });
-    connect(d->novelEditorDefaultTemplateOptions, &IconButton::clicked, this, [this] {
-        QVector<QAction*> actions;
-        const auto templateIndex = d->novelEditorDefaultTemplate->currentIndex();
-        const auto templateId
-            = templateIndex.data(BusinessLayer::TemplatesFacade::kTemplateIdRole).toString();
-        const auto isDefaultTemplate
-            = BusinessLayer::TemplatesFacade::novelTemplate(templateId).isDefault();
-        //
-        if (!isDefaultTemplate) {
-            auto editAction = new QAction(tr("Edit"), d->contextMenu);
-            connect(editAction, &QAction::triggered, this, [this, templateId] {
-                emit editCurrentNovelEditorTemplateRequested(templateId);
-            });
-            actions.append(editAction);
-        }
-        //
-        auto duplicateAction
-            = new QAction(tr("Create new template based on current"), d->contextMenu);
-        connect(duplicateAction, &QAction::triggered, this, [this, templateId] {
-            emit duplicateCurrentNovelEditorTemplateRequested(templateId);
-        });
-        actions.append(duplicateAction);
-        //
-        if (!isDefaultTemplate) {
-            auto saveToFileAction = new QAction(tr("Save to file"), d->contextMenu);
-            connect(saveToFileAction, &QAction::triggered, this, [this, templateId] {
-                emit saveToFileCurrentNovelEditorTemplateRequested(templateId);
-            });
-            actions.append(saveToFileAction);
-            //
-            auto removeAction = new QAction(tr("Remove"), d->contextMenu);
-            connect(removeAction, &QAction::triggered, this, [this, templateId] {
-                emit removeCurrentNovelEditorTemplateRequested(templateId);
-            });
-            actions.append(removeAction);
-        }
-        //
-        auto loadFromFileAction = new QAction(tr("Load template from file"), d->contextMenu);
-        loadFromFileAction->setSeparator(true);
-        connect(loadFromFileAction, &QAction::triggered, this,
-                &SettingsView::loadFromFileNovelEditorTemplateRequested);
-        actions.append(loadFromFileAction);
-        //
-        d->contextMenu->setActions(actions);
-        d->contextMenu->showContextMenu(QCursor::pos());
-    });
-    connect(d->novelEditorDefaultTemplate, &ComboBox::currentIndexChanged, this,
-            [this](const QModelIndex& _index) {
-                emit novelEditorDefaultTemplateChanged(
-                    _index.data(BusinessLayer::TemplatesFacade::kTemplateIdRole).toString());
-            });
-    //
-    // ... навигатор текста
-    //
-    connect(d->novelNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->novelNavigatorSceneDescriptionLines1, &RadioButton::setEnabled);
-    connect(d->novelNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->novelNavigatorSceneDescriptionLines2, &RadioButton::setEnabled);
-    connect(d->novelNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->novelNavigatorSceneDescriptionLines3, &RadioButton::setEnabled);
-    connect(d->novelNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->novelNavigatorSceneDescriptionLines4, &RadioButton::setEnabled);
-    connect(d->novelNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->novelNavigatorSceneDescriptionLines5, &RadioButton::setEnabled);
-    //
-    auto notifynovelNavigatorShowSceneTextChanged = [this] {
-        int sceneTextLines = 1;
-        if (d->novelNavigatorSceneDescriptionLines2->isChecked()) {
-            sceneTextLines = 2;
-        } else if (d->novelNavigatorSceneDescriptionLines3->isChecked()) {
-            sceneTextLines = 3;
-        } else if (d->novelNavigatorSceneDescriptionLines4->isChecked()) {
-            sceneTextLines = 4;
-        } else if (d->novelNavigatorSceneDescriptionLines5->isChecked()) {
-            sceneTextLines = 5;
-        }
-        emit novelNavigatorShowSceneTextChanged(d->novelNavigatorShowSceneText->isChecked(),
-                                                sceneTextLines);
-    };
-    connect(d->novelNavigatorShowSceneText, &CheckBox::checkedChanged, this,
-            notifynovelNavigatorShowSceneTextChanged);
-    connect(d->novelNavigatorSceneDescriptionLines1, &RadioButton::checkedChanged, this,
-            notifynovelNavigatorShowSceneTextChanged);
-    connect(d->novelNavigatorSceneDescriptionLines2, &RadioButton::checkedChanged, this,
-            notifynovelNavigatorShowSceneTextChanged);
-    connect(d->novelNavigatorSceneDescriptionLines3, &RadioButton::checkedChanged, this,
-            notifynovelNavigatorShowSceneTextChanged);
-    connect(d->novelNavigatorSceneDescriptionLines4, &RadioButton::checkedChanged, this,
-            notifynovelNavigatorShowSceneTextChanged);
-    connect(d->novelNavigatorSceneDescriptionLines5, &RadioButton::checkedChanged, this,
-            notifynovelNavigatorShowSceneTextChanged);
-    //
-    auto notifyNovelNavigatorCounterTypeChanged = [this] {
-        int type = 0;
-        if (d->novelNavigatorCounterUseCharacters->isChecked()) {
-            type = 1;
-        } else if (d->novelNavigatorCounterUseCharactersWithSpaces->isChecked()) {
-            type = 2;
-        }
-        emit novelNavigatorCounterTypeChanged(type);
-    };
-    connect(d->novelNavigatorCounterUseWords, &RadioButton::checkedChanged, this,
-            notifyNovelNavigatorCounterTypeChanged);
-    connect(d->novelNavigatorCounterUseCharacters, &RadioButton::checkedChanged, this,
-            notifyNovelNavigatorCounterTypeChanged);
-    connect(d->novelNavigatorCounterUseCharactersWithSpaces, &RadioButton::checkedChanged, this,
-            notifyNovelNavigatorCounterTypeChanged);
 
     //
     // Соединения шорткатов настраиваются в момент установки моделей с данными о них в представление
@@ -2033,11 +1730,6 @@ void SettingsView::showComponentsSimpleText()
 void SettingsView::showComponentsScreenplay()
 {
     d->scrollToTitle(d->screenplayTitle);
-}
-
-void SettingsView::showComponentsNovel()
-{
-    d->scrollToTitle(d->novelTitle);
 }
 
 void SettingsView::showShortcuts()
@@ -2493,56 +2185,6 @@ void SettingsView::setScreenplayDurationUseEighths(bool _use)
     d->screenplayDurationUseEighths->setChecked(_use);
 }
 
-void SettingsView::setNovelAvailable(bool _available)
-{
-    d->novelAvailable->setChecked(_available);
-}
-
-void SettingsView::setNovelEditorDefaultTemplate(const QString& _templateId)
-{
-    using namespace BusinessLayer;
-    for (int row = 0; row < TemplatesFacade::novelTemplates()->rowCount(); ++row) {
-        auto item = TemplatesFacade::novelTemplates()->item(row);
-        if (item->data(TemplatesFacade::kTemplateIdRole).toString() != _templateId) {
-            continue;
-        }
-
-        d->novelEditorDefaultTemplate->setCurrentIndex(item->index());
-        break;
-    }
-}
-
-void SettingsView::setNovelNavigatorShowSceneText(bool _show, int _lines)
-{
-    d->novelNavigatorShowSceneText->setChecked(_show);
-    if (_show) {
-        const QHash<int, RadioButton*> buttons = { { 1, d->novelNavigatorSceneDescriptionLines1 },
-                                                   { 2, d->novelNavigatorSceneDescriptionLines2 },
-                                                   { 3, d->novelNavigatorSceneDescriptionLines3 },
-                                                   { 4, d->novelNavigatorSceneDescriptionLines4 },
-                                                   { 5, d->novelNavigatorSceneDescriptionLines5 } };
-        buttons[_lines]->setChecked(true);
-    }
-}
-
-void SettingsView::setNovelNavigatorCounterType(int _type)
-{
-    switch (_type) {
-    case 0: {
-        d->novelNavigatorCounterUseWords->setChecked(true);
-        break;
-    }
-    case 1: {
-        d->novelNavigatorCounterUseCharacters->setChecked(true);
-        break;
-    }
-    case 2: {
-        d->novelNavigatorCounterUseCharactersWithSpaces->setChecked(true);
-        break;
-    }
-    }
-}
-
 void SettingsView::setShortcutsForApplicationModel(HierarchicalModel* _model)
 {
     if (d->shortcutsForApplicationModel) {
@@ -2663,51 +2305,6 @@ void SettingsView::setShortcutsForScreenplayModel(HierarchicalModel* _model)
 
             emit shortcutsForScreenplayEditorChanged(blockType, shortcut, jumpByTab, jumpByEnter,
                                                      changeByTab, changeByEnter);
-        });
-}
-
-void SettingsView::setShortcutsForNovelModel(HierarchicalModel* _model)
-{
-    if (d->shortcutsForNovelModel) {
-        d->shortcutsForNovelModel->disconnect(this);
-        d->shortcutsForNovelModel->deleteLater();
-    }
-
-    d->shortcutsForNovelModel = _model;
-
-    d->shortcutsForNovel->setModel(d->shortcutsForNovelModel);
-    d->shortcutsForNovel->setItemDelegateForColumn(1,
-                                                   new KeySequenceDelegate(d->shortcutsForNovel));
-    d->shortcutsForNovel->setItemDelegateForColumn(2, d->novelParagraphAddTypeDelegate);
-    d->shortcutsForNovel->setItemDelegateForColumn(3, d->novelParagraphAddTypeDelegate);
-    d->shortcutsForNovel->setItemDelegateForColumn(4, d->novelParagraphChangeTypeDelegate);
-    d->shortcutsForNovel->setItemDelegateForColumn(5, d->novelParagraphChangeTypeDelegate);
-    d->updateTablesGeometry();
-
-    connect(
-        d->shortcutsForNovelModel, &HierarchicalModel::dataChanged, this,
-        [this](const QModelIndex& _index) {
-            if (!_index.isValid()) {
-                return;
-            }
-
-            const auto blockType
-                = _index.sibling(_index.row(), TextEditorShortcuts::Type).data().toString();
-            const auto shortcut
-                = _index.sibling(_index.row(), TextEditorShortcuts::Shortcut).data().toString();
-            const auto jumpByTab
-                = _index.sibling(_index.row(), TextEditorShortcuts::JumpByTab).data().toString();
-            const auto jumpByEnter
-                = _index.sibling(_index.row(), TextEditorShortcuts::JumpByEnter).data().toString();
-            const auto changeByTab
-                = _index.sibling(_index.row(), TextEditorShortcuts::ChangeByTab).data().toString();
-            const auto changeByEnter
-                = _index.sibling(_index.row(), TextEditorShortcuts::ChangeByEnter)
-                      .data()
-                      .toString();
-
-            emit shortcutsForNovelEditorChanged(blockType, shortcut, jumpByTab, jumpByEnter,
-                                                changeByTab, changeByEnter);
         });
 }
 
@@ -2994,24 +2591,6 @@ void SettingsView::updateTranslations()
     d->screenplayDurationConfigurableForSceneHeadingPlus->setText(tr("+"));
     d->screenplayDurationConfigurablePerEvery50ForSceneHeading->setSuffix(tr("seconds"));
     d->screenplayDurationUseEighths->setText(tr("Use page eighths as a duration metric"));
-    //
-    d->novelTitle->setText(tr("Novel module"));
-    d->novelAvailable->setToolTip(tr("Turn on/off novel module"));
-    d->novelEditorTitle->setText(tr("Text editor"));
-    d->novelEditorDefaultTemplate->setLabel(tr("Default template"));
-    d->novelEditorDefaultTemplateOptions->setToolTip(
-        tr("Available actions for the selected template"));
-    d->novelNavigatorTitle->setText(tr("Navigator"));
-    d->novelNavigatorShowSceneText->setText(tr("Show scene text, lines"));
-    d->novelNavigatorSceneDescriptionLines1->setText("1");
-    d->novelNavigatorSceneDescriptionLines2->setText("2");
-    d->novelNavigatorSceneDescriptionLines3->setText("3");
-    d->novelNavigatorSceneDescriptionLines4->setText("4");
-    d->novelNavigatorSceneDescriptionLines5->setText("5");
-    d->novelNavigatorCounterType->setText(tr("Scene content counter type"));
-    d->novelNavigatorCounterUseWords->setText(tr("words"));
-    d->novelNavigatorCounterUseCharacters->setText(tr("characters"));
-    d->novelNavigatorCounterUseCharactersWithSpaces->setText(tr("characters with spaces"));
 
     d->shortcutsTitle->setText(tr("Shortcuts"));
     //
@@ -3046,18 +2625,6 @@ void SettingsView::updateTranslations()
     d->screenplayParagraphAddTypeDelegate->setLabel(tr("Add paragraph"));
     d->screenplayParagraphChangeTypeDelegate->setLabel(tr("Change to"));
     //
-    d->shortcutsForNovelTitle->setText(tr("Novel editor"));
-    {
-        auto model = d->shortcutsForNovelModel->headerModel();
-        model->setData(model->index(0, 0), tr("Block name"), Qt::DisplayRole);
-        model->setData(model->index(0, 1), tr("Shortcut"), Qt::DisplayRole);
-        model->setData(model->index(0, 2), tr("If you press in paragraphs end"), Qt::DisplayRole);
-        model->setData(model->index(0, 3), tr("If you press in empty paragraph"), Qt::DisplayRole);
-    }
-    buildNovelParagraphTypesModel(d->shortcutsForNovel, d->novelParagraphTypesModel);
-    d->novelParagraphAddTypeDelegate->setLabel(tr("Add paragraph"));
-    d->novelParagraphChangeTypeDelegate->setLabel(tr("Change to"));
-    //
     d->advancedTitle->setText(tr("Advanced settings"));
     d->advancedAccurateMetricsHandling->setText(
         tr("Use advanced handling to convert pixels to millimeters"));
@@ -3089,7 +2656,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->applicationCard,
              d->simpleTextCard,
              d->screenplayCard,
-             d->novelCard,
              d->shortcutsCard,
              d->advancedCard,
          }) {
@@ -3114,14 +2680,10 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayEditorTitle,
              d->screenplayNavigatorTitle,
              d->screenplayDurationTitle,
-             d->novelTitle,
-             d->novelEditorTitle,
-             d->novelNavigatorTitle,
              d->shortcutsTitle,
              d->shortcutsForApplicationTitle,
              d->shortcutsForSimpleTextTitle,
              d->shortcutsForScreenplayTitle,
-             d->shortcutsForNovelTitle,
              d->advancedTitle,
          }) {
         cardTitle->setBackgroundColor(DesignSystem::color().background());
@@ -3139,8 +2701,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayEditorTitle,
              d->screenplayNavigatorTitle,
              d->screenplayDurationTitle,
-             d->novelEditorTitle,
-             d->novelNavigatorTitle,
          }) {
         cardTitle->setContentsMargins(titleMargins);
     }
@@ -3154,7 +2714,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     for (auto toggle : std::vector<Widget*>{
              d->simpleTextAvailable,
              d->screenplayAvailable,
-             d->novelAvailable,
          }) {
         toggle->setBackgroundColor(DesignSystem::color().background());
         toggle->setTextColor(DesignSystem::color().onBackground());
@@ -3188,16 +2747,12 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->spellCheckerUserDictionary,
              d->simpleTextEditorDefaultTemplateOptions,
              d->screenplayEditorDefaultTemplateOptions,
-             d->novelEditorDefaultTemplateOptions,
          }) {
         iconLabel->setBackgroundColor(DesignSystem::color().background());
         iconLabel->setTextColor(DesignSystem::color().onBackground());
         iconLabel->setContentsMargins(iconLabelMargins);
     }
 
-    d->novelNavigatorCounterType->setContentsMargins(
-        DesignSystem::layout().px24(), DesignSystem::layout().px12(), DesignSystem::layout().px24(),
-        DesignSystem::layout().px(36));
     for (auto checkBox : std::vector<Widget*>{
              d->isCompact,
              d->autoSave,
@@ -3239,9 +2794,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayNavigatorShowSceneText,
              d->screenplayDurationByCharactersIncludingSpaces,
              //
-             d->novelNavigatorShowSceneText,
-             d->novelNavigatorCounterType,
-             //
              d->advancedAccurateMetricsHandling,
              d->advancedUseExtendedLogging,
          }) {
@@ -3265,15 +2817,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayDurationByCharacters,
              d->screenplayDurationConfigurable,
              d->screenplayDurationUseEighths,
-             //
-             d->novelNavigatorSceneDescriptionLines1,
-             d->novelNavigatorSceneDescriptionLines2,
-             d->novelNavigatorSceneDescriptionLines3,
-             d->novelNavigatorSceneDescriptionLines4,
-             d->novelNavigatorSceneDescriptionLines5,
-             d->novelNavigatorCounterUseWords,
-             d->novelNavigatorCounterUseCharacters,
-             d->novelNavigatorCounterUseCharactersWithSpaces,
          }) {
         radioButton->setBackgroundColor(DesignSystem::color().background());
         radioButton->setTextColor(DesignSystem::color().onBackground());
@@ -3299,8 +2842,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayDurationConfigurablePerEvery50ForDialogue,
              d->screenplayDurationConfigurablePerParagraphForSceneHeading,
              d->screenplayDurationConfigurablePerEvery50ForSceneHeading,
-             //
-             d->novelEditorDefaultTemplate,
          }) {
         textField->setBackgroundColor(DesignSystem::color().onBackground());
         textField->setTextColor(DesignSystem::color().onBackground());
@@ -3313,7 +2854,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     for (auto textField : {
              d->simpleTextEditorDefaultTemplate,
              d->screenplayEditorDefaultTemplate,
-             d->novelEditorDefaultTemplate,
          }) {
         textField->setCustomMargins({ isLeftToRight() ? DesignSystem::layout().px24() : 0, 0,
                                       isLeftToRight() ? 0 : DesignSystem::layout().px24(), 0 });
@@ -3322,14 +2862,12 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->spellCheckerLanguage,
              d->simpleTextEditorDefaultTemplate,
              d->screenplayEditorDefaultTemplate,
-             d->novelEditorDefaultTemplate,
          }) {
         combobox->setPopupBackgroundColor(DesignSystem::color().background());
     }
     for (auto icon : {
              d->simpleTextEditorDefaultTemplateOptions,
              d->screenplayEditorDefaultTemplateOptions,
-             d->novelEditorDefaultTemplateOptions,
          }) {
         icon->setContentsMargins(isLeftToRight() ? 0 : DesignSystem::layout().px16(), 0,
                                  isLeftToRight() ? DesignSystem::layout().px16() : 0, 0);
@@ -3386,11 +2924,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     d->screenplayCardLayout->setRowMinimumHeight(screenplayDurationUseEighthsRow,
                                                  DesignSystem::compactLayout().px62());
     //
-    d->novelCardLayout->setRowMinimumHeight(d->simpleTextCardBottomSpacerIndex,
-                                            d->novelAvailable->isChecked()
-                                                ? DesignSystem::compactLayout().px24()
-                                                : DesignSystem::compactLayout().px12());
-    //
     d->shortcutsCardLayout->setRowMinimumHeight(
         d->shortcutsCardBottomSpacerIndex, static_cast<int>(DesignSystem::compactLayout().px24()));
 
@@ -3398,7 +2931,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->shortcutsForApplication,
              d->shortcutsForSimpleText,
              d->shortcutsForScreenplay,
-             d->shortcutsForNovel,
          }) {
         table->setBackgroundColor(DesignSystem::color().background());
         table->setTextColor(DesignSystem::color().onBackground());

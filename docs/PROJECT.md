@@ -140,7 +140,8 @@ These three formats can no longer be created, imported, exported, or configured.
 Their 13 public document plugins, corelib models, documents, templates,
 importers, exporters, reports, export dialogs, and bundled template resources
 were deleted (325 tracked paths), with the three private statistics submodule
-links. Novel and simple text support is unchanged.
+links. Novel and simple text support is unchanged (novel was removed later, see
+"Novel and series removal").
 
 Existing project data is kept. The persisted type identifiers, MIME mappings, and
 upstream database upgrade steps remain. A document of a retired format is shown
@@ -180,3 +181,51 @@ Limits:
 Build logs, including the failed attempts, the earlier scripted-pruning scripts,
 and the moved-aside plugin binaries of the retired formats are under
 `.build/evidence/feature-pruning/`.
+
+## Novel and series removal
+
+The owner decided on 2026-10-11 that this fork is for screenplays only. Novels
+and screenplay series can no longer be created, imported, exported, or
+configured, and "Split to episodes" is gone from the add-document dialog. Their
+9 public document plugins, corelib models, documents, template, importer,
+exporters, reports, plot, the novel export dialog, and the bundled novel
+templates were deleted (192 tracked paths), with five private submodule links
+(novel cards, statistics and timeline; series plan and statistics).
+
+Existing project data is kept the same way as for the other retired formats, now
+32 type identifiers. A novel or a series is listed in the project tree, is never
+loaded into a model or written back, and shows the preserved-content notice. The
+episodes of a series are ordinary screenplays: they still open in the screenplay
+editor and can be dragged out of the series. Markdown and plain text files are
+offered as simple text (plain text also as a screenplay), no longer as a novel.
+Novel settings already stored in a profile are left in the file and ignored.
+
+Validation on 2026-10-11, all with the debug build:
+
+- `JOBS=4 ./build/dev.sh build debug` passed after `make qmake_all` in
+  `.build/debug`. The core library and core plugin export no novel or series
+  symbols, and 17 plugins are built (the core plugin and 16 document plugins).
+- `./tools/check-screenplay-scope.sh` passed with novel and series documents
+  added to the retired ones (bytes kept across save and reopen, no model, no
+  creation) and a screenplay nested in a retired series that still opens.
+- `./tools/check-writing-session-storage.sh` and `./tools/check-project-sync.sh`
+  (local stand-in server only) passed.
+- In a window on a private Xvfb display, with a project the previous build had
+  written a novel and an eight-episode series into: both are listed and show the
+  notice, an episode opened in the screenplay editor and took typing, the
+  add-document dialog offers Screenplay, Folder and Text, and the settings list
+  two components. After an ordinary quit, 87 of the 88 stored documents had the
+  same SHA-1 as before; the one that changed is the episode that was typed into.
+
+Limits:
+
+- Not exercised in a window: the create-story dialog, the import dialog,
+  dragging an episode out of a series, and the context menu of a novel or series
+  document. The first three are covered offscreen by the scope check.
+- The module promotion widget and the subscription comparison still name series
+  features; they belong to the account UI that is listed for removal in
+  `TODO.md`.
+- Translation catalogs still contain strings of the removed features, and no
+  release build was compiled.
+- The libraries of the removed plugins were deleted from
+  `.build/debug/_build/plugins/`, not moved aside.

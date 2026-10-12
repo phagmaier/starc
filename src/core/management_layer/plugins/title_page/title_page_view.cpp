@@ -5,7 +5,6 @@
 
 #include <business_layer/document/text/text_block_data.h>
 #include <business_layer/document/text/text_cursor.h>
-#include <business_layer/model/novel/novel_title_page_model.h>
 #include <business_layer/model/screenplay/screenplay_title_page_model.h>
 #include <business_layer/templates/templates_facade.h>
 #include <business_layer/templates/text_template.h>
@@ -167,11 +166,6 @@ void TitlePageView::reconfigure(const QStringList& _changedSettingsKeys)
         break;
     }
 
-    case Domain::DocumentObjectType::NovelTitlePage: {
-        defaultTemplateKey = DataStorageLayer::kComponentsNovelEditorDefaultTemplateKey;
-        break;
-    }
-
     default: {
         break;
     }
@@ -236,8 +230,6 @@ void TitlePageView::setModel(BusinessLayer::TitlePageModel* _model)
 {
     if (qobject_cast<BusinessLayer::ScreenplayTitlePageModel*>(_model)) {
         d->currentModelType = Domain::DocumentObjectType::ScreenplayTitlePage;
-    } else if (qobject_cast<BusinessLayer::NovelTitlePageModel*>(_model)) {
-        d->currentModelType = Domain::DocumentObjectType::NovelTitlePage;
     } else {
         d->currentModelType = Domain::DocumentObjectType::Undefined;
     }

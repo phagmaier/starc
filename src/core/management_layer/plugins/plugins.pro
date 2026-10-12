@@ -12,17 +12,8 @@ SUBDIRS = \
     screenplay_text \
     screenplay_text_structure \
     screenplay_statistics_structure \
-    screenplay_series_information \
-    screenplay_series_parameters \
-    screenplay_series_statistics_structure \
     simple_text \
     simple_text_structure \
-    novel_information \
-    novel_parameters \
-    novel_outline \
-    novel_outline_structure \
-    novel_text \
-    novel_text_structure \
     title_page \
     recycle_bin \
     world_information_structure
@@ -72,23 +63,6 @@ exists (screenplay_breakdown_structure/screenplay_breakdown_structure.pro) {
 }
 exists (screenplay_statistics/screenplay_statistics.pro) {
     SUBDIRS += screenplay_statistics
-}
-
-exists (screenplay_series_plan/screenplay_series_plan.pro) {
-    SUBDIRS += screenplay_series_plan
-}
-exists (screenplay_series_statistics/screenplay_series_statistics.pro) {
-    SUBDIRS += screenplay_series_statistics
-}
-
-exists (novel_cards/novel_cards.pro) {
-    SUBDIRS += novel_cards
-}
-exists (novel_timeline/novel_timeline.pro) {
-    SUBDIRS += novel_timeline
-}
-exists (novel_statistics/novel_statistics.pro) {
-    SUBDIRS += novel_statistics
 }
 
 exists (images_gallery/images_gallery.pro) {

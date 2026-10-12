@@ -278,12 +278,6 @@ void ScreenplayTemplateParagraphsView::Implementation::updateParagraphOptions(
         break;
     }
 
-    case Domain::DocumentObjectType::Novel: {
-        setIndentationVisible(true, false);
-        setBlockTitleVisible(false);
-        break;
-    }
-
     default: {
         break;
     }
@@ -454,21 +448,6 @@ void ScreenplayTemplateParagraphsView::configureTemplateFor(Domain::DocumentObje
             BusinessLayer::TextParagraphType::SequenceFooter,
             BusinessLayer::TextParagraphType::ActHeading,
             BusinessLayer::TextParagraphType::ActFooter,
-        };
-        break;
-    }
-
-    case Domain::DocumentObjectType::Novel: {
-        d->paragraphTypes = {
-            BusinessLayer::TextParagraphType::SceneHeading,
-            BusinessLayer::TextParagraphType::BeatHeading,
-            BusinessLayer::TextParagraphType::Text,
-            BusinessLayer::TextParagraphType::InlineNote,
-            BusinessLayer::TextParagraphType::UnformattedText,
-            BusinessLayer::TextParagraphType::ChapterHeading,
-            BusinessLayer::TextParagraphType::ChapterFooter,
-            BusinessLayer::TextParagraphType::PartHeading,
-            BusinessLayer::TextParagraphType::PartFooter,
         };
         break;
     }

@@ -2,7 +2,6 @@
 
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/screenplay_title_page_model.h>
-#include <business_layer/templates/novel_template.h>
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/simple_text_template.h>
 #include <business_layer/templates/templates_facade.h>
@@ -99,8 +98,6 @@ public:
         {
             if (screenplay.isValid()) {
                 return screenplay;
-            } else if (novel.isValid()) {
-                return novel;
             } else {
                 return simpleText;
             }
@@ -108,7 +105,6 @@ public:
 
         BusinessLayer::SimpleTextTemplate simpleText;
         BusinessLayer::ScreenplayTemplate screenplay;
-        BusinessLayer::NovelTemplate novel;
     } currentTemplate;
 
     /**
@@ -175,11 +171,6 @@ void TemplateOptionsManager::Implementation::prepareViewToEdit(const QString& _t
     case Domain::DocumentObjectType::Screenplay: {
         currentTemplate.screenplay
             = BusinessLayer::TemplatesFacade::screenplayTemplate(_templateId);
-        break;
-    }
-
-    case Domain::DocumentObjectType::Novel: {
-        currentTemplate.novel = BusinessLayer::TemplatesFacade::novelTemplate(_templateId);
         break;
     }
     }
@@ -347,11 +338,6 @@ void TemplateOptionsManager::Implementation::saveTemplate()
 
     case Domain::DocumentObjectType::Screenplay: {
         BusinessLayer::TemplatesFacade::saveScreenplayTemplate(currentTemplate.screenplay);
-        break;
-    }
-
-    case Domain::DocumentObjectType::Novel: {
-        BusinessLayer::TemplatesFacade::saveNovelTemplate(currentTemplate.novel);
         break;
     }
     }

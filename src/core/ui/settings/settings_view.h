@@ -37,7 +37,6 @@ public:
     void showComponents();
     void showComponentsSimpleText();
     void showComponentsScreenplay();
-    void showComponentsNovel();
     void showShortcuts();
     void showAdvanced();
 
@@ -110,22 +109,11 @@ public:
     void setScreenplayDurationUseEighths(bool _use);
 
     //
-    // Задание параметров редактора текста
-    //
-    void setNovelAvailable(bool _available);
-    //
-    void setNovelEditorDefaultTemplate(const QString& _templateId);
-    //
-    void setNovelNavigatorShowSceneText(bool _show, int _lines);
-    void setNovelNavigatorCounterType(int _type);
-
-    //
     // Задание параметров горячих клавиш
     //
     void setShortcutsForApplicationModel(HierarchicalModel* _model);
     void setShortcutsForSimpleTextModel(HierarchicalModel* _model);
     void setShortcutsForScreenplayModel(HierarchicalModel* _model);
-    void setShortcutsForNovelModel(HierarchicalModel* _model);
 
     //
     // Задание экспериментальных параметров
@@ -210,16 +198,6 @@ signals:
     void screenplayDurationConfigurablePerEvery50ForSceneHeadingChanged(qreal _duration);
 
     //
-    // Уведомление об изменении параметров редактора романов
-    //
-    void novelAvailableChanged(bool _available);
-    //
-    void novelEditorDefaultTemplateChanged(const QString& _templateId);
-    //
-    void novelNavigatorShowSceneTextChanged(bool _show, int _lines);
-    void novelNavigatorCounterTypeChanged(int _type);
-
-    //
     // Редактирование шаблонов
     //
     // ... простой текстовый документ
@@ -237,14 +215,6 @@ signals:
     void saveToFileCurrentScreenplayEditorTemplateRequested(const QString& _templateId);
     void removeCurrentScreenplayEditorTemplateRequested(const QString& _templateId);
     void loadFromFileScreenplayEditorTemplateRequested();
-    //
-    // ... роман
-    //
-    void editCurrentNovelEditorTemplateRequested(const QString& _templateId);
-    void duplicateCurrentNovelEditorTemplateRequested(const QString& _templateId);
-    void saveToFileCurrentNovelEditorTemplateRequested(const QString& _templateId);
-    void removeCurrentNovelEditorTemplateRequested(const QString& _templateId);
-    void loadFromFileNovelEditorTemplateRequested();
 
     //
     // Параметры горячих клавиш
@@ -258,9 +228,6 @@ signals:
                                              const QString& _jumpByTab, const QString& _jumpByEnter,
                                              const QString& _changeByTab,
                                              const QString& _changeByEnter);
-    void shortcutsForNovelEditorChanged(const QString& _blockType, const QString& _shortcut,
-                                        const QString& _jumpByTab, const QString& _jumpByEnter,
-                                        const QString& _changeByTab, const QString& _changeByEnter);
 
     //
     // Уведомления об изменении экспериментальных параметров

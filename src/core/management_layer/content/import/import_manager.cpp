@@ -1,7 +1,6 @@
 #include "import_manager.h"
 
 #include <business_layer/import/import_options.h>
-#include <business_layer/import/novel/novel_markdown_importer.h>
 #include <business_layer/import/screenplay/screenplay_celtx_importer.h>
 #include <business_layer/import/screenplay/screenplay_docx_importer.h>
 #include <business_layer/import/screenplay/screenplay_fdx_importer.h>
@@ -43,7 +42,6 @@ public:
      * @brief Импортировать данные документа из заданного файла
      */
     void importSimpleText(const BusinessLayer::ImportOptions& _options);
-    void importNovel(const BusinessLayer::ImportOptions& _options);
     void importScreenplay(const BusinessLayer::ImportOptions& _options);
     void importPresentation(const BusinessLayer::ImportOptions& _options);
 
@@ -160,10 +158,6 @@ void ImportManager::Implementation::showImportDialogFor(const QStringList& _path
                 }
                 case Domain::DocumentObjectType::SimpleText: {
                     importSimpleText(importOptions);
-                    break;
-                }
-                case Domain::DocumentObjectType::Novel: {
-                    importNovel(importOptions);
                     break;
                 }
                 case Domain::DocumentObjectType::Screenplay: {
@@ -284,37 +278,6 @@ void ImportManager::Implementation::importSimpleText(const BusinessLayer::Import
         ? document.name
         : QFileInfo(_options.filePath).completeBaseName();
     emit q->simpleTextImported(documentName, document.text);
-}
-
-void ImportManager::Implementation::importNovel(const BusinessLayer::ImportOptions& _options)
-{
-    //
-    // Определим нужный импортер
-    //
-    QScopedPointer<BusinessLayer::AbstractNovelImporter> importer;
-    {
-        const auto importFilePath = _options.filePath.toLower();
-        if (importFilePath.endsWith(ExtensionHelper::markdown())
-            || importFilePath.endsWith(ExtensionHelper::plainText())) {
-            importer.reset(new BusinessLayer::NovelMarkdownImporter);
-        }
-    }
-
-    //
-    // Если закинули какую-то хрень, то просто игнорируем дальнейшее выполнение
-    //
-    if (importer.isNull()) {
-        Log::warning("Unsupporter file type (%1) for novel exporting", _options.filePath);
-        return;
-    }
-
-    //
-    // Импортируем текст романа
-    //
-    const auto novel = importer->importNovel(_options);
-    const auto novelName
-        = !novel.name.isEmpty() ? novel.name : QFileInfo(_options.filePath).completeBaseName();
-    emit q->novelImported(novelName, novel.text);
 }
 
 void ImportManager::Implementation::importScreenplay(const BusinessLayer::ImportOptions& _options)
@@ -452,14 +415,6 @@ void ImportManager::importScreenplay(const QString& _filePath, bool _importDocum
     d->importScreenplay(options);
 }
 
-void ImportManager::importNovel(const QString& _filePath)
-{
-    BusinessLayer::ImportOptions options;
-    options.filePath = _filePath;
-    options.documentType = Domain::DocumentObjectType::Novel;
-    d->importNovel(options);
-}
-
 void ImportManager::importToDocument(const QString& _filePath, const QUuid& _documentUuid,
                                      Domain::DocumentObjectType _type)
 {
@@ -467,10 +422,6 @@ void ImportManager::importToDocument(const QString& _filePath, const QUuid& _doc
     case Domain::DocumentObjectType::ScreenplayText: {
         const bool importDocuments = false;
         importScreenplay(_filePath, importDocuments);
-        break;
-    }
-    case Domain::DocumentObjectType::NovelText: {
-        importNovel(_filePath);
         break;
     }
 

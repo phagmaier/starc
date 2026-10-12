@@ -46,17 +46,19 @@ For layout changes, inspect the template, document correction, paged widget, and
 
 ## Retired formats
 
-Audioplay, stageplay, and comic book editing was removed from this fork, together with the AI assistant. Novel, simple text, and the shared project documents remain. A project that already contains documents of a retired format keeps them untouched:
+Audioplay, stageplay, comic book, novel, and screenplay series editing was removed from this fork, together with the AI assistant. Screenplay, simple text, and the shared project documents remain. A project that already contains documents of a retired format keeps them untouched:
 
 | Area | Start here | Notes |
 | --- | --- | --- |
-| Which types are retired | `isUnsupportedDocumentType` in [document_object.h](../src/corelib/domain/document_object.h) | The 18 persisted type identifiers and their MIME mappings stay in the enum and in `document_object.cpp`. Do not renumber or remove them. |
+| Which types are retired | `isUnsupportedDocumentType` in [document_object.h](../src/corelib/domain/document_object.h) | The 32 persisted type identifiers and their MIME mappings stay in the enum and in `document_object.cpp`. Do not renumber or remove them. |
 | No model, no rewrite | `ProjectModelsFacade::modelFor` in [project_models_facade.cpp](../src/core/management_layer/content/project/project_models_facade.cpp) | Returns `nullptr` for a retired type before a document is created or parsed, so its content is never loaded into a model or saved back. |
 | What the user sees | `ProjectManager::showView` and [ProjectView::showUnsupportedFormatPage](../src/core/ui/project/project_view.h) | Selecting such a document shows a notice instead of an editor. It cannot be created, dragged, given drafts, or changed from the context menu. |
 | Structure tree | [StructureModel](../src/corelib/business_layer/model/structure/structure_model.h) | `addDocument` refuses retired types; existing items are still parsed, shown, and serialized. |
 | Old project files | [Database](../src/corelib/data_layer/database.h) | The upstream upgrade steps stay, including the one that renames comic book blocks in projects from before 0.1.3. They treat script documents as text. |
 
 Several tables in `project_manager.cpp` still list the retired type identifiers (text items, items that cannot be removed separately, sharing). They classify existing structure items and need no retired source code.
+
+The episodes of a series are ordinary screenplay documents nested in its "Episodes" item. Only the series documents themselves are retired: an episode still opens in the screenplay editor and can be dragged out of the series, but nothing can be dropped into it.
 
 ## Story sync with GitHub
 

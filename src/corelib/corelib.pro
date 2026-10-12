@@ -196,8 +196,6 @@ SOURCES += \
     business_layer/chronometry/chronometer.cpp \
     business_layer/compliance/compliance_checker.cpp \
     business_layer/compliance/compliance_checker_impl.cpp \
-    business_layer/document/novel/text/novel_text_corrector.cpp \
-    business_layer/document/novel/text/novel_text_document.cpp \
     business_layer/document/screenplay/text/screenplay_text_corrector.cpp \
     business_layer/document/screenplay/text/screenplay_text_document.cpp \
     business_layer/document/simple_text/simple_text_corrector.cpp \
@@ -223,10 +221,6 @@ SOURCES += \
     business_layer/export/locations/locations_docx_exporter.cpp \
     business_layer/export/locations/locations_exporter.cpp \
     business_layer/export/locations/locations_pdf_exporter.cpp \
-    business_layer/export/novel/novel_docx_exporter.cpp \
-    business_layer/export/novel/novel_exporter.cpp \
-    business_layer/export/novel/novel_markdown_exporter.cpp \
-    business_layer/export/novel/novel_pdf_exporter.cpp \
     business_layer/export/screenplay/screenplay_docx_exporter.cpp \
     business_layer/export/screenplay/screenplay_exporter.cpp \
     business_layer/export/screenplay/screenplay_fdx_exporter.cpp \
@@ -245,7 +239,6 @@ SOURCES += \
     business_layer/import/abstract_document_importer.cpp \
     business_layer/import/abstract_fountain_importer.cpp \
     business_layer/import/abstract_markdown_importer.cpp \
-    business_layer/import/novel/novel_markdown_importer.cpp \
     business_layer/import/screenplay/screenplay_celtx_importer.cpp \
     business_layer/import/screenplay/screenplay_docx_importer.cpp \
     business_layer/import/screenplay/screenplay_fdx_importer.cpp \
@@ -265,18 +258,6 @@ SOURCES += \
     business_layer/model/locations/location_model.cpp \
     business_layer/model/locations/locations_model.cpp \
     business_layer/model/mind_map/mind_map_model.cpp \
-    business_layer/model/novel/novel_dictionaries_model.cpp \
-    business_layer/model/novel/novel_information_model.cpp \
-    business_layer/model/novel/novel_statistics_model.cpp \
-    business_layer/model/novel/novel_synopsis_model.cpp \
-    business_layer/model/novel/novel_title_page_model.cpp \
-    business_layer/model/novel/text/novel_text_block_parser.cpp \
-    business_layer/model/novel/text/novel_text_mime_handler.cpp \
-    business_layer/model/novel/text/novel_text_model.cpp \
-    business_layer/model/novel/text/novel_text_model_beat_item.cpp \
-    business_layer/model/novel/text/novel_text_model_folder_item.cpp \
-    business_layer/model/novel/text/novel_text_model_scene_item.cpp \
-    business_layer/model/novel/text/novel_text_model_text_item.cpp \
     business_layer/model/presentation/presentation_model.cpp \
     business_layer/model/project/project_information_model.cpp \
     business_layer/model/recycle_bin/recycle_bin_model.cpp \
@@ -284,12 +265,6 @@ SOURCES += \
     business_layer/model/screenplay/screenplay_information_model.cpp \
     business_layer/model/screenplay/screenplay_statistics_model.cpp \
     business_layer/model/screenplay/screenplay_synopsis_model.cpp \
-    business_layer/model/screenplay/series/screenplay_series_episodes_model.cpp \
-    business_layer/model/screenplay/series/screenplay_series_episodes_model_episode_item.cpp \
-    business_layer/model/screenplay/series/screenplay_series_episodes_model_item.cpp \
-    business_layer/model/screenplay/series/screenplay_series_episodes_model_story_line_item.cpp \
-    business_layer/model/screenplay/series/screenplay_series_information_model.cpp \
-    business_layer/model/screenplay/series/screenplay_series_statistics_model.cpp \
     business_layer/model/screenplay/text/screenplay_text_block_parser.cpp \
     business_layer/model/screenplay/text/screenplay_text_mime_handler.cpp \
     business_layer/model/screenplay/text/screenplay_text_model.cpp \
@@ -317,21 +292,13 @@ SOURCES += \
     business_layer/model/worlds/worlds_model.cpp \
     business_layer/plots/screenplay/screenplay_characters_activity_plot.cpp \
     business_layer/plots/screenplay/screenplay_structure_analysis_plot.cpp \
-    business_layer/plots/screenplay/series/screenplay_series_characters_activity_plot.cpp \
     business_layer/reports/abstract_report.cpp \
-    business_layer/reports/novel/novel_summary_report.cpp \
     business_layer/reports/screenplay/screenplay_cast_report.cpp \
     business_layer/reports/screenplay/screenplay_dialogues_report.cpp \
     business_layer/reports/screenplay/screenplay_gender_report.cpp \
     business_layer/reports/screenplay/screenplay_location_report.cpp \
     business_layer/reports/screenplay/screenplay_scene_report.cpp \
     business_layer/reports/screenplay/screenplay_summary_report.cpp \
-    business_layer/reports/screenplay/series/screenplay_series_cast_report.cpp \
-    business_layer/reports/screenplay/series/screenplay_series_dialogues_report.cpp \
-    business_layer/reports/screenplay/series/screenplay_series_location_report.cpp \
-    business_layer/reports/screenplay/series/screenplay_series_scene_report.cpp \
-    business_layer/reports/screenplay/series/screenplay_series_summary_report.cpp \
-    business_layer/templates/novel_template.cpp \
     business_layer/templates/screenplay_template.cpp \
     business_layer/templates/simple_text_template.cpp \
     business_layer/templates/templates_facade.cpp \
@@ -503,8 +470,6 @@ HEADERS += \
     business_layer/chronometry/chronometer.h \
     business_layer/compliance/compliance_checker.h \
     business_layer/compliance/compliance_checker_impl.h \
-    business_layer/document/novel/text/novel_text_corrector.h \
-    business_layer/document/novel/text/novel_text_document.h \
     business_layer/document/screenplay/text/screenplay_text_corrector.h \
     business_layer/document/screenplay/text/screenplay_text_document.h \
     business_layer/document/simple_text/simple_text_corrector.h \
@@ -533,11 +498,6 @@ HEADERS += \
     business_layer/export/locations/locations_docx_exporter.h \
     business_layer/export/locations/locations_exporter.h \
     business_layer/export/locations/locations_pdf_exporter.h \
-    business_layer/export/novel/novel_docx_exporter.h \
-    business_layer/export/novel/novel_export_options.h \
-    business_layer/export/novel/novel_exporter.h \
-    business_layer/export/novel/novel_markdown_exporter.h \
-    business_layer/export/novel/novel_pdf_exporter.h \
     business_layer/export/screenplay/screenplay_docx_exporter.h \
     business_layer/export/screenplay/screenplay_export_options.h \
     business_layer/export/screenplay/screenplay_exporter.h \
@@ -560,8 +520,6 @@ HEADERS += \
     business_layer/import/abstract_importer.h \
     business_layer/import/abstract_markdown_importer.h \
     business_layer/import/import_options.h \
-    business_layer/import/novel/abstract_novel_importer.h \
-    business_layer/import/novel/novel_markdown_importer.h \
     business_layer/import/screenplay/abstract_screenplay_importer.h \
     business_layer/import/screenplay/screenplay_celtx_importer.h \
     business_layer/import/screenplay/screenplay_docx_importer.h \
@@ -585,18 +543,6 @@ HEADERS += \
     business_layer/model/locations/location_model.h \
     business_layer/model/locations/locations_model.h \
     business_layer/model/mind_map/mind_map_model.h \
-    business_layer/model/novel/novel_dictionaries_model.h \
-    business_layer/model/novel/novel_information_model.h \
-    business_layer/model/novel/novel_statistics_model.h \
-    business_layer/model/novel/novel_synopsis_model.h \
-    business_layer/model/novel/novel_title_page_model.h \
-    business_layer/model/novel/text/novel_text_block_parser.h \
-    business_layer/model/novel/text/novel_text_mime_handler.h \
-    business_layer/model/novel/text/novel_text_model.h \
-    business_layer/model/novel/text/novel_text_model_beat_item.h \
-    business_layer/model/novel/text/novel_text_model_folder_item.h \
-    business_layer/model/novel/text/novel_text_model_scene_item.h \
-    business_layer/model/novel/text/novel_text_model_text_item.h \
     business_layer/model/presentation/presentation_model.h \
     business_layer/model/project/project_information_model.h \
     business_layer/model/recycle_bin/recycle_bin_model.h \
@@ -604,12 +550,6 @@ HEADERS += \
     business_layer/model/screenplay/screenplay_information_model.h \
     business_layer/model/screenplay/screenplay_statistics_model.h \
     business_layer/model/screenplay/screenplay_synopsis_model.h \
-    business_layer/model/screenplay/series/screenplay_series_episodes_model.h \
-    business_layer/model/screenplay/series/screenplay_series_episodes_model_episode_item.h \
-    business_layer/model/screenplay/series/screenplay_series_episodes_model_item.h \
-    business_layer/model/screenplay/series/screenplay_series_episodes_model_story_line_item.h \
-    business_layer/model/screenplay/series/screenplay_series_information_model.h \
-    business_layer/model/screenplay/series/screenplay_series_statistics_model.h \
     business_layer/model/screenplay/text/screenplay_text_block_parser.h \
     business_layer/model/screenplay/text/screenplay_text_mime_handler.h \
     business_layer/model/screenplay/text/screenplay_text_model.h \
@@ -639,21 +579,13 @@ HEADERS += \
     business_layer/plots/abstract_plot.h \
     business_layer/plots/screenplay/screenplay_characters_activity_plot.h \
     business_layer/plots/screenplay/screenplay_structure_analysis_plot.h \
-    business_layer/plots/screenplay/series/screenplay_series_characters_activity_plot.h \
     business_layer/reports/abstract_report.h \
-    business_layer/reports/novel/novel_summary_report.h \
     business_layer/reports/screenplay/screenplay_cast_report.h \
     business_layer/reports/screenplay/screenplay_dialogues_report.h \
     business_layer/reports/screenplay/screenplay_gender_report.h \
     business_layer/reports/screenplay/screenplay_location_report.h \
     business_layer/reports/screenplay/screenplay_scene_report.h \
     business_layer/reports/screenplay/screenplay_summary_report.h \
-    business_layer/reports/screenplay/series/screenplay_series_cast_report.h \
-    business_layer/reports/screenplay/series/screenplay_series_dialogues_report.h \
-    business_layer/reports/screenplay/series/screenplay_series_location_report.h \
-    business_layer/reports/screenplay/series/screenplay_series_scene_report.h \
-    business_layer/reports/screenplay/series/screenplay_series_summary_report.h \
-    business_layer/templates/novel_template.h \
     business_layer/templates/screenplay_template.h \
     business_layer/templates/simple_text_template.h \
     business_layer/templates/templates_facade.h \

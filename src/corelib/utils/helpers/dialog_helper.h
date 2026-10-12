@@ -41,7 +41,6 @@ public:
      */
     static QString filtersForImport();
     static QString filtersForImportScreenplay();
-    static QString filtersForImportNovel();
 
     /**
      * @brief Получить список фильтров файлов, в которые можно сохранять содержимое холста

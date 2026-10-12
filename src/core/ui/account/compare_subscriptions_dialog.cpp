@@ -127,17 +127,6 @@ CompareSubscriptionsDialog::Implementation::Implementation(QWidget* _parent)
         { tr("Timeline"), false, true, true },
         { tr("Extended statistics"), false, true, true },
         { tr("Script breakdown"), false, false, true },
-        { tr("Series plan"), false, false, true },
-        { tr("Series statistics"), false, false, true },
-        { tr("Novel") },
-        { tr("Logline & synopsis"), true, true, true },
-        { tr("Title page"), true, true, true },
-        { tr("Outline text"), true, true, true },
-        { tr("Novel text"), true, true, true },
-        { tr("Basic statistics"), true, true, true },
-        { tr("Import/export"), true, true, true },
-        { tr("Corkboard"), false, true, true },
-        { tr("Timeline"), false, true, true },
     };
     int row = 0;
     const auto unavailableIconColor = ColorHelper::transparent(DesignSystem::color().onBackground(),

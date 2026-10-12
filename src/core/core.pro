@@ -100,7 +100,6 @@ SOURCES += \
     ui/export/documents_export_dialog.cpp \
     ui/export/location_export_dialog.cpp \
     ui/export/locations_export_dialog.cpp \
-    ui/export/novel_export_dialog.cpp \
     ui/export/screenplay_export_dialog.cpp \
     ui/export/script_export_dialog.cpp \
     ui/export/simple_text_export_dialog.cpp \
@@ -196,7 +195,6 @@ HEADERS += \
     ui/export/documents_export_dialog.h \
     ui/export/location_export_dialog.h \
     ui/export/locations_export_dialog.h \
-    ui/export/novel_export_dialog.h \
     ui/export/screenplay_export_dialog.h \
     ui/export/script_export_dialog.h \
     ui/export/simple_text_export_dialog.h \

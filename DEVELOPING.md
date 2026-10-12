@@ -50,6 +50,10 @@ The current helper targets Linux and Qt 6; upstream README/CI cover other hosts.
 Read the `.pro` files before adapting the workflow to another platform.
 The Linux helper enables the bundled TIFF library's `unistd.h` declarations via
 `HAVE_UNISTD_H`; its upstream qmake project currently enables them only on macOS.
+After deleting source or header files, run `make qmake_all` in `.build/<mode>`
+before the next build: the generated child Makefiles keep the old header lists
+and stop with "No rule to make target" until they are regenerated. A plugin that
+is no longer built also leaves its library in `_build/plugins/`; remove it there.
 This supplies the declarations required by modern C compilers without modifying
 the pinned PDF submodule checkout.
 

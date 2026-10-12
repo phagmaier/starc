@@ -58,8 +58,6 @@ public:
     void reconfigureScreenplayEditor(const QStringList& _changedSettingsKeys);
     void reconfigureScreenplayNavigator();
     void reconfigureScreenplayDuration();
-    void reconfigureNovelEditor(const QStringList& _changedSettingsKeys);
-    void reconfigureNovelNavigator();
 
     /**
      * @brief Обновить информацию о том, может ли пользователь использовать платные редакторы
@@ -108,7 +106,6 @@ public:
      * @brief Добавить данные по документу
      */
     void storeSimpleText(const QString& _name, const QString& _text);
-    void storeNovel(const QString& _name, const QString& _text);
     void storeScreenplay(const QString& _name, const QString& _titlePage, const QString& _synopsis,
                          const QString& _treatment, const QString& _text);
     void storePresentation(const QUuid& _documentUuid, const QString& _name,
