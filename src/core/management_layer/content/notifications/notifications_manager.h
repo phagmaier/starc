@@ -8,7 +8,7 @@
 namespace ManagementLayer {
 
 /**
- * @brief Менеджер уведомлений
+ * @brief Stable release metadata for the retained application update-download flow
  */
 class NotificationsManager : public QObject
 {
@@ -19,36 +19,14 @@ public:
     ~NotificationsManager() override;
 
     /**
-     * @brief Необходимо ли отображения дев-версий
-     */
-    bool showDevVersions() const;
-    void setShowDevVersions(bool _show);
-
-    /**
-     * @brief Обработать уведомления поступившие с сервера
+     * @brief Cache device-relevant stable releases received from the cloud feed
      */
     void processNotifications(const QVector<Domain::Notification>& _notifications);
-
-    /**
-     * @brief Пометить все уведомления просмотренными
-     */
-    void markAllRead();
 
     /**
      * @brief Ссылка на загрузку самой последней версии
      */
     QString lastVersionDownloadLink() const;
-
-signals:
-    /**
-     * @brief Нужно отобразить заданный список уведомлений
-     */
-    void showNotificationsRequested(const QVector<Domain::Notification>& _notifications);
-
-    /**
-     * @brief Есть ли непрочитанные уведомления
-     */
-    void hasUnreadNotificationsChanged(bool _has);
 
 private:
     class Implementation;

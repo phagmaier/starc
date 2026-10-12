@@ -40,11 +40,6 @@ public:
     QWidget* view() const;
 
     /**
-     * @brief Показать/скрыть наличие непрочитанных комментариев
-     */
-    void setHasUnreadNotifications(bool _hasUnreadNotifications);
-
-    /**
      * @brief Активировать полноэкранный режим
      */
     void toggleFullScreen(bool _isFullScreen);

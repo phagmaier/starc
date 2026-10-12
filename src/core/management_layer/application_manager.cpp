@@ -422,7 +422,6 @@ ApplicationManager::Implementation::Implementation(ApplicationManager* _q)
 {
     initDockMenu();
 
-    menuView->setShowDevVersions(notificationsManager->showDevVersions());
     menuView->setImportShortcut(shortcutsManager->importShortcut());
     menuView->setCurrentDocumentExportShortcut(shortcutsManager->currentDocumentExportShortcut());
 
@@ -3003,22 +3002,10 @@ void ApplicationManager::initConnections()
     connect(d->connectionStatus, &Ui::ConnectionStatusToolBar::checkConnectionPressed,
             d->cloudServiceManager.data(), &CloudServiceManager::start);
     //
-    // Уведомления
+    // Stable release feed retained for askUpdateToLatestVersion(), without notification UI.
     //
     connect(d->cloudServiceManager.data(), &CloudServiceManager::notificationsReceived,
             d->notificationsManager.data(), &NotificationsManager::processNotifications);
-    connect(d->notificationsManager.data(), &NotificationsManager::showNotificationsRequested,
-            d->menuView, &Ui::MenuView::setNotifications);
-    connect(d->notificationsManager.data(), &NotificationsManager::hasUnreadNotificationsChanged,
-            this, [this](bool _hasUnreadNotifications) {
-                d->projectsManager->setHasUnreadNotifications(_hasUnreadNotifications);
-                d->projectManager->setHasUnreadNotifications(_hasUnreadNotifications);
-                d->menuView->setHasUnreadNotifications(_hasUnreadNotifications);
-            });
-    connect(d->menuView, &Ui::MenuView::showDevVersionsChanged, d->notificationsManager.data(),
-            &NotificationsManager::setShowDevVersions);
-    connect(d->menuView, &Ui::MenuView::notificationsPressed, d->notificationsManager.data(),
-            &NotificationsManager::markAllRead);
     //
     // Нужно обновить версию приложения для работы с облаком
     //

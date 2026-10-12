@@ -34,11 +34,6 @@ public:
     QWidget* view() const;
 
     /**
-     * @brief Показать/скрыть наличие непрочитанных комментариев
-     */
-    void setHasUnreadNotifications(bool _hasUnreadNotifications);
-
-    /**
      * @brief Загрузить список проектов
      */
     void loadProjects();

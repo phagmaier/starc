@@ -675,3 +675,93 @@ macOS menus), release packaging, and real remote GitHub operations were not
 exercised. Native credential mutation was not repeated for this UI cut; the
 requested injected credential and mock-sync regressions passed. Notifications
 and every subsequent Cut/Add item remain outside this task.
+
+## Upstream Notifications interface removal
+
+Completed 2026-10-12, limited to the first unchecked Cut item. Removed the
+Notifications drawer and macOS menu entry, page construction/navigation, developer
+release filter, release/credits views and their qmake entries. The menu and
+project/projects managers no longer offer page/unread callbacks or set the
+retired feed's toolbar badges. Generic badge widgets and document comments/review
+controls remain. Translation catalogs and subsequent TODO items are unchanged.
+
+`NotificationsManager` remains because
+`ApplicationManager::Implementation::askUpdateToLatestVersion` directly calls
+`lastVersionDownloadLink()`, despite the graph reporting no caller. Its remaining
+support caches device/Qt-compatible stable-release records and extracts that link.
+The guarded cloud `notificationsReceived` connection, login-time `askNotifications`
+request and version-upgrade/download flow remain for that consumer. The manager
+has no page signals, read-state tracking or preference access; existing show-dev
+and last-read settings are left stored and ignored. No cloud module was fetched,
+and no update download, installer, release or upstream networking workflow ran.
+
+Validation:
+
+- `./build/dev.sh doctor`: passed with Qt 6.12.0 and the automatically selected
+  ignored QtKeychain prefix. Optional translation utilities remain absent.
+  `make qmake_all` in `.build/debug`, then
+  `JOBS=4 ./build/dev.sh build debug`: passed.
+- `./tools/check-github-credential-storage.sh`, `./tools/check-project-sync.sh`,
+  `./tools/check-screenplay-scope.sh`, `./tools/check-screenplay-interchange.sh`,
+  `./tools/check-writing-session-storage.sh` and
+  `./tools/check-backup-retention.sh`: all passed. Every wrapper received an
+  explicitly absent private session-bus address and disposable runner profile;
+  wrappers that set their own absent bus retain that stricter isolation. GitHub
+  checks use only injected storage and a local mock server. No actual tokens,
+  projects or desktop keyring were read or changed.
+- The scope test preserves account-removal, installed-editor availability,
+  Statistics, editing/Undo/Redo/pagination/export, cached records and retired
+  document/save/reopen assertions. New checks inspect notification labels,
+  actions, widgets and callbacks with and without project actions, even with
+  old preferences seeded. Synthetic feed checks cover compatible stable links,
+  irrelevant/dev/retired notices, ordered arrivals, duplicate/empty deliveries,
+  malformed JSON and unchanged dormant preferences without network access.
+- Source/build-entry and rebuilt-plugin symbol audits found no retired page,
+  release/credits view or menu/toolbar badge integration. The retained updater
+  symbol is present. Graph coverage and reported macro/parser gaps were checked
+  directly in source; graph edges were treated as advisory. The ignored driver
+  was read directly and copied into the new evidence directory before use.
+  Changed-code formatting review, Python driver syntax and `git diff --check`
+  passed, preserving the existing empty-brace and test formatting.
+
+Real application on private Xvfb, with a disposable native Secret Service and
+network-isolated `unshare -Urn` application children:
+
+- Settled story-list and local-project menus contain no Notifications action or
+  filter. Writing statistics and Writing sprint remain available; the latter
+  opens duration/start controls. Settings retain GitHub repository/token fields
+  and Save/Clear/Retry with an empty ready credential.
+- The actual Create story dialog created a local screenplay. Zero-delay typing
+  of a heading and `NOTIFICATIONS CUT UI SURVIVAL`, ordinary Ctrl+S and normal
+  close persisted the exact text. Statistics displayed one heading, one action
+  and nine words. Typing created a derived Location record and updated its group
+  and structure; all 13 original document UUIDs/type IDs remained. A full-file
+  backup matched the saved project exactly, and SQLite integrity passed.
+- Fresh application reopen and a second normal close preserved all 14 saved
+  document UUIDs, type IDs and serialized UTF-8 content hashes exactly. SQLite
+  TEXT/BLOB retrieval was normalized before hashing. The marker was visible;
+  writing statistics opened with the prior session's eleven written words.
+- Fresh GitHub onboarding retained its independent credential controls;
+  “Set up later” reached local stories. All three Ctrl+Q exits were actually `0`.
+  Only the exact private Xvfb/provider/bus children were stopped after application
+  exit. No file dialogs, file managers or external links were opened.
+
+Evidence: `.build/evidence/notifications-removal-gkm_pnu1/` contains doctor,
+qmake/build logs, all six regression summaries and their unique evidence paths,
+coverage/source checks, the adapted driver, provider logs, command transcript,
+settled screenshots, exits and document hashes. The scope check's full evidence
+is `.build/evidence/screenplay-scope-ZLLNBo/`. Earlier evidence remains untouched.
+
+The first live database marker read failed before the normal-close snapshot;
+its timing against queued save completion was not established. The failed
+assertion and diagnosis remain. No input was repeated, slowed or retried; the
+accepted exact-byte comparisons use the completed normal-close/save/reopen
+boundary. A harmless quote-area click is recorded and excluded from creation
+evidence. Existing Qt shutdown timer and initial cover-size warnings remain in
+the logs; none caused a nonzero exit or forced application teardown.
+
+Limits: Linux debug/offscreen and private Xvfb only. The absent private cloud
+build, native macOS menu, other platforms, release packaging, owner's desktop/
+profile/keyring, real remote GitHub, updater network/download/installation and
+sprint countdown were not exercised. Native credential mutation was not repeated
+for this UI cut; the required credential and mock-sync regressions passed.

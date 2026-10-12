@@ -18,6 +18,7 @@
 #include <interfaces/management_layer/i_document_manager.h>
 #include <interfaces/ui/i_document_view.h>
 #include <management_layer/content/import/import_manager.h>
+#include <management_layer/content/notifications/notifications_manager.h>
 #include <management_layer/content/project/project_manager.h>
 #include <management_layer/content/project/project_models_facade.h>
 #include <management_layer/content/projects/projects_manager.h>
@@ -108,6 +109,98 @@ void noAccountUi(QWidget* _widget)
             checkText(action->text());
         }
     }
+}
+
+void noNotificationsUi(QWidget* _widget)
+{
+    auto checkText = [](const QString& text) {
+        require(!text.contains("notification", Qt::CaseInsensitive)
+                    && !text.contains("developers version", Qt::CaseInsensitive),
+                "no retired notifications label or filter");
+    };
+    for (auto object : _widget->findChildren<QObject*>()) {
+        const QString name = object->metaObject()->className();
+        require(!name.contains("ReleaseView") && !name.contains("CreditsView"),
+                "no notification release or credits widget");
+        if (auto action = qobject_cast<QAction*>(object)) {
+            checkText(action->text());
+            checkText(action->toolTip());
+        }
+    }
+    for (auto label : _widget->findChildren<AbstractLabel*>()) {
+        checkText(label->text());
+    }
+    // Drawer actions have no QObject parent; inspect its offered actions explicitly.
+    for (auto drawer : _widget->findChildren<Drawer*>()) {
+        for (auto action : drawer->actions()) {
+            checkText(action->text());
+            checkText(action->toolTip());
+        }
+    }
+}
+
+void checkRetainedUpdateFeed()
+{
+    using NotificationType = Domain::NotificationType;
+#if defined(Q_OS_LINUX)
+    const auto stable = NotificationType::UpdateStableQt6Linux;
+    const auto otherPlatform = NotificationType::UpdateStableQt6Mac;
+    const auto oldQt = NotificationType::UpdateStableQt5Linux;
+#elif defined(Q_OS_MACOS)
+    const auto stable = NotificationType::UpdateStableQt6Mac;
+    const auto otherPlatform = NotificationType::UpdateStableQt6Linux;
+    const auto oldQt = NotificationType::UpdateStableQt5Mac;
+#else
+    const auto stable = NotificationType::UpdateStableQt6Windows;
+    const auto otherPlatform = NotificationType::UpdateStableQt6Linux;
+    const auto oldQt = NotificationType::UpdateStableQt5Windows64;
+#endif
+    const QString devKey = "/managers/notifications/show-dev-versions";
+    const QString readKey = "/managers/notifications/last-read-notification-datetime";
+    const auto readTime = QDateTime::fromString("2026-10-01T12:00:00Z", Qt::ISODate);
+    QSettings preferences;
+    preferences.setValue(devKey, true);
+    preferences.setValue(readKey, readTime);
+
+    ManagementLayer::NotificationsManager feed;
+    require(feed.metaObject()->indexOfSignal(
+                "showNotificationsRequested(QVector<Domain::Notification>)") < 0
+                && feed.metaObject()->indexOfSignal("hasUnreadNotificationsChanged(bool)") < 0,
+            "retained update feed has no page or unread callbacks");
+    require(feed.lastVersionDownloadLink().isEmpty(), "empty retained update feed");
+    const QString ignored = R"({"download_link":"https://ignored.invalid/update"})";
+    feed.processNotifications({ { NotificationType::CreditsAdded, ignored, readTime },
+                                { NotificationType::UpdateDevLinux, ignored, readTime },
+                                { NotificationType::UpdateDevMac, ignored, readTime },
+                                { NotificationType::UpdateDevWindows, ignored, readTime },
+                                { NotificationType::ProSubscriptionEnds, ignored, readTime },
+                                { otherPlatform, ignored, readTime },
+                                { oldQt, ignored, readTime } });
+    require(feed.lastVersionDownloadLink().isEmpty(),
+            "updater ignores retired notices, dev releases and incompatible stable releases");
+    const Domain::Notification older = {
+        stable, R"({"download_link":"https://update.invalid/older"})", readTime
+    };
+    const Domain::Notification latest = {
+        stable, R"({"download_link":"https://update.invalid/latest"})", readTime.addDays(1)
+    };
+    feed.processNotifications({ latest, older });
+    require(feed.lastVersionDownloadLink() == "https://update.invalid/latest",
+            "updater retains newest applicable stable release link");
+    feed.processNotifications({ older });
+    feed.processNotifications({});
+    require(feed.lastVersionDownloadLink() == "https://update.invalid/latest",
+            "duplicate and empty feed deliveries retain the update link");
+    feed.processNotifications({ { stable, R"({"download_link":"https://update.invalid/newer"})",
+                                  readTime.addDays(2) } });
+    require(feed.lastVersionDownloadLink() == "https://update.invalid/newer",
+            "later stable release replaces the retained update link");
+    require(preferences.value(devKey).toBool()
+                && preferences.value(readKey).toDateTime() == readTime,
+            "retired notification preferences remain stored and ignored");
+    ManagementLayer::NotificationsManager malformed;
+    malformed.processNotifications({ { stable, "invalid JSON", readTime } });
+    require(malformed.lastVersionDownloadLink().isEmpty(), "invalid update metadata has no link");
 }
 
 // Names of the retired formats and of the removed assistant must not be offered anywhere.
@@ -510,8 +603,13 @@ int main(int argc, char** argv)
     ManagementLayer::ShortcutsManager shortcuts;
     ManagementLayer::SettingsManager settings(nullptr, &host, plugins, &shortcuts);
     auto onboarding = new Ui::OnboardingNavigator(&host);
+    checkRetainedUpdateFeed();
     auto menu = new Ui::MenuView(&host);
     QApplication::processEvents();
+    require(menu->metaObject()->indexOfSignal("notificationsPressed()") < 0
+                && menu->metaObject()->indexOfSignal("showDevVersionsChanged(bool)") < 0,
+            "menu has no notifications navigation or filter callbacks");
+    noNotificationsUi(menu);
     require(menu->metaObject()->indexOfSignal("signInPressed()") < 0
                 && menu->metaObject()->indexOfSignal("accountPressed()") < 0
                 && menu->metaObject()->indexOfSignal("renewProPressed()") < 0,
@@ -529,6 +627,9 @@ int main(int argc, char** argv)
                      [&] { sprintRequested = true; });
     auto drawer = menu->findChild<Drawer*>();
     require(drawer, "retained local menu");
+    menu->setProjectActionsVisible(true);
+    QApplication::processEvents();
+    noNotificationsUi(menu);
     for (auto action : drawer->actions()) {
         if (action->text() == "Writing statistics") {
             require(action->isVisible() && action->isEnabled(), "local statistics action available");
@@ -539,6 +640,7 @@ int main(int argc, char** argv)
         }
     }
     require(statisticsRequested && sprintRequested, "local writing tools work without account");
+    menu->setProjectActionsVisible(false);
     QApplication::processEvents();
     for (QWidget* widget :
          QVector<QWidget*>{ settings.view(), settings.navigator(), onboarding, menu,
@@ -1146,5 +1248,6 @@ int main(int argc, char** argv)
     // raw pointer, and QPluginLoader shares a plugin instance between builders in this process.
     checkStatistics(evidence, {});
     std::puts("PASS: screenplay scope, keyboard editing, Undo/Redo, pagination, exports, "
-              "mixed-project preservation, editors limited to what this build contains");
+              "mixed-project preservation, editors limited to what this build contains, "
+              "notifications UI absent with retained update metadata");
 }

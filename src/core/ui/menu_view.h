@@ -2,10 +2,6 @@
 
 #include <ui/widgets/stack_widget/stack_widget.h>
 
-namespace Domain {
-struct Notification;
-}
-
 
 namespace Ui {
 
@@ -69,21 +65,6 @@ public:
      * @brief Установить возможность экспортирования текущего документа
      */
     void setCurrentDocumentExportAvailable(bool _available);
-
-    /**
-     * @brief Показать/скрыть наличие непрочитанных комментариев
-     */
-    void setHasUnreadNotifications(bool _hasUnreadNotifications);
-
-    /**
-     * @brief Задать необходимость отображать дев-версии
-     */
-    void setShowDevVersions(bool _show);
-
-    /**
-     * @brief Задать список уведомлений
-     */
-    void setNotifications(const QVector<Domain::Notification>& _notifications);
 
     /**
      * @brief Открыть меню
@@ -166,16 +147,6 @@ signals:
      * @brief Нажата кнопка отображения таймера писательского спринта
      */
     void writingSprintPressed();
-
-    /**
-     * @brief Нажата кнопка отображения списка уведомлений
-     */
-    void notificationsPressed();
-
-    /**
-     * @brief Пользователь включил/отключил отображение дев-версий
-     */
-    void showDevVersionsChanged(bool _show);
 
 protected:
     /**

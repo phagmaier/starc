@@ -430,11 +430,6 @@ QWidget* ProjectsManager::view() const
     return d->view;
 }
 
-void ProjectsManager::setHasUnreadNotifications(bool _hasUnreadNotifications)
-{
-    d->toolBar->setBadgeVisible(d->toolBar->actions().constFirst(), _hasUnreadNotifications);
-}
-
 void ProjectsManager::loadProjects()
 {
     //

@@ -68,8 +68,15 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
     settings/local-create/save/reopen/Statistics/onboarding checks passed. All
     three Ctrl+Q exits were 0. Private cloud/desktop/release limits and retained
     evidence are in `docs/PROJECT.md`.
-- [ ] **Notifications page** in the menu. Its only feed is the absent cloud
+- [x] **Notifications page** in the menu. Its only feed is the absent cloud
   client.
+  - Done 2026-10-12: removed the page/action, filters, release/credits widgets,
+    unread menu/toolbar badges and callbacks. `NotificationsManager` retains only
+    stable-release metadata for the existing update-download consumer; old page
+    preferences remain stored and ignored.
+  - Debug build, all six required regressions and private Xvfb startup/menu/
+    settings/local-create/edit/save/reopen/writing-tools/GitHub-onboarding checks
+    passed; all three Ctrl+Q exits were 0. Evidence and limits: `docs/PROJECT.md`.
 - [ ] **Tweet-sharing buttons** in the logline generator and the writing sprint
   panel.
 - [ ] **"User guide" link** on the story list. It opens upstream's help site,

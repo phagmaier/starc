@@ -71,14 +71,25 @@ destinations retain Fountain. The focused [interchange check](INTERCHANGE.md)
 exercises these format boundaries and actual project persistence; it records
 FDX's sequential dual-dialogue export and the bounded support policy explicitly.
 
-## Local application UI and retired upstream accounts
+## Local application UI and retired upstream interfaces
 
 `ApplicationManager` constructs the local project, editor, settings and GitHub
 managers; it no longer constructs `AccountManager` or switches to account content.
 `MenuView` has no upstream sign-in/account/purchase actions. Writing statistics
 and the sprint timer are ordinary drawer actions without an account header.
-The Notifications page remains for its separate TODO item; subscription notices
-and renewal callbacks have been removed with the purchase UI.
+The Notifications action/page, developer-release filter, release/credits widgets
+and unread badges on the menu and project toolbars are removed. Generic shared
+badge widgets and document comments/review controls remain.
+
+`NotificationsManager` is retained solely as stable-release metadata support:
+the guarded cloud `notificationsReceived`/`askNotifications` feed still supplies
+device/Qt-compatible stable releases to
+`ApplicationManager::Implementation::askUpdateToLatestVersion` via
+`lastVersionDownloadLink()`. This direct source call can be missing from the
+graph's caller edges. The manager has no page/unread signals or preference
+access; old show-dev/last-read settings remain stored and ignored. Its qmake
+entries remain, while the page-only views' entries are gone. No private cloud
+module or updater/download workflow was removed or exercised.
 
 `ProjectsManager::createProject` -> `CreateProjectDialog` ->
 `createLocalProjectRequested` -> `ApplicationManager::createLocalProject` is the
@@ -98,6 +109,10 @@ GitHub onboarding, settings, sync and `GitHubCredentialStore` remain separate.
 GitHub onboarding for retired account offers, local writing-tool actions,
 unavailable-document guarding, and exact cached team/project records through
 load/save/reload, alongside its existing editor and project-data assertions.
+It also checks absence of notification actions, labels, widgets and navigation/
+filter callbacks in both menu states, and verifies retained stable-release
+selection, duplicates/empty deliveries, malformed metadata and ignored old
+preferences using synthetic feed records, without networking.
 
 ## Retired formats
 

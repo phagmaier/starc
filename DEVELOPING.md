@@ -145,6 +145,10 @@ mind map and character documents of an existing project survive save and reopen.
 It also checks that upstream account, sign-in, subscription, purchase and team
 creation controls are absent, local writing tools need no account, and cached
 team/project records and historical account labels survive load/save/reload.
+Notifications navigation, filters and release/credits widgets must also be
+absent from the menus. Synthetic release-feed checks retain the update-download
+link's platform/Qt filtering and ordering without network access; old notification
+preferences stay stored and ignored.
 It builds
 `tests/screenplay_scope_test.cpp`
 against the debug build and runs it offscreen with a disposable project and

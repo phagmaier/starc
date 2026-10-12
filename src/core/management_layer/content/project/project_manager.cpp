@@ -3319,11 +3319,6 @@ QWidget* ProjectManager::view() const
     return d->view.container;
 }
 
-void ProjectManager::setHasUnreadNotifications(bool _hasUnreadNotifications)
-{
-    d->toolBar->setBadgeVisible(d->toolBar->actions().constFirst(), _hasUnreadNotifications);
-}
-
 void ProjectManager::toggleFullScreen(bool _isFullScreen)
 {
     //
