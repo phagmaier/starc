@@ -18,29 +18,42 @@
 
 namespace BusinessLayer {
 
+namespace {
+bool readFdx(const QString& _path, QDomDocument& _document)
+{
+    QFile file(_path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 5, 0)
+    if (!_document.setContent(&file, QDomDocument::ParseOption::PreserveSpacingOnlyNodes)) {
+#else
+    if (!_document.setContent(&file)) {
+#endif
+        return false;
+    }
+    const auto root = _document.documentElement();
+    return root.tagName() == "FinalDraft" && !root.firstChildElement("Content").isNull();
+}
+} // namespace
+
 AbstractScreenplayImporter::Documents ScreenplayFdxImporter::importDocuments(
     const ImportOptions& _options) const
 {
     //
-    // Открываем файл
-    //
-    QFile fdxFile(_options.filePath);
-    if (!fdxFile.open(QIODevice::ReadOnly)) {
-        return {};
-    }
-
-    //
-    // Читаем XML
+    // Открываем файл и проверяем XML
     //
     QDomDocument fdxDocument;
-    fdxDocument.setContent(&fdxFile);
+    if (!readFdx(_options.filePath, fdxDocument)) {
+        return {};
+    }
 
     //
     // Content - текст сценария
     //
     QDomElement rootElement = fdxDocument.documentElement();
     QDomElement content = rootElement.firstChildElement("Content");
-    QDomNode paragraph = content.firstChild();
+    QDomElement paragraph = content.firstChildElement("Paragraph");
     std::set<QString> characterNames;
     std::set<QString> locationNames;
     while (!paragraph.isNull()) {
@@ -67,13 +80,16 @@ AbstractScreenplayImporter::Documents ScreenplayFdxImporter::importDocuments(
                 //
                 if (!textNode.text().isEmpty()) {
                     paragraphText.append(textNode.text());
-                } else {
+                }
+#if QT_VERSION < QT_VERSION_CHECK(6, 5, 0)
+                else {
                     //
                     // NOTE: Qt пропускает узлы содержащие только пробельные символы,
                     //       поэтому прибегнем к небольшому воркэраунду
                     //
                     paragraphText.append(" ");
                 }
+#endif
 
                 textNode = textNode.nextSiblingElement("Text");
             }
@@ -115,7 +131,7 @@ AbstractScreenplayImporter::Documents ScreenplayFdxImporter::importDocuments(
         //
         // Переходим к следующему
         //
-        paragraph = paragraph.nextSibling();
+        paragraph = paragraph.nextSiblingElement("Paragraph");
     }
 
     Documents documents;
@@ -140,20 +156,15 @@ QVector<AbstractScreenplayImporter::Screenplay> ScreenplayFdxImporter::importScr
     result.name = QFileInfo(_options.filePath).completeBaseName();
 
     //
-    // Открываем файл
+    // Открываем файл и проверяем XML
     //
-    QFile fdxFile(_options.filePath);
-    if (!fdxFile.open(QIODevice::ReadOnly)) {
-        return { result };
+    QDomDocument fdxDocument;
+    if (!readFdx(_options.filePath, fdxDocument)) {
+        return {};
     }
 
     //
-    // Читаем XML
-    //
-    QDomDocument fdxDocument;
-    fdxDocument.setContent(&fdxFile);
-    //
-    // ... и пишем в сценарий
+    // Пишем в сценарий
     //
     QXmlStreamWriter writer(&result.text);
     writer.writeStartDocument();
@@ -167,7 +178,7 @@ QVector<AbstractScreenplayImporter::Screenplay> ScreenplayFdxImporter::importScr
     //
     QDomElement rootElement = fdxDocument.documentElement();
     QDomElement content = rootElement.firstChildElement("Content");
-    QDomNode paragraph = content.firstChild();
+    QDomElement paragraph = content.firstChildElement("Paragraph");
     bool alreadyInScene = false;
     while (!paragraph.isNull()) {
         //
@@ -224,13 +235,16 @@ QVector<AbstractScreenplayImporter::Screenplay> ScreenplayFdxImporter::importScr
                 //
                 if (!textNode.text().isEmpty()) {
                     paragraphText.append(textNode.text());
-                } else {
+                }
+#if QT_VERSION < QT_VERSION_CHECK(6, 5, 0)
+                else {
                     //
                     // NOTE: Qt пропускает узлы содержащие только пробельные символы,
                     //       поэтому прибегнем к небольшому воркэраунду
                     //
                     paragraphText.append(" ");
                 }
+#endif
 
                 textNode = textNode.nextSiblingElement("Text");
             }
@@ -241,11 +255,21 @@ QVector<AbstractScreenplayImporter::Screenplay> ScreenplayFdxImporter::importScr
             if (blockType == TextParagraphType::Parenthetical) {
                 if (!paragraphText.isEmpty() && paragraphText.front() == '(') {
                     paragraphText.remove(0, 1);
+                    for (auto& format : formats) {
+                        const auto end = format.from + format.length - 1;
+                        format.from = qMax(0, format.from - 1);
+                        format.length = qMax(0, end - format.from);
+                    }
                 }
                 if (!paragraphText.isEmpty() && paragraphText.back() == ')') {
                     paragraphText.chop(1);
                 }
+                for (auto& format : formats) {
+                    format.length
+                        = qMin(format.length, qMax(0, int(paragraphText.length()) - format.from));
+                }
             }
+            paragraphText.replace(QChar::LineFeed, QChar::LineSeparator);
         }
 
         //
@@ -290,6 +314,12 @@ QVector<AbstractScreenplayImporter::Screenplay> ScreenplayFdxImporter::importScr
 
             writer.writeStartElement(toString(TextGroupType::Scene));
             writer.writeAttribute(xml::kUuidAttribute, QUuid::createUuid().toString());
+            if (_options.keepSceneNumbers && !paragraph.attribute("Number").isEmpty()) {
+                writer.writeStartElement(xml::kNumberTag);
+                writer.writeAttribute(xml::kNumberValueAttribute, paragraph.attribute("Number"));
+                writer.writeAttribute(xml::kNumberIsCustomAttribute, "true");
+                writer.writeEndElement();
+            }
             writer.writeStartElement(xml::kContentTag);
             if (!sceneColor.isEmpty()) {
                 //
@@ -342,7 +372,7 @@ QVector<AbstractScreenplayImporter::Screenplay> ScreenplayFdxImporter::importScr
         //
         // Переходим к следующему
         //
-        paragraph = paragraph.nextSibling();
+        paragraph = paragraph.nextSiblingElement("Paragraph");
     }
     writer.writeEndDocument();
 

@@ -109,7 +109,7 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
         for (const QString& heading : sceneHeadingStart) {
             if (_paragraph.startsWith(heading)) {
                 startsWithHeading = true;
-                return true;
+                break;
             }
         }
 
@@ -131,7 +131,9 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
                     == TextGroupType::Scene) {
                 const auto sceneItem
                     = static_cast<ScreenplayTextModelSceneItem*>(blockData->item()->parent());
-                _paragraph += QString(" #%1#").arg(sceneItem->number()->text);
+                if (const auto number = sceneItem->number(); number.has_value()) {
+                    _paragraph += QString(" #%1#").arg(number->followNumber + number->value);
+                }
             }
         }
         return true;

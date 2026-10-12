@@ -45,6 +45,32 @@ Shared editor infrastructure lives in [ScriptTextEdit](../src/corelib/ui/modules
 
 For layout changes, inspect the template, document correction, paged widget, and exporter paths together. Screen appearance alone does not establish PDF output or saved-document behavior.
 
+Fountain/FDX import dispatch is `ImportManager::Implementation::importScreenplay`
+-> format `importScreenplays` -> `screenplayImported` ->
+`ProjectManager::storeScreenplay`. The latter constructs the screenplay bundle
+and stores the internal text XML. `ProjectModelsFacade::modelFor` creates and
+binds `ScreenplayTextModel` with its information/title/synopsis/dictionary models.
+Fountain builds that XML through `AbstractFountainImporter::documentText`; FDX
+reads Content/Paragraph/Text and validates the XML before constructing it.
+
+For persistence, `AbstractModel::saveChanges` serializes the live model to its
+`DocumentObject`; `ProjectManager::saveChanges` writes loaded documents through
+`DocumentStorage` and the document mapper into the project database. Reopening
+uses `loadCurrentProject` and `modelFor` again. Immediate-save fixtures must
+explicitly serialize models first, then clear storage and close the database
+before claiming reopen evidence.
+
+`ExportManager::Implementation::exportScreenplay` copies production information
+and export options and selects the format exporter. Both exporters use
+`AbstractExporter::prepareDocument` / `ScreenplayExporter` to build a detached
+`ScreenplayTextDocument`, filter content and apply the selected template.
+Fountain then uses `AbstractMarkdownExporter::exportTo` and `processBlock`; FDX
+writes typed XML paragraphs. Local shadow-project saves use the manager's
+convenience route: FDX/FDXT destinations select FDX; Fountain/plain-text
+destinations retain Fountain. The focused [interchange check](INTERCHANGE.md)
+exercises these format boundaries and actual project persistence; it records
+FDX's sequential dual-dialogue export and the bounded support policy explicitly.
+
 ## Retired formats
 
 Audioplay, stageplay, comic book, novel, and screenplay series editing was removed from this fork, together with the AI assistant. Screenplay, simple text, and the shared project documents remain. A project that already contains documents of a retired format keeps them untouched:

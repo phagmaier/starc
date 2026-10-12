@@ -977,7 +977,7 @@ QString AbstractFountainImporter::documentText(const QString& _text, bool _keepS
                     d->customSceneNumber.chop(1);
                 }
             }
-            paragraphText = paragraphText.left(sharpPos);
+            paragraphText = paragraphText.left(sharpPos).trimmed();
             d->processBlock(paragraphText, currentBlockType, writer);
         } else if (currentBlockType == TextParagraphType::Character) {
             //

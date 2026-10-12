@@ -492,3 +492,92 @@ installation, and interactive settings-reset/restart dialogs were not exercised.
 The shared settlement boundary for restart/update exits is source-verified and
 covered by the close callback tests. The native evidence proves the adapter on
 the isolated GNOME provider; injected tests do not stand in for native evidence.
+
+## Fountain and FDX round trips
+
+Completed 2026-10-11. `tools/check-screenplay-interchange.sh` now checks
+independently authored Fountain/FDX fixtures against explicit ordered screenplay
+semantics, both import/export/fresh-import paths, an independently constructed
+application model, and actual serialized project save/close/reopen. Python
+checks canonical Fountain spelling and FDX XML independently of the importers,
+including fixture hashes and SQLite integrity. [INTERCHANGE.md](INTERCHANGE.md)
+records the exact normalization/loss policy, options, input contract and limits;
+[CODEBASE.md](CODEBASE.md) records the production routes.
+
+The checks exposed and fixed bounded interchange defects:
+
+- Standard Fountain headings skipped number export; both exporters used display
+  numbers with punctuation. Both now export the underlying scene-number value.
+  Removing a Fountain number also removes its separator whitespace, avoiding
+  accumulated trailing heading spaces.
+- FDX ignored `keepSceneNumbers`, accepted parse/open failures as empty or
+  partial scripts, synthesized whitespace/empty paragraphs, and left emphasis
+  offsets pointing at removed parenthetical delimiters. Import validates XML/root/
+  Content first, iterates paragraph elements, retains spacing-only Text runs on
+  current Qt, normalizes multiline text, and corrects the offsets.
+- FDX exported dual-dialogue table boundary blocks as blank General paragraphs.
+  Those layout blocks are now skipped. Speech text/order survives; FDX still loses
+  simultaneous column layout and review comments, explicitly checked and documented.
+- Ordinary shadow-project saves always selected Fountain, including for an FDX
+  destination. The convenience export route now selects FDX for FDX/FDXT paths
+  (case insensitive), preserving the existing Fountain route for other text paths.
+  The pre-fix manager-route control retained an FDX destination containing Fountain
+  text; the fixed route passes XML, semantic and save/reopen checks.
+
+Validation:
+
+- `./build/dev.sh doctor`: passed with Qt 6.12.0 and the prepared development
+  QtKeychain prefix; optional translation utilities remain absent.
+- `JOBS=4 ./build/dev.sh build debug`: passed, including the final formatting
+  build. No application source/header was added or removed, so no qmake list
+  regeneration was required.
+- `./tools/check-screenplay-interchange.sh`: passed. It covers headings, action,
+  cues, dialogue, parentheticals, transitions, exact order/text, multiline lines,
+  Unicode, bold/italic/underline, forced Fountain syntax, literal asterisks, XML
+  entities, custom numbers/renumbering/hidden-number export, notes, dual dialogue,
+  inclusion options, empty/invalid/unreadable input and actual permission failures.
+  Both original and fresh imports retain their complete serialized screenplay
+  bytes across cache clear/database close/reopen. FDX multiline paragraph shape
+  and exported syntax/XML are checked independently of model normalization.
+- `./tools/check-github-credential-storage.sh`, `./tools/check-project-sync.sh`,
+  `./tools/check-screenplay-scope.sh`, `./tools/check-writing-session-storage.sh`
+  and `./tools/check-backup-retention.sh`: passed after the routing change. Sync
+  uses only the local mock server; credentials use the injected backend and an
+  absent private bus. Remaining offscreen runs also use disposable profiles and
+  an absent bus. Retired documents remain byte exact in the scope regression.
+- Real application on private Xvfb with an isolated native Secret Service and
+  `unshare -Urn`: disposable Fountain and FDX working copies opened in the actual
+  editor. Ordinary Ctrl+S saved them in the appropriate format; reopening retained
+  the body text and emphasis. An appended `FDX UI SAVE MARKER` survived FDX XML
+  save and fresh application reopen. The independent XML comparison retained all
+  eleven FDX body paragraphs and their text/order, including two spaces, embedded
+  lines and escaped text; only the intended marker was added. Default information
+  settings hide scene numbers, as separately checked in the manager regression.
+  All four successful launches quit normally with Ctrl+Q, actual exit `0`.
+  The driver was copied/adapted from the retained backup driver into a new directory;
+  only disposable geometry/splitter settings were copied. No file dialogs, file
+  managers or external links were opened, and no unrelated application was stopped.
+- Bash syntax, ShellCheck, Python syntax, changed-code formatting and
+  `git diff --check`: passed. Graph coverage was checked for relied-on paths;
+  Qt/parser gaps and inaccurate caller edges were verified in source.
+
+Evidence: `.build/evidence/interchange-work-skCl1n/` contains doctor, all build
+attempts, the manager-route failing control and regression summaries. Unique
+`screenplay-interchange-*` directories contain complete inputs/outputs, models,
+serialized XML and projects, including failed assertions and compile attempts.
+Successful GUI evidence is in `.build/evidence/interchange-ui-vb9tocvz/`, with
+the adapted driver, isolated provider logs, screenshots, command transcript and
+`ui-result.json`. Earlier UI setup-only/absent-provider attempts remain separate;
+the absent-provider launch displayed a credential-readiness warning and is not
+credited as passing import/save evidence. That launch also quit normally, exit `0`.
+Original repository fixtures and all earlier backup/credential/statistics evidence
+remain untouched.
+
+Limits: Linux debug/offscreen and private Xvfb only; no owner desktop, other
+platform, release execution, third-party application compatibility, performance
+or broad format-conformance run. Native FDX DualDialogue/ScriptNotes import,
+title-page/synopsis/treatment round trips, revision/style metadata, attachments,
+every Fountain escape or damaged-markup case, and large scripts remain outside
+the tested subset. FDX sequential dialogue and comment loss, Fountain physical-line
+splitting/whitespace normalization, and number visibility are documented explicitly;
+this is not a claim of byte-identical or universally lossless interchange.

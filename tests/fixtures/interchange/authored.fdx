@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft DocumentType="Script" Template="No" Version="1">
+  <Content>
+    <Paragraph Type="Scene Heading" Number="8B"><Text>EXT. HARBOR - NIGHT</Text></Paragraph>
+    <Paragraph Type="Action"><Text>A </Text><Text Style="Bold">bright</Text><Text>  </Text><Text Style="Italic+Underline">blue</Text><Text> beacon &amp; &lt;buoy&gt; guides René.&#x2028;Another line.</Text></Paragraph>
+    <Paragraph Type="Character"><Text>LENA</Text></Paragraph>
+    <Paragraph Type="Parenthetical"><Text>(almost </Text><Text Style="Italic">silent</Text><Text>)</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>Say &quot;go&quot; &amp; wait.&#10;Ω answers.</Text></Paragraph>
+    <Paragraph Type="Transition"><Text>DISSOLVE TO:</Text></Paragraph>
+    <Paragraph Type="Scene Heading" Number="19"><Text>INT. CABIN - LATER</Text></Paragraph>
+    <Paragraph Type="Action"><Text>RAIN HAMMERS THE ROOF</Text></Paragraph>
+    <Paragraph Type="Character"><Text>NOAH</Text></Paragraph>
+    <Paragraph Type="Parenthetical"><Text>(steady)</Text></Paragraph>
+    <Paragraph Type="Dialogue"><Text>It's safe now.</Text></Paragraph>
+  </Content>
+</FinalDraft>

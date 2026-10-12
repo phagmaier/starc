@@ -1073,7 +1073,11 @@ void ExportManager::exportDocument(BusinessLayer::AbstractModel* _model, const Q
     case Domain::DocumentObjectType::ScreenplayText: {
         BusinessLayer::ScreenplayExportOptions options;
         options.filePath = _filePath;
-        options.fileFormat = BusinessLayer::ExportFileFormat::Fountain;
+        const auto isFinalDraft
+            = _filePath.endsWith(ExtensionHelper::finalDraft(), Qt::CaseInsensitive)
+            || _filePath.endsWith(ExtensionHelper::finalDraftTemplate(), Qt::CaseInsensitive);
+        options.fileFormat = isFinalDraft ? BusinessLayer::ExportFileFormat::Fdx
+                                          : BusinessLayer::ExportFileFormat::Fountain;
         options.includeFolders = true;
         options.includeInlineNotes = true;
         options.includeReviewMarks = true;

@@ -45,8 +45,16 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Injected failure/ordering and real settings-permission checks, isolated native
     keyring checks, local mock sync, and real Xvfb onboarding/settings/normal-close
     checks passed. See `docs/PROJECT.md` for evidence, dependency setup and limits.
-- [ ] **Add import and export round-trip checks** for Fountain and FDX. Nothing
-  covers the interchange formats today.
+- [x] **Add import and export round-trip checks** for Fountain and FDX.
+  - Done 2026-10-11: independent fixtures and application-model construction
+    check ordered text/types, emphasis, numbers, multiline text, notes and dual
+    dialogue through export/fresh import and serialized project save/reopen.
+    Independent syntax/XML and fixture-hash checks pass. Focused fixes retain
+    scene numbers, FDX whitespace/parenthetical styles and valid input handling;
+    ordinary FDX saves now select FDX instead of overwriting it with Fountain.
+  - All requested regressions and private Xvfb save/reopen/normal-close checks
+    passed. FDX sequential dual dialogue/comment loss and other format limits
+    are explicit in `docs/INTERCHANGE.md`; evidence is in `docs/PROJECT.md`.
 
 ## Cut
 

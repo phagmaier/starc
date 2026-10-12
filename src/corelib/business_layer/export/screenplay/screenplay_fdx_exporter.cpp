@@ -69,7 +69,9 @@ void writeLine(QXmlStreamWriter& _writer, const QTextBlock& _block,
                     == TextGroupType::Scene) {
                 const auto sceneItem
                     = static_cast<ScreenplayTextModelSceneItem*>(blockData->item()->parent());
-                sceneNumber = sceneItem->number()->text;
+                if (const auto number = sceneItem->number(); number.has_value()) {
+                    sceneNumber = number->followNumber + number->value;
+                }
             }
         }
 
@@ -206,6 +208,11 @@ void writeContent(QXmlStreamWriter& _writer, TextDocument* _screenplayText,
     auto block = _screenplayText->begin();
     bool titlePageSkipped = false;
     while (block.isValid()) {
+        // Table boundaries are layout blocks, not screenplay paragraphs.
+        if (TextBlockStyle::forBlock(block) == TextParagraphType::PageSplitter) {
+            block = block.next();
+            continue;
+        }
         if (_exportOptions.includeTitlePage && !titlePageSkipped) {
             if (TextBlockStyle::forBlock(block) == TextParagraphType::Undefined) {
                 block = block.next();
