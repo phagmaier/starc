@@ -85,8 +85,13 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Debug build, screenplay regression and private Xvfb logline/sprint checks
     passed, including a real one-minute countdown and exact document content
     across save/reopen. Both ordinary Ctrl+Q exits were 0. See `docs/PROJECT.md`.
-- [ ] **"User guide" link** on the story list. It opens upstream's help site,
+- [x] **"User guide" link** on the story list. It opens upstream's help site,
   which documents features this fork removed.
+  - Done 2026-10-12: removed the button, its signal and the localized upstream
+    help-site handler. Create story, Open story and Sync with GitHub remain.
+  - Debug build, screenplay scope and writing-session regressions passed.
+    Private Xvfb confirmed the story list, Create and GitHub setup dialogs;
+    ordinary Ctrl+Q exited 0. Evidence and limits: `docs/PROJECT.md`.
 - [ ] **Cover image search through upstream.** Queries go to `starc.app` and to
   Google Translate (`unsplash_images_view.cpp`, `cover_generator_sidebar.cpp`).
   Decide: cut the search, or keep it knowingly.

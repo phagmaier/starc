@@ -810,3 +810,36 @@ captures remain in the transcript and are not credited as settled UI checks.
 Limits: Linux debug/offscreen and private Xvfb only; the owner's desktop,
 other platforms, private cloud builds and release packaging were not exercised.
 Later TODO items and existing translation catalogs remain outside this task.
+
+## Story-list user guide removed
+
+Completed 2026-10-12, limited to the next unchecked Cut item. Removed the
+story-list User guide button, its `ProjectsNavigator::helpPressed` signal and
+the manager's localized upstream-help URL handler. Create story, Open story
+and Sync with GitHub remain. No dependency, setting or project format changed.
+
+Validation:
+
+- `./build/dev.sh doctor` and `JOBS=4 ./build/dev.sh build debug`: passed.
+  `./tools/check-screenplay-scope.sh` and
+  `./tools/check-writing-session-storage.sh`: passed, including existing
+  editing/Undo/Redo/pagination/export and save/reopen preservation checks.
+- Source and rebuilt-plugin symbol checks found no story-list guide control,
+  signal or help URL; the create/open/sync signals remain. Graph coverage was
+  checked and the navigator's reported Qt macro/parser gaps read directly.
+  Changed-line formatting and `git diff --check` passed.
+- The real application on private Xvfb showed the three retained buttons and
+  no User guide. Create opened the screenplay creation dialog; Sync opened
+  the GitHub setup prompt. Both were cancelled. Ordinary Ctrl+Q exited `0`
+  before teardown of the private display, bus and disposable Secret Service.
+
+Evidence: `.build/evidence/user-guide-removal-hekxi0f6/`, including doctor/build
+logs, source/symbol audits, the copied disposable driver, screenshots, transcript
+and exit. Full regressions: `.build/evidence/screenplay-scope-qNu2ZY/` and
+`.build/evidence/writing-session-storage-0pLHVj/`. The initial startup screenshot
+preceded content display; `story-list-ready.png` is the settled UI evidence.
+
+Limits: Linux debug/offscreen and private Xvfb only. The private display used an
+isolated profile/keyring and network-isolated application. The owner's desktop,
+real remote sync, native Open file dialog, other platforms and release packaging
+were not exercised. Existing translation catalogs and later TODO items remain.

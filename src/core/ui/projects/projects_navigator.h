@@ -32,11 +32,6 @@ signals:
      */
     void syncProjectsPressed();
 
-    /**
-     * @brief Пользователь нажал кнопку отображения справки
-     */
-    void helpPressed();
-
 protected:
     /**
      * @brief Обновить переводы
