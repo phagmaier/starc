@@ -1,3 +1,4 @@
+#include <business_layer/document/text/text_document.h>
 #include <business_layer/export/screenplay/screenplay_docx_exporter.h>
 #include <business_layer/export/screenplay/screenplay_export_options.h>
 #include <business_layer/export/screenplay/screenplay_fdx_exporter.h>
@@ -41,6 +42,7 @@
 
 #include <QAction>
 #include <QApplication>
+#include <QComboBox>
 #include <QDir>
 #include <QFile>
 #include <QFontDatabase>
@@ -49,6 +51,7 @@
 #include <QSortFilterProxyModel>
 #include <QTextDocument>
 #include <QTimer>
+#include <QTreeView>
 
 #include <cstdio>
 #include <cstdlib>
@@ -118,12 +121,17 @@ void type(QWidget* _editor, const QString& _text)
     }
 }
 // The editor lives in a scalable graphics proxy, outside the ordinary child widget tree.
-Ui::ScreenplayTextEdit* screenplayEdit()
+Ui::ScreenplayTextEdit* screenplayEdit(const QUuid& _uuid = {})
 {
     const auto widgets = QApplication::allWidgets();
     for (auto widget : widgets) {
         if (auto edit = qobject_cast<Ui::ScreenplayTextEdit*>(widget)) {
-            return edit;
+            auto document = qobject_cast<BusinessLayer::TextDocument*>(edit->document());
+            if (_uuid.isNull()
+                || (document && document->model() && document->model()->document()
+                    && document->model()->document()->uuid() == _uuid)) {
+                return edit;
+            }
         }
     }
     return nullptr;
@@ -170,6 +178,251 @@ QByteArray read(const QString& _path)
     require(file.open(QIODevice::ReadOnly), "read export");
     return file.readAll();
 }
+
+BusinessLayer::StructureModelItem* childOfType(BusinessLayer::StructureModelItem* _parent,
+                                               Domain::DocumentObjectType _type)
+{
+    if (_parent == nullptr) {
+        return nullptr;
+    }
+    for (int i = 0; i < _parent->childCount(); ++i) {
+        if (_parent->childAt(i)->type() == _type) {
+            return _parent->childAt(i);
+        }
+    }
+    return nullptr;
+}
+
+// Exercise the actual dynamically loaded view, not just the public number calculator. A named
+// slice can run alone against an executable whose plugins directory omits the statistics view.
+void checkStatistics(const QString& _evidence, const QString& _slice)
+{
+    using Type = Domain::DocumentObjectType;
+    const bool all = _slice.isEmpty();
+    const QString path = _evidence + "/statistics-project.starc";
+    DatabaseLayer::Database::setCurrentFile(path);
+    ManagementLayer::PluginsBuilder plugins;
+    QWidget host;
+    ManagementLayer::ProjectManager manager(nullptr, &host, plugins);
+    BusinessLayer::StructureModel* structure = nullptr;
+    QObject::connect(&manager, &ManagementLayer::ProjectManager::structureModelChanged,
+                     [&](BusinessLayer::AbstractModel* _model) {
+                         structure = qobject_cast<BusinessLayer::StructureModel*>(_model);
+                     });
+    BusinessLayer::ProjectsModelProjectItem project;
+    project.setProjectType(BusinessLayer::ProjectType::Local);
+    project.setPath(path);
+    project.setName("Statistics regression");
+    auto storage = DataStorageLayer::StorageFacade::documentStorage();
+    const auto reopen = [&] {
+        manager.closeCurrentProject(path);
+        storage->clear();
+        DatabaseLayer::Database::closeCurrentFile();
+        DatabaseLayer::Database::setCurrentFile(path);
+        manager.loadCurrentProject(&project);
+    };
+    manager.loadCurrentProject(&project);
+    manager.saveChanges();
+    DatabaseLayer::Database::commit();
+    reopen(); // Finish the retained upstream version upgrade before comparing document bytes.
+    auto story = structure->itemForIndex(structure->addDocument(Type::Screenplay, "Known script"));
+    require(story, "statistics fixture screenplay");
+    auto statistics = childOfType(story, Type::ScreenplayStatistics);
+    if (all || _slice == "creation") {
+        require(statistics, "statistics view restores Statistics for new screenplays");
+    }
+    // The disabled-view control still needs a statistics item to try to select.
+    if (statistics == nullptr) {
+        statistics = new BusinessLayer::StructureModelItem(
+            QUuid::createUuid(), Type::ScreenplayStatistics, "Statistics", "First draft", {},
+            true, false, false);
+        structure->appendItem(statistics, story);
+    }
+    const auto statisticsUuid = statistics->uuid();
+    const auto scriptUuid = childOfType(story, Type::ScreenplayText)->uuid();
+    auto navigator = qobject_cast<Ui::ProjectNavigator*>(manager.navigator());
+    auto proxy = qobject_cast<QSortFilterProxyModel*>(navigator->findChild<Tree*>()->model());
+    const auto select = [&](const QUuid& _uuid) {
+        navigator->setCurrentIndex(proxy->mapFromSource(
+            structure->indexForItem(structure->itemForUuid(_uuid))));
+        QApplication::processEvents();
+    };
+    select(scriptUuid);
+    auto edit = screenplayEdit(scriptUuid);
+    require(edit, "statistics fixture uses real screenplay editor");
+    const auto paragraph = [&](BusinessLayer::TextParagraphType _type, const QString& _text) {
+        edit->setCurrentParagraphType(_type);
+        type(edit, _text);
+        key(edit, Qt::Key_Return, "\r");
+    };
+    paragraph(BusinessLayer::TextParagraphType::SceneHeading, "INT. ROOM - DAY");
+    paragraph(BusinessLayer::TextParagraphType::Action, "A door opens.");
+    paragraph(BusinessLayer::TextParagraphType::Character, "ALICE");
+    paragraph(BusinessLayer::TextParagraphType::Dialogue, "Hello Bob.");
+    paragraph(BusinessLayer::TextParagraphType::Character, "BOB");
+    paragraph(BusinessLayer::TextParagraphType::Dialogue, "Hello Alice.");
+    paragraph(BusinessLayer::TextParagraphType::SceneHeading, "EXT. PARK - NIGHT");
+    paragraph(BusinessLayer::TextParagraphType::Character, "ALICE");
+    paragraph(BusinessLayer::TextParagraphType::Dialogue, "See you tomorrow.");
+    pause(1000);
+    manager.saveChanges();
+    DatabaseLayer::Database::commit();
+
+    if (all || _slice == "restore") {
+        // Mimic a screenplay created by a build with no statistics view, nested in a folder.
+        structure->setOmittedDocumentTypes({ Type::ScreenplayStatistics });
+        const auto folder = structure->addDocument(Type::Folder, "Old scripts");
+        const auto missing = structure->addDocument(Type::Screenplay, "Missing statistics", folder);
+        const auto missingUuid = structure->itemForIndex(missing)->uuid();
+        require(!childOfType(structure->itemForUuid(missingUuid), Type::ScreenplayStatistics),
+                "seed screenplay from a build without statistics");
+        const auto missingScriptUuid
+            = childOfType(structure->itemForUuid(missingUuid), Type::ScreenplayText)->uuid();
+        select(missingScriptUuid);
+        edit = screenplayEdit(missingScriptUuid);
+        require(edit, "old screenplay without statistics opens in the text editor");
+        paragraph(BusinessLayer::TextParagraphType::SceneHeading, "INT. OLD ROOM - DAY");
+        paragraph(BusinessLayer::TextParagraphType::Character, "ALICE");
+        paragraph(BusinessLayer::TextParagraphType::Dialogue, "Keep this older screenplay intact.");
+        pause(1000);
+        structure->setOmittedDocumentTypes({});
+        const auto hidden = structure->addDocument(Type::Screenplay, "Hidden statistics");
+        auto hiddenStatistics
+            = childOfType(structure->itemForIndex(hidden), Type::ScreenplayStatistics);
+        hiddenStatistics->setVisible(false);
+        structure->updateItem(hiddenStatistics);
+        const auto hiddenUuid = hiddenStatistics->uuid();
+        structure->saveChanges();
+        manager.saveChanges();
+        const QByteArray oldStatistics = "<old-statistics unknown='preserve'/>\r\n";
+        storage->document(hiddenUuid)->setContent(oldStatistics);
+        require(storage->saveDocument(storage->document(hiddenUuid)), "seed old statistics bytes");
+        DatabaseLayer::Database::commit();
+        QHash<QUuid, QByteArray> original;
+        for (auto document : storage->documents()) {
+            if (document->type() != Type::Structure) {
+                original.insert(document->uuid(), document->content());
+            }
+        }
+        reopen();
+        auto restored
+            = childOfType(structure->itemForUuid(missingUuid), Type::ScreenplayStatistics);
+        require(restored, "statistics view restores the missing item on project load");
+        const auto restoredUuid = restored->uuid();
+        require(storage->documents().size() == original.size() + 2,
+                "restoration adds only one document beside the existing structure");
+        require(structure->itemForUuid(hiddenUuid)
+                    && !structure->itemForUuid(hiddenUuid)->isVisible(),
+                "restoration preserves existing statistics identity and hidden choice");
+        structure->saveChanges();
+        manager.saveChanges();
+        DatabaseLayer::Database::commit();
+        for (auto it = original.cbegin(); it != original.cend(); ++it) {
+            require(storage->document(it.key())->content() == it.value(),
+                    "restoration leaves every other document byte exact");
+        }
+        reopen();
+        require(childOfType(structure->itemForUuid(missingUuid), Type::ScreenplayStatistics)->uuid()
+                    == restoredUuid,
+                "restoration is idempotent after save and reopen");
+        require(storage->document(hiddenUuid)->content() == oldStatistics,
+                "hidden old statistics bytes survive restoration and reopen");
+        for (auto it = original.cbegin(); it != original.cend(); ++it) {
+            require(storage->document(it.key())->content() == it.value(),
+                    "restoration byte preservation survives reopen");
+        }
+    }
+
+    if (all || _slice == "reports" || _slice == "navigator") {
+        QHash<QUuid, QByteArray> original;
+        for (auto document : storage->documents()) {
+            original.insert(document->uuid(), document->content());
+        }
+        select(statisticsUuid);
+        const auto table = [&](const char* _name) {
+            auto result = manager.view()->findChild<QTreeView*>(QLatin1String(_name));
+            require(result && result->model(),
+                    "statistics selection displays computed report tables");
+            return result;
+        };
+        if (all || _slice == "reports") {
+            auto scenes = table("sceneReport")->model();
+            require(scenes->rowCount() == 2, "statistics reports the two typed scenes");
+            require(scenes->index(0, 0).data().toString() == "INT. ROOM - DAY"
+                        && scenes->index(1, 0).data().toString() == "EXT. PARK - NIGHT"
+                        && scenes->index(0, 3).data().toInt() == 2
+                        && scenes->index(1, 3).data().toInt() == 1,
+                    "statistics scene names and character counts match typed script");
+            auto cast = table("castReport")->model();
+            require(cast->rowCount() == 2, "statistics reports two distinct characters");
+            QHash<QString, QVector<int>> counts;
+            for (int row = 0; row < cast->rowCount(); ++row) {
+                counts.insert(cast->index(row, 0).data().toString(),
+                              { cast->index(row, 1).data().toInt(),
+                                cast->index(row, 2).data().toInt(),
+                                cast->index(row, 3).data().toInt() });
+            }
+            require(counts.value("ALICE") == QVector<int>({ 5, 2, 2 })
+                        && counts.value("BOB") == QVector<int>({ 2, 1, 1 }),
+                    "statistics cast words, dialogues and speaking scenes match typed script");
+            auto dialogues = table("dialoguesReport")->model();
+            require(dialogues->rowCount() == 2
+                        && dialogues->rowCount(dialogues->index(0, 0)) == 2
+                        && dialogues->rowCount(dialogues->index(1, 0)) == 1
+                        && dialogues->index(0, 1, dialogues->index(1, 0)).data().toString()
+                            == "See you tomorrow.",
+                    "statistics dialogue hierarchy contains the three typed lines");
+            require(table("locationReport")->model()->rowCount() == 2,
+                    "statistics reports the two typed locations");
+            int sceneCount = 0;
+            auto summary = table("summaryScenes")->model();
+            for (int row = 0; row < summary->rowCount(); ++row) {
+                sceneCount += summary->index(row, 1).data().toInt();
+            }
+            require(sceneCount == 2, "statistics summary counts the typed scenes");
+            require(table("genderCharacters")->model()->rowCount() > 0,
+                    "statistics gender table is populated");
+        }
+        if (all || _slice == "navigator") {
+            const QString viewMime = "application/x-starc/view/screenplay/statistics";
+            const QString navigatorMime = "application/x-starc/navigator/screenplay/statistics";
+            require(plugins.initPlugin(viewMime) && plugins.initPlugin(navigatorMime),
+                    "statistics view and navigator plugins load");
+            auto navigation = plugins.plugin(navigatorMime);
+            navigation->view(nullptr);
+            plugins.bind(viewMime, navigatorMime);
+            auto selector = manager.view()->findChild<QComboBox*>("statisticsReportSelector");
+            require(selector, "statistics view has a report selector");
+            auto navigationTrees = navigation->view()->asQWidget()->findChildren<Tree*>();
+            require(navigationTrees.size() == 2, "statistics navigator has reports and plots");
+            for (auto tree : navigationTrees) {
+                const bool reports = tree->model()->rowCount() == 6;
+                for (int row = 0; row < tree->model()->rowCount(); ++row) {
+                    emit tree->clicked(tree->model()->index(row, 0), true);
+                    require(selector->currentIndex() == (reports ? row : row + 6),
+                            "statistics navigator selects the requested report or plot");
+                }
+            }
+        }
+        manager.saveChanges();
+        DatabaseLayer::Database::commit();
+        for (auto it = original.cbegin(); it != original.cend(); ++it) {
+            require(storage->document(it.key())->content() == it.value(),
+                    "viewing statistics does not rewrite project documents");
+        }
+        select(scriptUuid);
+        edit = screenplayEdit(scriptUuid);
+        require(edit, "screenplay editor reopens after viewing statistics");
+        paragraph(BusinessLayer::TextParagraphType::SceneHeading, "INT. OFFICE - DAY");
+        pause(1000);
+        select(statisticsUuid);
+        require(table("sceneReport")->model()->rowCount() == 3,
+                "returning to statistics recomputes after a script edit");
+    }
+    manager.closeCurrentProject(path);
+    storage->clear();
+    DatabaseLayer::Database::closeCurrentFile();
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -187,6 +440,12 @@ int main(int argc, char** argv)
     for (const auto font : { ":/fonts/roboto-regular", ":/fonts/materialdesignicons",
                              ":/fonts/font-awesome-brands" }) {
         require(QFontDatabase::addApplicationFont(font) >= 0, "embedded font");
+    }
+    const auto statisticsSlice = qEnvironmentVariable("STARC_STATISTICS_CHECK");
+    if (!statisticsSlice.isEmpty()) {
+        checkStatistics(evidence, statisticsSlice);
+        std::puts("PASS: statistics slice");
+        return 0;
     }
     using Type = Domain::DocumentObjectType;
     static_assert(static_cast<int>(Type::ComicBook) == 10200);
@@ -767,6 +1026,9 @@ int main(int argc, char** argv)
             }
         }
     }
+    // Keep the original hosts alive: several existing plugins retain their primary view as a
+    // raw pointer, and QPluginLoader shares a plugin instance between builders in this process.
+    checkStatistics(evidence, {});
     std::puts("PASS: screenplay scope, keyboard editing, Undo/Redo, pagination, exports, "
               "mixed-project preservation, editors limited to what this build contains");
 }

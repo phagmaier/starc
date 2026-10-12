@@ -229,3 +229,70 @@ Limits:
   release build was compiled.
 - The libraries of the removed plugins were deleted from
   `.build/debug/_build/plugins/`, not moved aside.
+
+## Screenplay Statistics replacement
+
+On 2026-10-11 the uninitialized private `screenplay_statistics` submodule link
+and its `.gitmodules` entry were removed. Its directory now contains our own
+`screenplaystatisticsplugin`, built by the existing conditional qmake entry.
+It has no new dependencies and uses the public `ScreenplayStatisticsModel`,
+reports, plots and bundled plotting widget. The view shows summary, scene,
+location, cast, dialogue and gender reports as read-only tables, with expandable
+scene/dialogue rows, plus story structure and character activity plots. The
+existing navigator selects them through `IDocumentManager::bind`. Selecting
+Statistics recomputes the reports; Refresh recomputes a view kept open beside
+the script. This initial view has no report export or filter controls.
+
+Availability still follows plugin libraries: the tree item and the screenplay
+information page's Statistics checkbox return without a special-case override.
+New screenplays receive the item. On local project load, screenplays with text
+but no statistics child receive one, including nested screenplays. Existing
+statistics identities, bytes and visibility choices are retained. Recycled
+screenplays and upstream remote/team projects are not repaired. The repair
+changes the structure document and creates the missing statistics document;
+other document contents are preserved.
+
+Validation with the debug build:
+
+- `./build/dev.sh doctor`, `make qmake_all` in `.build/debug`, and
+  `JOBS=4 ./build/dev.sh build debug`: passed.
+- `./tools/check-screenplay-scope.sh`: passed, including the previously unused
+  availability branch. The added checks type two scenes with ALICE and BOB in
+  the real screenplay editor, then inspect the actual plugin's tables: two
+  scenes, two characters, three dialogue lines, ALICE's five words/two dialogues/
+  two speaking scenes and BOB's two words/one dialogue/one speaking scene.
+  Navigator selection covers all six reports and both plots; returning after
+  another scene is typed recomputes the report.
+- The same check restores a missing item beneath a nested screenplay containing
+  text, adds only one document, retains every other document's exact bytes and
+  an existing hidden statistics item, and verifies save/reopen and idempotence.
+  Viewing the reports also leaves stored documents unchanged.
+- Four isolated slices (creation, restoration, tables, navigator binding) each
+  fail at their expected assertion when only the statistics view library is
+  omitted from the executable's plugin directory.
+- `./tools/check-project-sync.sh` and
+  `./tools/check-writing-session-storage.sh`: passed. The sync check needed
+  sandbox escalation to bind its local mock server; it contacted no real account.
+- Real application windows on private Xvfb `:102` at 1500x950, with isolated
+  profiles, copied projects and networking disabled: Title page and Synopsis
+  took typing and retained it after save/reopen; no repair was needed. All six
+  reports, both plots, Refresh, navigator selection and the restored checkbox
+  were exercised. Viewing/saving the reports left all 30 document contents
+  unchanged. Opening a copy from the disabled-plugin restoration control added
+  one Statistics document; the only existing document changed was the structure.
+  Its preserved script produced a one-scene report. All app runs quit normally
+  with Ctrl+Q (exit 0); no file dialogs were opened.
+- `git diff --check` and changed-code formatting review: passed, preserving the
+  repository's empty-brace style and the test file's existing formatting.
+
+Limits: Statistics in a secondary panel or detached window was built but not
+exercised. Plot panning/zooming and non-default character genders were not
+tested; the displayed gender counts used unspecified genders. No report
+PDF/XLSX export, performance measurement, release build or desktop-session test
+was done. Xvfb is real-window evidence, not proof on the owner's desktop.
+
+Build, UI, disabled-plugin control and debugger logs, including the failed
+fixture attempts, are retained under `.build/evidence/screenplay-statistics/`.
+The fixture fixes give model serialization an explicit save boundary, keep
+hosts alive for existing plugins that retain raw view pointers, and select
+screenplay editors by document UUID after split-view checks.

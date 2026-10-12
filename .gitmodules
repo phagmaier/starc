@@ -13,9 +13,6 @@
 [submodule "src/core/management_layer/plugins/location_information"]
 	path = src/core/management_layer/plugins/location_information
 	url = git@github.com:story-apps/starc-location-information-plugin.git
-[submodule "src/core/management_layer/plugins/screenplay_statistics"]
-	path = src/core/management_layer/plugins/screenplay_statistics
-	url = git@github.com:story-apps/starc-screenplay-statistics-plugin.git
 [submodule "src/core/management_layer/plugins/characters_relations"]
 	path = src/core/management_layer/plugins/characters_relations
 	url = git@github.com:story-apps/starc-characters-relations-plugin.git

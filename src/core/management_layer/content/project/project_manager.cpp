@@ -3428,6 +3428,50 @@ void ProjectManager::loadCurrentProject(BusinessLayer::ProjectsModelProjectItem*
     //
     updateCurrentProject(_project);
 
+    // A local screenplay made without a statistics view has no statistics document. Restore
+    // only that missing child when the current build can open it. Existing children (including
+    // hidden statistics and scripts inside a retired series) retain their identity and content.
+    if (!d->isProjectRemote && d->hasEditorFor(Domain::DocumentObjectType::ScreenplayStatistics)) {
+        QVector<BusinessLayer::StructureModelItem*> screenplays;
+        std::function<void(BusinessLayer::StructureModelItem*)> collect;
+        collect = [&](BusinessLayer::StructureModelItem* _item) {
+            if (_item->type() == Domain::DocumentObjectType::RecycleBin) {
+                return;
+            }
+            if (_item->type() == Domain::DocumentObjectType::Screenplay) {
+                screenplays.append(_item);
+            }
+            for (int index = 0; index < _item->childCount(); ++index) {
+                collect(_item->childAt(index));
+            }
+        };
+        collect(d->projectStructureModel->itemForIndex({}));
+        bool restoredStatistics = false;
+        for (auto screenplay : screenplays) {
+            bool hasText = false;
+            bool hasStatistics = false;
+            for (int index = 0; index < screenplay->childCount(); ++index) {
+                const auto type = screenplay->childAt(index)->type();
+                hasText |= type == Domain::DocumentObjectType::ScreenplayText;
+                hasStatistics |= type == Domain::DocumentObjectType::ScreenplayStatistics;
+            }
+            if (!hasText || hasStatistics) {
+                continue;
+            }
+            const auto information = qobject_cast<BusinessLayer::ScreenplayInformationModel*>(
+                d->modelFor(screenplay->uuid()));
+            auto statistics = new BusinessLayer::StructureModelItem(
+                QUuid::createUuid(), Domain::DocumentObjectType::ScreenplayStatistics,
+                tr("Statistics"), tr("First draft"), {},
+                information == nullptr || information->screenplayStatisticsVisible(), false, false);
+            d->projectStructureModel->appendItem(statistics, screenplay);
+            restoredStatistics = true;
+        }
+        if (restoredStatistics) {
+            d->projectStructureModel->saveChanges();
+        }
+    }
+
     //
     // Настраиваем доступность модулей для открываемого проекта
     //

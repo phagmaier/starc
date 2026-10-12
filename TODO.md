@@ -14,9 +14,9 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Done 2026-10-11. What is offered follows the plugin files in `plugins/`
     (`PluginsBuilder::editorsInfoFor`); a plugin added later shows up after a
     restart.
-  - Limit: a screenplay created while there is no statistics view has no
-    Statistics item and does not get one if a view is added later. Older
-    projects keep theirs; it is only hidden.
+  - Resolved 2026-10-11: the replacement Statistics view is built. Opening a
+    local project adds a missing Statistics item to its screenplays; existing
+    items and the visibility choices they hold are kept.
   - Also done 2026-10-11: the "Statistics" checkbox on the screenplay
     information page is hidden while the statistics have no view
     (`IDocumentManager::setDocumentsWithEditors`); the choice it holds is kept.
@@ -68,6 +68,8 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
 - [ ] **Characters and Locations.** Either a minimal page (name, description,
   notes) or hide the two groups. Characters are collected from the script, so
   the data stays in both cases.
-- [ ] **Scene and character report** to stand in for the missing Statistics
-  view.
+- [x] **Scene and character report** to stand in for the missing Statistics
+  view. Done 2026-10-11: our own plugin shows the six public reports as tables
+  and the two public plots. Reports are recomputed when Statistics is selected;
+  Refresh updates a view kept open beside the script. No new dependencies.
 - [ ] **Open the last story on startup**, as an option.
