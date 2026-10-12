@@ -247,6 +247,11 @@ public:
     DocumentEditingMode documentEditingMode(BusinessLayer::StructureModelItem* _documentItem) const;
 
     /**
+     * @brief Is there an editor for the documents of the given type that can be loaded
+     */
+    bool hasEditorFor(Domain::DocumentObjectType _type) const;
+
+    /**
      * @brief Добавить документ в проект
      */
     void addDocument(Domain::DocumentObjectType _type = Domain::DocumentObjectType::Undefined);
@@ -562,6 +567,24 @@ ProjectManager::Implementation::Implementation(ProjectManager* _q, QWidget* _par
 
     navigator->setModel(projectStructureProxyModel);
 
+    //
+    // Statistics have no place in the project tree while there's no view to show them with:
+    // such documents aren't added to the new document sets, and the ones a project already has
+    // are kept as they are, but aren't listed
+    //
+    QSet<Domain::DocumentObjectType> statisticsWithoutView;
+    for (const auto type : {
+             Domain::DocumentObjectType::ScreenplayStatistics,
+             Domain::DocumentObjectType::ScreenplaySeriesStatistics,
+             Domain::DocumentObjectType::NovelStatistics,
+         }) {
+        if (!hasEditorFor(type)) {
+            statisticsWithoutView.insert(type);
+        }
+    }
+    projectStructureModel->setOmittedDocumentTypes(statisticsWithoutView);
+    projectStructureProxyModel->setHiddenDocumentTypes(statisticsWithoutView);
+
     splitScreenAction->setCheckable(true);
     splitScreenAction->setIconText(u8"\U000F10E7");
     splitScreenAction->setWhatsThis(QKeySequence("F2").toString(QKeySequence::NativeText));
@@ -734,11 +757,15 @@ void ProjectManager::Implementation::updateNavigatorContextMenu(const QModelInde
                         [this] { this->findAllCharacters(); });
                 menuActions.append(findAllCharacters);
                 //
-                auto addCharacter = new QAction(tr("Add character"));
-                addCharacter->setIconText(u8"\U000F0014");
-                addCharacter->setEnabled(hasEditingPermissionsForProject);
-                connect(addCharacter, &QAction::triggered, q, [this] { addDocument(); });
-                menuActions.append(addCharacter);
+                // ... a character is added by hand only if there's an editor to describe it with
+                //
+                if (hasEditorFor(Domain::DocumentObjectType::Character)) {
+                    auto addCharacter = new QAction(tr("Add character"));
+                    addCharacter->setIconText(u8"\U000F0014");
+                    addCharacter->setEnabled(hasEditingPermissionsForProject);
+                    connect(addCharacter, &QAction::triggered, q, [this] { addDocument(); });
+                    menuActions.append(addCharacter);
+                }
             } else if (currentItem->type() == Domain::DocumentObjectType::Locations) {
                 auto findAllLocations = new QAction(tr("Find all locations"));
                 findAllLocations->setIconText(u8"\U000F13B0");
@@ -747,11 +774,15 @@ void ProjectManager::Implementation::updateNavigatorContextMenu(const QModelInde
                         [this] { this->findAllLocations(); });
                 menuActions.append(findAllLocations);
                 //
-                auto addLocation = new QAction(tr("Add location"));
-                addLocation->setIconText(u8"\U000F0975");
-                addLocation->setEnabled(hasEditingPermissionsForProject);
-                connect(addLocation, &QAction::triggered, q, [this] { addDocument(); });
-                menuActions.append(addLocation);
+                // ... as well as a location
+                //
+                if (hasEditorFor(Domain::DocumentObjectType::Location)) {
+                    auto addLocation = new QAction(tr("Add location"));
+                    addLocation->setIconText(u8"\U000F0975");
+                    addLocation->setEnabled(hasEditingPermissionsForProject);
+                    connect(addLocation, &QAction::triggered, q, [this] { addDocument(); });
+                    menuActions.append(addLocation);
+                }
             } else if (currentItem->type() == Domain::DocumentObjectType::RecycleBin) {
                 if (currentItem->hasChildren()) {
                     auto emptyRecycleBin = new QAction(tr("Empty recycle bin"));
@@ -791,8 +822,10 @@ void ProjectManager::Implementation::updateNavigatorContextMenu(const QModelInde
 
             //
             // Каждый из элементов можно открыть в своём окне, кроме корзины
+            // ... and of the documents that have no editor to open in the window
             //
-            if (currentItem->type() != Domain::DocumentObjectType::RecycleBin) {
+            if (currentItem->type() != Domain::DocumentObjectType::RecycleBin
+                && hasEditorFor(currentItem->type())) {
                 auto openInNewWindow = new QAction(tr("Open in new window"));
                 openInNewWindow->setSeparator(!menuActions.isEmpty());
                 openInNewWindow->setIconText(u8"\U000F03CC");
@@ -1007,6 +1040,11 @@ DocumentEditingMode ProjectManager::Implementation::documentEditingMode(
     return editingPermissions.value(uuidToCheck, DocumentEditingMode::Read);
 }
 
+bool ProjectManager::Implementation::hasEditorFor(Domain::DocumentObjectType _type) const
+{
+    return !pluginsBuilder.editorsInfoFor(Domain::mimeTypeFor(_type), isProjectRemote).isEmpty();
+}
+
 void ProjectManager::Implementation::addDocument(Domain::DocumentObjectType _type)
 {
     if (!createDocumentDialog.isNull()) {
@@ -1018,6 +1056,11 @@ void ProjectManager::Implementation::addDocument(Domain::DocumentObjectType _typ
     const auto currentItem = projectStructureModel->itemForIndex(currentItemIndex);
 
     createDocumentDialog = new Ui::CreateDocumentDialog(topLevelWidget);
+    //
+    // A document is offered only if there's an editor to open it with
+    //
+    createDocumentDialog->setDocumentTypesFilter(
+        [this](Domain::DocumentObjectType _type) { return hasEditorFor(_type); });
     createDocumentDialog->setBlockedDocumentTypes(blockedDocumentTypes);
     if (currentItem->type() == Domain::DocumentObjectType::Folder) {
         createDocumentDialog->setInsertionParent(currentItem->name());
@@ -3809,8 +3852,10 @@ void ProjectManager::storeNovel(const QString& _name, const QString& _text)
     d->projectStructureModel->appendItem(synopsisItem, novelItem, {});
     d->projectStructureModel->appendItem(createItem(DocumentObjectType::NovelText, tr("Novel")),
                                          novelItem, _text.toUtf8());
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::NovelStatistics, tr("Statistics")), novelItem, {});
+    if (d->hasEditorFor(DocumentObjectType::NovelStatistics)) {
+        d->projectStructureModel->appendItem(
+            createItem(DocumentObjectType::NovelStatistics, tr("Statistics")), novelItem, {});
+    }
     //
     // Вставляем план после всех документов, т.к. он является алиасом к документу романа
     // и чтобы его сконструировать, нужны другие документы
@@ -3868,8 +3913,11 @@ void ProjectManager::storeScreenplay(const QString& _name, const QString& _title
     d->projectStructureModel->appendItem(
         createItem(DocumentObjectType::ScreenplayText, tr("Screenplay")), screenplayItem,
         _text.toUtf8());
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::ScreenplayStatistics, tr("Statistics")), screenplayItem, {});
+    if (d->hasEditorFor(DocumentObjectType::ScreenplayStatistics)) {
+        d->projectStructureModel->appendItem(
+            createItem(DocumentObjectType::ScreenplayStatistics, tr("Statistics")), screenplayItem,
+            {});
+    }
     //
     // Вставляем тритмент после всех документов, т.к. он является алиасом к документу сценария
     // и чтобы его сконструировать, нужны другие документы
@@ -3892,6 +3940,18 @@ void ProjectManager::storePresentation(const QUuid& _documentUuid, const QString
     //
 
     using namespace Domain;
+
+    //
+    // The file is processed by the plugin of presentations, without it there would be only
+    // an empty document that can't be opened
+    //
+    if (!d->hasEditorFor(DocumentObjectType::Presentation)) {
+        StandardDialog::information(
+            d->topLevelWidget, tr("Presentation can't be imported"),
+            tr("This version of the application has no editor for presentations, so the file "
+               "wasn't imported."));
+        return;
+    }
 
     //
     // Если нужно, то создаём новый документ в проекте
@@ -5005,12 +5065,9 @@ void ProjectManager::showView(const QModelIndex& _index)
 
     //
     // Откроем документ на редактирование в первом из представлений
+    // ... a document without views gets the page saying so
     //
-    if (views.isEmpty()) {
-        d->view.active->showDocumentLoadingPage();
-        return;
-    }
-    showView(_index, {}, views.first().mimeType);
+    showView(_index, {}, views.isEmpty() ? QString() : views.first().mimeType);
 }
 
 void ProjectManager::showView(const QModelIndex& _itemIndex, const QString& _viewMimeType,
@@ -5067,18 +5124,40 @@ void ProjectManager::showView(const QModelIndex& _itemIndex, const QString& _vie
                             _defaultMimeType)
                   .toString();
     }
+    //
+    // ... a view that can't be loaded isn't shown: the one used last (it can be remembered from
+    //     a build with another set of plugins) or requested is replaced with the default one
+    //
+    const auto views = d->pluginsBuilder.editorsInfoFor(Domain::mimeTypeFor(sourceItem->type()),
+                                                        d->isProjectRemote);
+    if (std::none_of(views.begin(), views.end(), [&viewMimeType](const auto& _view) {
+            return _view.mimeType == viewMimeType;
+        })) {
+        viewMimeType = views.isEmpty() ? QString() : views.constFirst().mimeType;
+    }
     d->toolBar->setCurrentViewMimeType(viewMimeType);
 
     //
     // ... сохраним последний используемый с данным документом редактор
     //
-    setSettingsValue(documentSettingsKey(sourceItem->uuid(), kCurrentViewMimeTypeKey),
-                     viewMimeType);
+    if (!viewMimeType.isEmpty()) {
+        setSettingsValue(documentSettingsKey(sourceItem->uuid(), kCurrentViewMimeTypeKey),
+                         viewMimeType);
+    }
 
     //
     // Определим модель
     //
     updateCurrentDocument(d->modelsFacade.modelFor(itemForShow->uuid()), viewMimeType);
+    //
+    // ... the document stays current, but there's nothing to show it with
+    //
+    if (viewMimeType.isEmpty()) {
+        d->view.activeIndex = sourceItemIndex;
+        d->view.active->setDraftsVisible(false);
+        d->view.active->showNotImplementedPage();
+        return;
+    }
     if (d->view.activeModel == nullptr) {
         d->view.active->showDocumentLoadingPage();
         d->view.active->setDraftsVisible(false);
@@ -5298,7 +5377,7 @@ void ProjectManager::showFirstViewForCurrentIndex()
     // Откроем документ на редактирование в первом из представлений
     //
     if (views.isEmpty()) {
-        d->view.active->showDocumentLoadingPage();
+        d->view.active->showNotImplementedPage();
         return;
     }
     showView(d->projectStructureProxyModel->mapFromSource(d->view.activeIndex),
@@ -5512,7 +5591,7 @@ void ProjectManager::activateLink(const QUuid& _documentUuid, const QModelIndex&
             }
         }
     }
-    if (viewMimeType.isEmpty()) {
+    if (viewMimeType.isEmpty() && !views.isEmpty()) {
         viewMimeType = views.constFirst().mimeType;
     }
     //

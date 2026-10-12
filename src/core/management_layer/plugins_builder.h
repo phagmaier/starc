@@ -53,6 +53,8 @@ public:
 
     /**
      * @brief Получить списком инфорацию о доступных редакторах для заданного типа документа
+     * @note Only the editors which plugins can be loaded are listed, so the list is empty
+     *       for a document that has nothing to be opened with
      */
     QVector<EditorInfo> editorsInfoFor(const QString& _documentMimeType,
                                        bool _isProjectRemote) const;

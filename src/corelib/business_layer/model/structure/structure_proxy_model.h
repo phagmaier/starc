@@ -5,6 +5,10 @@
 #include <corelib_global.h>
 
 
+namespace Domain {
+enum class DocumentObjectType;
+}
+
 namespace BusinessLayer {
 
 class StructureModel;
@@ -35,6 +39,11 @@ public:
      * @brief Задать фильтр документов для отображения
      */
     void setItemsFilter(const QList<QUuid>& _uuids);
+
+    /**
+     * @brief Set the types of the documents that aren't listed, they are kept in the project
+     */
+    void setHiddenDocumentTypes(const QSet<Domain::DocumentObjectType>& _types);
 
 protected:
     /**

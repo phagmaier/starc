@@ -43,11 +43,6 @@ public:
     void setThemeSetupView(Ui::ThemeSetupView* _view);
 
     /**
-     * @brief Обновить используемый коэффициент масштабирования в представлении
-     */
-    void updateScaleFactor();
-
-    /**
      * @brief Проверить целостность словарей проверки орфографии и при необходимости загрузить их
      */
     void validateSpellCheckerDictionaries();

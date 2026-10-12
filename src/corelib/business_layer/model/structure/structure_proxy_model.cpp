@@ -19,6 +19,8 @@ public:
     bool isRecycleBinVisible = true;
 
     QSet<QUuid> itemsFilter;
+
+    QSet<Domain::DocumentObjectType> hiddenDocumentTypes;
 };
 
 
@@ -75,11 +77,28 @@ void StructureProxyModel::setItemsFilter(const QList<QUuid>& _uuids)
     invalidateFilter();
 }
 
+void StructureProxyModel::setHiddenDocumentTypes(const QSet<Domain::DocumentObjectType>& _types)
+{
+    if (d->hiddenDocumentTypes == _types) {
+        return;
+    }
+
+    d->hiddenDocumentTypes = _types;
+    invalidateFilter();
+}
+
 bool StructureProxyModel::filterAcceptsRow(int _sourceRow, const QModelIndex& _sourceParent) const
 {
     const auto index = sourceModel()->index(_sourceRow, 0, _sourceParent);
     const auto structure = qobject_cast<StructureModel*>(sourceModel());
     const auto item = structure->itemForIndex(index);
+
+    //
+    // Documents of the hidden types stay in the project, but aren't listed
+    //
+    if (d->hiddenDocumentTypes.contains(item->type())) {
+        return false;
+    }
 
     //
     // Скрываем элементы, которые не попадают в спискок доступных

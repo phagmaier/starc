@@ -1191,12 +1191,6 @@ void SettingsManager::setThemeSetupView(Ui::ThemeSetupView* _view)
             &SettingsManager::setApplicationCustomThemeColors);
 }
 
-void SettingsManager::updateScaleFactor()
-{
-    d->view->setApplicationScaleFactor(
-        settingsValue(DataStorageLayer::kApplicationScaleFactorKey).toReal());
-}
-
 void SettingsManager::validateSpellCheckerDictionaries()
 {
     //

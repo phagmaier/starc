@@ -1,15 +1,13 @@
 #include "onboarding_manager.h"
 
+#include <data_layer/storage/settings_storage.h>
+#include <data_layer/storage/storage_facade.h>
 #include <ui/onboarding/onboarding_navigator.h>
 #include <ui/onboarding/onboarding_tool_bar.h>
 #include <ui/onboarding/onboarding_view.h>
 
 
 namespace ManagementLayer {
-
-namespace {
-constexpr int kInvalidConfirmationCodeLength = -1;
-}
 
 class OnboardingManager::Implementation
 {
@@ -19,8 +17,6 @@ public:
     Ui::OnboardingToolBar* toolBar = nullptr;
     Ui::OnboardingNavigator* navigator = nullptr;
     Ui::OnboardingView* view = nullptr;
-
-    int confirmationCodeLength = kInvalidConfirmationCodeLength;
 };
 
 OnboardingManager::Implementation::Implementation(QWidget* _parent)
@@ -41,29 +37,14 @@ OnboardingManager::OnboardingManager(QObject* _parent, QWidget* _parentWidget)
     : QObject(_parent)
     , d(new Implementation(_parentWidget))
 {
-    connect(d->navigator, &Ui::OnboardingNavigator::languageChanged, this,
-            &OnboardingManager::languageChanged);
-    connect(d->navigator, &Ui::OnboardingNavigator::themeChanged, this,
-            &OnboardingManager::themeChanged);
-    connect(d->navigator, &Ui::OnboardingNavigator::useCustomThemeRequested, this,
-            &OnboardingManager::useCustomThemeRequested);
-    connect(d->navigator, &Ui::OnboardingNavigator::scaleFactorChanged, this,
-            &OnboardingManager::scaleFactorChanged);
-    connect(d->navigator, &Ui::OnboardingNavigator::signInPressed, this,
-            [this] { emit askConfirmationCodeRequested(d->navigator->email()); });
-    connect(d->navigator, &Ui::OnboardingNavigator::confirmationCodeChanged, this,
-            [this](const QString& _code) {
-                if (d->confirmationCodeLength == kInvalidConfirmationCodeLength
-                    || _code.length() != d->confirmationCodeLength) {
-                    return;
-                }
-
-                emit checkConfirmationCodeRequested(d->navigator->email(), _code);
+    connect(d->navigator, &Ui::OnboardingNavigator::setupGitHubSyncRequested, this,
+            [this](const QString& _repository, const QString& _token) {
+                setSettingsValue(DataStorageLayer::kGitHubSyncRepositoryKey, _repository);
+                setSettingsValue(DataStorageLayer::kGitHubSyncTokenKey, _token);
+                emit finished(true);
             });
-    connect(d->navigator, &Ui::OnboardingNavigator::accountInfoChanged, this,
-            &OnboardingManager::updateAccountInfoRequested);
-    connect(d->navigator, &Ui::OnboardingNavigator::finishOnboardingRequested, this,
-            &OnboardingManager::finished);
+    connect(d->navigator, &Ui::OnboardingNavigator::skipGitHubSyncRequested, this,
+            [this] { emit finished(false); });
 }
 
 OnboardingManager::~OnboardingManager() = default;
@@ -85,28 +66,13 @@ QWidget* OnboardingManager::view() const
 
 void OnboardingManager::showWelcomePage()
 {
+    //
+    // The sync is already set, if the settings of the application were reset to the default ones
+    //
+    d->navigator->setGitHubSync(
+        settingsValue(DataStorageLayer::kGitHubSyncRepositoryKey).toString(),
+        settingsValue(DataStorageLayer::kGitHubSyncTokenKey).toString());
     d->navigator->showWelcomePage();
-}
-
-void OnboardingManager::setAuthorizationError(const QString& _error)
-{
-    d->navigator->setAuthorizationError(_error);
-}
-
-void OnboardingManager::setConfirmationCodeInfo(int _codeLength)
-{
-    d->confirmationCodeLength = _codeLength;
-    d->navigator->showConfirmationCodeStep();
-}
-
-void OnboardingManager::completeSignIn()
-{
-    d->navigator->showAccountPage();
-}
-
-void OnboardingManager::setAccountInfo(const Domain::AccountInfo& _accountInfo)
-{
-    d->navigator->setAccountInfo(_accountInfo);
 }
 
 } // namespace ManagementLayer

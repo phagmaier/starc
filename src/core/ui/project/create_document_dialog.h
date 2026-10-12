@@ -2,6 +2,8 @@
 
 #include <ui/widgets/dialog/abstract_dialog.h>
 
+#include <functional>
+
 
 namespace Domain {
 enum class DocumentObjectType;
@@ -29,6 +31,13 @@ public:
      * @brief Сохранить выбранный тип элемента
      */
     void saveSelectedType();
+
+    /**
+     * @brief Leave only the options of the documents accepted by the given filter
+     * @note Unlike a blocked option, which stays in place and proposes an upgrade, an option
+     *       of a rejected document is removed from the dialog
+     */
+    void setDocumentTypesFilter(const std::function<bool(Domain::DocumentObjectType)>& _filter);
 
     /**
      * @brief Задать список документов недоступных для создания

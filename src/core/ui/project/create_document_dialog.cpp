@@ -46,6 +46,10 @@ public:
     AbstractLabel* storyWorldTitle;
     AbstractLabel* otherTitle;
     QVector<CreateDocumentDialogOption*> options;
+    /**
+     * @brief Groups of the options with their titles
+     */
+    QVector<QPair<AbstractLabel*, QLayout*>> optionsGroups;
 
     H6Label* title = nullptr;
     Body1Label* documentInfo = nullptr;
@@ -114,6 +118,7 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
             storyOptionsLayout->addWidget(makeOption(Domain::DocumentObjectType::Novel));
         }
         optionsLayout->addLayout(storyOptionsLayout, 1);
+        optionsGroups.append({ storyTitle, storyOptionsLayout });
     }
     optionsLayout->addWidget(storyWorldTitle);
     {
@@ -124,6 +129,7 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
         layout->addWidget(makeOption(Domain::DocumentObjectType::Location));
         layout->addWidget(makeOption(Domain::DocumentObjectType::World));
         optionsLayout->addLayout(layout);
+        optionsGroups.append({ storyWorldTitle, layout });
     }
     optionsLayout->addWidget(otherTitle);
     {
@@ -138,6 +144,7 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
         layout->addWidget(makeOption(Domain::DocumentObjectType::ImagesGallery));
         layout->addWidget(makeOption(Domain::DocumentObjectType::Presentation));
         optionsLayout->addLayout(layout);
+        optionsGroups.append({ otherTitle, layout });
     }
 
     options.constFirst()->setChecked(true);
@@ -444,6 +451,56 @@ void CreateDocumentDialog::saveSelectedType()
     }
 
     QSettings().setValue(kLastSelectedType, static_cast<int>(documentType));
+}
+
+void CreateDocumentDialog::setDocumentTypesFilter(
+    const std::function<bool(Domain::DocumentObjectType)>& _filter)
+{
+    //
+    // Remove the options of the rejected documents, and the titles of the groups left empty
+    //
+    bool isOptionRemoved = false;
+    for (const auto& group : std::as_const(d->optionsGroups)) {
+        const auto title = group.first;
+        const auto layout = group.second;
+        for (int index = layout->count() - 1; index >= 0; --index) {
+            auto option
+                = qobject_cast<CreateDocumentDialogOption*>(layout->itemAt(index)->widget());
+            if (option == nullptr || _filter(option->documentType())) {
+                continue;
+            }
+
+            layout->removeWidget(option);
+            d->options.removeOne(option);
+            delete option;
+            isOptionRemoved = true;
+        }
+        title->setVisible(layout->count() > 0);
+    }
+    //
+    // ... the groups left are kept together at the top, without a gap in place of the removed
+    //
+    if (isOptionRemoved) {
+        d->optionsLayout->setStretchFactor(d->storyOptionsLayout, 0);
+        d->optionsLayout->addStretch();
+    }
+
+    //
+    // Nothing can be created, if there are no options left
+    //
+    if (d->options.isEmpty()) {
+        d->createButton->setEnabled(false);
+        return;
+    }
+
+    //
+    // If the selected option was removed, select the first of the remaining ones
+    //
+    if (std::none_of(
+            d->options.begin(), d->options.end(),
+            [](const CreateDocumentDialogOption* _option) { return _option->isChecked(); })) {
+        d->options.constFirst()->setChecked(true);
+    }
 }
 
 void CreateDocumentDialog::setBlockedDocumentTypes(

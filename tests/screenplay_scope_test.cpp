@@ -29,6 +29,7 @@
 #include <ui/projects/create_project_dialog.h>
 #include <ui/settings/settings_navigator.h>
 #include <ui/settings/settings_view.h>
+#include <ui/widgets/app_bar/app_bar.h>
 #include <ui/widgets/combo_box/combo_box.h>
 #include <ui/widgets/label/label.h>
 #include <ui/widgets/tree/tree.h>
@@ -121,14 +122,28 @@ Ui::ScreenplayTextEdit* screenplayEdit()
     }
     return nullptr;
 }
-bool unsupportedNoticeShown(QWidget* _view)
+bool noticeShown(QWidget* _view, const char* _title)
 {
     for (auto label : _view->findChildren<AbstractLabel*>()) {
-        if (label->text() == "Unsupported document format" && label->isVisibleTo(_view)) {
+        if (label->text() == _title && label->isVisibleTo(_view)) {
             return true;
         }
     }
     return false;
+}
+bool unsupportedNoticeShown(QWidget* _view)
+{
+    return noticeShown(_view, "Unsupported document format");
+}
+bool noEditorNoticeShown(QWidget* _view)
+{
+    return noticeShown(_view, "No editor for this document");
+}
+// Whether this build has an editor plugin to open documents of the type with. The checks
+// follow what the build contains, so they hold for a build with more plugins as well.
+bool hasEditor(const ManagementLayer::PluginsBuilder& _plugins, Domain::DocumentObjectType _type)
+{
+    return !_plugins.editorsInfoFor(Domain::mimeTypeFor(_type), false).isEmpty();
 }
 QByteArray read(const QString& _path)
 {
@@ -240,6 +255,32 @@ int main(int argc, char** argv)
     }
     require(script, "screenplay text created");
     const auto scriptUuid = script->uuid();
+    // A document set gets statistics only when there is a view to show them with. A project
+    // from a build that had one already holds them, like the item added by hand here.
+    const bool statisticsView = hasEditor(plugins, Type::ScreenplayStatistics);
+    BusinessLayer::StructureModelItem* statistics = nullptr;
+    for (int i = 0; i < story->childCount(); ++i) {
+        if (story->childAt(i)->type() == Type::ScreenplayStatistics)
+            statistics = story->childAt(i);
+    }
+    require((statistics != nullptr) == statisticsView,
+            "new screenplay gets statistics only with a view for them");
+    if (statistics == nullptr) {
+        statistics = new BusinessLayer::StructureModelItem(
+            QUuid::createUuid(), Type::ScreenplayStatistics, "Statistics", "First draft", {}, true,
+            false, false);
+        structure->appendItem(statistics, story);
+    }
+    const auto statisticsUuid = statistics->uuid();
+    // Documents an existing project can hold whether or not this build has an editor for them.
+    const auto mindMapUuid
+        = structure->itemForIndex(structure->addDocument(Type::MindMap, "Kept mind map"))->uuid();
+    const auto characterUuid
+        = structure->itemForIndex(structure->addDocument(Type::Character, "Kept character"))
+              ->uuid();
+    require(structure->itemForUuid(mindMapUuid)->type() == Type::MindMap
+                && structure->itemForUuid(characterUuid)->type() == Type::Character,
+            "seed mind map and character documents");
     QHash<QUuid, QByteArray> retired;
     QVector<QUuid> retiredText;
     // All 18 persisted format identifiers, plus drafts and binary/image data.
@@ -295,10 +336,37 @@ int main(int argc, char** argv)
         require(unsupportedNoticeShown(manager.view()), "unsupported-format explanation");
     }
 
+    const auto proxyIndex = [&](const QUuid& _uuid) {
+        return proxy->mapFromSource(structure->indexForItem(structure->itemForUuid(_uuid)));
+    };
+    require(proxyIndex(statisticsUuid).isValid() == statisticsView,
+            "statistics are listed only with a view for them");
+    for (const auto& uuid : { mindMapUuid, characterUuid }) {
+        if (hasEditor(plugins, structure->itemForUuid(uuid)->type())) {
+            continue;
+        }
+        navigator->setCurrentIndex(proxyIndex(uuid));
+        require(noEditorNoticeShown(manager.view()), "document without an editor says so");
+        require(manager.toolBar()->actions().size() == 1,
+                "document without an editor offers no views");
+        require(manager.currentDocument() && manager.currentDocument()->uuid() == uuid,
+                "document without an editor stays the current one");
+    }
+
     navigator->setCurrentIndex(proxy->mapFromSource(structure->indexForItem(script)));
     require(manager.currentDocument() && manager.currentDocument()->uuid() == scriptUuid,
             "open screenplay in mixed project");
     require(!unsupportedNoticeShown(manager.view()), "screenplay replaces the unsupported notice");
+    require(!noEditorNoticeShown(manager.view()), "screenplay replaces the no-editor notice");
+    // The first toolbar action is the menu, the rest switch between the views of the document.
+    const auto scriptViews
+        = plugins.editorsInfoFor(Domain::mimeTypeFor(Type::ScreenplayText), false);
+    require(!scriptViews.isEmpty(), "screenplay text has a view");
+    require(manager.toolBar()->actions().size() == 1 + scriptViews.size(),
+            "view switcher lists the views this build has");
+    for (const auto& view : scriptViews) {
+        require(plugins.initPlugin(view.mimeType), "listed screenplay view loads");
+    }
     auto edit = screenplayEdit();
     require(edit, "actual screenplay editor");
     noAi(manager.view());
@@ -317,6 +385,19 @@ int main(int argc, char** argv)
     key(edit, Qt::Key_Return, "\r");
     require(edit->currentParagraphType() == BusinessLayer::TextParagraphType::Dialogue,
             "character Enter transitions to dialogue");
+    // Names used in the script are collected into the project, with or without an editor
+    // for the documents they are kept in.
+    const auto collected = [&](Type _group, const QString& _name) {
+        const auto group = structure->itemForType(_group);
+        for (int i = 0; group != nullptr && i < group->childCount(); ++i) {
+            if (group->childAt(i)->name() == _name) {
+                return true;
+            }
+        }
+        return false;
+    };
+    require(collected(Type::Characters, "HERO"), "character named in the script is collected");
+    require(collected(Type::Locations, "ROOM"), "location named in the script is collected");
     type(edit, "We keep the screenplay.");
     // An Undo step is what the model recorded between two saves of its changes. The
     // application saves them on a timer; the check does it explicitly to get a defined step.
@@ -344,6 +425,12 @@ int main(int argc, char** argv)
     manager.saveChanges();
     DatabaseLayer::Database::commit();
     const auto screenplayBytes = manager.currentDocument()->content();
+    const auto structureBytes = structure->document()->content();
+    QHash<QUuid, QByteArray> kept;
+    for (const auto& uuid : { statisticsUuid, mindMapUuid, characterUuid }) {
+        require(storage->document(uuid), "document without an editor is stored");
+        kept.insert(uuid, storage->document(uuid)->content());
+    }
     require(screenplayBytes.contains("We keep the screenplay.X")
                 && screenplayBytes.count("The scene continues with an ordinary action paragraph.")
                     == 140,
@@ -400,6 +487,16 @@ int main(int argc, char** argv)
         require(document && document->content() == it.value(),
                 "legacy document, draft, and raw data bytes survive save/reopen");
     }
+    require(structure->document()->content() == structureBytes,
+            "project structure survives save/reopen unchanged");
+    for (auto it = kept.cbegin(); it != kept.cend(); ++it) {
+        require(structure->itemForUuid(it.key()) && structure->itemForUuid(it.key())->isVisible()
+                    && storage->document(it.key())
+                    && storage->document(it.key())->content() == it.value(),
+                "statistics, mind map and character survive save/reopen");
+    }
+    require(proxyIndex(statisticsUuid).isValid() == statisticsView,
+            "kept statistics are listed only with a view for them");
     navigator->setCurrentIndex(
         proxy->mapFromSource(structure->indexForItem(structure->itemForUuid(scriptUuid))));
     edit = screenplayEdit();
@@ -415,9 +512,100 @@ int main(int argc, char** argv)
                      qPrintable(expectedText.mid(at - 20, 80)), qPrintable(found.mid(at - 20, 80)));
     }
     require(edit && edit->toPlainText() == expectedText, "screenplay editor text survives reopen");
+
+    // The view used last is remembered for each document. One this build cannot load, like the
+    // cards of a build with more plugins, gives way to the default view of the document.
+    QString unloadableView = "application/x-starc/editor/screenplay/text/cards";
+    if (plugins.initPlugin(unloadableView)) {
+        unloadableView += "/missing";
+    }
+    const QString lastViewKey = DatabaseLayer::Database::currentFile() + "/"
+        + scriptUuid.toString() + "/view-mime-type";
+    const auto reopenScriptWithUnloadableView = [&] {
+        navigator->setCurrentIndex(proxyIndex(retiredText.first()));
+        setSettingsValue(lastViewKey, unloadableView);
+        navigator->setCurrentIndex(proxyIndex(scriptUuid));
+        QApplication::processEvents();
+    };
+    // The second panel stays hidden until the view is split.
+    Ui::ProjectView* panel = nullptr;
+    Ui::ProjectView* secondPanel = nullptr;
+    for (auto view : manager.view()->findChildren<Ui::ProjectView*>()) {
+        (view->isHidden() ? secondPanel : panel) = view;
+    }
+    require(panel && secondPanel, "one of the two document panels is in use");
+    reopenScriptWithUnloadableView();
+    require(panel->currentEditor() && !noEditorNoticeShown(manager.view())
+                && manager.currentDocument() && manager.currentDocument()->uuid() == scriptUuid,
+            "remembered view that cannot be loaded falls back to an editor");
+    require(settingsValue(lastViewKey).toString() == scriptViews.first().mimeType,
+            "the default view replaces the remembered one");
+
+    // A draft of the document opens in the view of the document.
+    auto scriptItem = structure->itemForUuid(scriptUuid);
+    structure->addItemDraft(scriptItem, "Second draft", {}, false, screenplayBytes, false);
+    const auto draftUuid = scriptItem->drafts().first()->uuid();
+    reopenScriptWithUnloadableView();
+    panel->setCurrentDraft(1);
+    QApplication::processEvents();
+    require(panel->currentEditor() && !noEditorNoticeShown(manager.view())
+                && manager.currentDocument() && manager.currentDocument()->uuid() == draftUuid,
+            "draft opens in an editor after the fallback");
+    panel->setCurrentDraft(0);
+    QApplication::processEvents();
+
+    // The second panel of the split view resolves the remembered view the same way.
+    QAction* split = nullptr;
+    for (auto action :
+         qobject_cast<AppBar*>(manager.toolBar())->options(AppBarOptionsLevel::View)) {
+        if (action->isCheckable()) {
+            split = action;
+        }
+    }
+    require(split, "split view action");
+    reopenScriptWithUnloadableView();
+    setSettingsValue(lastViewKey, unloadableView);
+    split->toggle();
+    QApplication::processEvents();
+    require(!secondPanel->isHidden() && panel->currentEditor() && secondPanel->currentEditor()
+                && !noEditorNoticeShown(manager.view())
+                && manager.currentDocument() && manager.currentDocument()->uuid() == scriptUuid,
+            "both panels of the split view show an editor");
+    split->toggle();
+    QApplication::processEvents();
+
+    // The add-document dialog, opened the way the navigator button does.
+    emit navigator->addDocumentClicked();
+    QApplication::processEvents();
+    auto addDocument = parent.findChild<Ui::CreateDocumentDialog*>();
+    require(addDocument, "add-document dialog of the project");
+    bool screenplayOffered = false;
+    for (auto option : addDocument->findChildren<Ui::CreateDocumentDialogOption*>()) {
+        require(hasEditor(plugins, option->documentType()), "offered document has an editor");
+        screenplayOffered = screenplayOffered || option->documentType() == Type::Screenplay;
+    }
+    require(screenplayOffered, "screenplay is offered");
+    delete addDocument;
     manager.closeCurrentProject(path);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
+
+    // Whatever the view switcher can list has to load, for every kind of document.
+    {
+        ManagementLayer::PluginsBuilder probe;
+        for (const auto documentType :
+             { Type::Project,           Type::Screenplay,          Type::ScreenplayTitlePage,
+               Type::ScreenplaySynopsis, Type::ScreenplayTreatment, Type::ScreenplayText,
+               Type::ScreenplayStatistics, Type::Characters,        Type::Character,
+               Type::Locations,         Type::Location,            Type::Folder,
+               Type::SimpleText,        Type::MindMap,             Type::ImagesGallery,
+               Type::Presentation,      Type::RecycleBin }) {
+            for (const auto& editor :
+                 probe.editorsInfoFor(Domain::mimeTypeFor(documentType), false)) {
+                require(probe.initPlugin(editor.mimeType), "listed editor loads");
+            }
+        }
+    }
     std::puts("PASS: screenplay scope, keyboard editing, Undo/Redo, pagination, exports, "
-              "mixed-project preservation");
+              "mixed-project preservation, editors limited to what this build contains");
 }

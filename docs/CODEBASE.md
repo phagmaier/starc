@@ -68,6 +68,7 @@ This fork can keep each local story as one file in the root of a private GitHub 
 | Deciding which copy is newer | [ProjectSync](../src/corelib/utils/tools/project_sync.h) | Pure functions: content fingerprint of a project file and the state of a local/remote pair. |
 | Talking to GitHub | [GitHubFilesClient](../src/corelib/utils/tools/github_files_client.h) | Repository contents API over `QNetworkAccessManager`. `STARC_GITHUB_API_URL` points it at another server for tests. |
 | Settings | `kGitHubSync*` keys in [SettingsStorage](../src/corelib/data_layer/storage/settings_storage.h) | Repository, token (stored as plain text), upload on exit, and what was synced on this computer. |
+| First-run setup | [OnboardingNavigator](../src/core/ui/onboarding/onboarding_navigator.h), [OnboardingManager](../src/core/management_layer/content/onboarding/onboarding_manager.h) | The only page of the first launch: set the repository and token now, or later in the settings. Setting them runs a sync check as soon as the main window appears; the startup check is skipped while this page is shown. |
 
 Rules the code relies on:
 

@@ -88,6 +88,11 @@ public:
      * @brief Список индексов для которых доступен навигатор
      */
     QSet<QModelIndex> navigatorAvailableIndexes;
+
+    /**
+     * @brief Types of the documents that aren't added to the new document sets
+     */
+    QSet<Domain::DocumentObjectType> omittedDocumentTypes;
 };
 
 StructureModel::Implementation::Implementation()
@@ -261,6 +266,11 @@ void StructureModel::setProjectName(const QString& _name)
     d->projectName = _name;
 }
 
+void StructureModel::setOmittedDocumentTypes(const QSet<Domain::DocumentObjectType>& _types)
+{
+    d->omittedDocumentTypes = _types;
+}
+
 QModelIndex StructureModel::addDocument(Domain::DocumentObjectType _type, const QString& _name,
                                         const QModelIndex& _parent, const QByteArray& _content,
                                         bool _visible, int _episodesAmount)
@@ -307,8 +317,10 @@ QModelIndex StructureModel::addDocument(Domain::DocumentObjectType _type, const 
         appendItem(synopsisItem, screenplayItem);
         appendItem(createItem(DocumentObjectType::ScreenplayText, tr("Screenplay")),
                    screenplayItem);
-        appendItem(createItem(DocumentObjectType::ScreenplayStatistics, tr("Statistics")),
-                   screenplayItem);
+        if (!d->omittedDocumentTypes.contains(DocumentObjectType::ScreenplayStatistics)) {
+            appendItem(createItem(DocumentObjectType::ScreenplayStatistics, tr("Statistics")),
+                       screenplayItem);
+        }
         //
         // Вставляем тритмент после всех документов, т.к. он является алиасом к документу сценария
         // и чтобы его сконструировать, нужны другие документы
@@ -325,8 +337,10 @@ QModelIndex StructureModel::addDocument(Domain::DocumentObjectType _type, const 
         auto episodesItem
             = createItem(DocumentObjectType::ScreenplaySeriesEpisodes, tr("Episodes"));
         appendItem(episodesItem, seriesItem);
-        appendItem(createItem(DocumentObjectType::ScreenplaySeriesStatistics, tr("Statistics")),
-                   seriesItem);
+        if (!d->omittedDocumentTypes.contains(DocumentObjectType::ScreenplaySeriesStatistics)) {
+            appendItem(createItem(DocumentObjectType::ScreenplaySeriesStatistics, tr("Statistics")),
+                       seriesItem);
+        }
 
         for (int episode = 0; episode < _episodesAmount; ++episode) {
             auto episodeItem = createItem(DocumentObjectType::Screenplay,
@@ -338,8 +352,10 @@ QModelIndex StructureModel::addDocument(Domain::DocumentObjectType _type, const 
             appendItem(synopsisItem, episodeItem);
             appendItem(createItem(DocumentObjectType::ScreenplayText, tr("Screenplay")),
                        episodeItem);
-            appendItem(createItem(DocumentObjectType::ScreenplayStatistics, tr("Statistics")),
-                       episodeItem);
+            if (!d->omittedDocumentTypes.contains(DocumentObjectType::ScreenplayStatistics)) {
+                appendItem(createItem(DocumentObjectType::ScreenplayStatistics, tr("Statistics")),
+                           episodeItem);
+            }
             //
             // Вставляем тритмент после всех документов, т.к. он является алиасом к документу
             // сценария и чтобы его сконструировать, нужны другие документы
@@ -359,7 +375,10 @@ QModelIndex StructureModel::addDocument(Domain::DocumentObjectType _type, const 
         auto synopsisItem = createItem(DocumentObjectType::NovelSynopsis, tr("Synopsis"));
         appendItem(synopsisItem, novelItem);
         appendItem(createItem(DocumentObjectType::NovelText, tr("Text")), novelItem);
-        appendItem(createItem(DocumentObjectType::NovelStatistics, tr("Statistics")), novelItem);
+        if (!d->omittedDocumentTypes.contains(DocumentObjectType::NovelStatistics)) {
+            appendItem(createItem(DocumentObjectType::NovelStatistics, tr("Statistics")),
+                       novelItem);
+        }
         //
         // Вставляем аутлайн после всех документов, т.к. он является алиасом к документу текста
         // и чтобы его сконструировать, нужны другие документы

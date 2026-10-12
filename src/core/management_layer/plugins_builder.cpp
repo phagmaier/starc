@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QHash>
 #include <QPluginLoader>
+#include <QSet>
 #include <QStandardPaths>
 #include <QWidget>
 
@@ -277,6 +278,18 @@ class PluginsBuilder::Implementation
 {
 public:
     /**
+     * @brief Path to the library with the plugin of the given type, empty if there's no such one
+     */
+    QString pluginPath(const QString& _mimeType);
+
+    /**
+     * @brief Can the plugin of the given type be loaded
+     * @note The library is looked up without loading it, a library that failed to load is
+     *       remembered as unavailable
+     */
+    bool isPluginAvailable(const QString& _mimeType);
+
+    /**
      * @brief Инициировать плагин заданного типа
      */
     bool initPlugin(const QString& _mimeType);
@@ -293,6 +306,16 @@ public:
     QHash<QString, ManagementLayer::IDocumentManager*> plugins;
 
     /**
+     * @brief Paths to the libraries of the plugins <mime, path>, empty for the missing ones
+     */
+    QHash<QString, QString> pluginsPaths;
+
+    /**
+     * @brief Plugins which libraries are in place, but can't be loaded
+     */
+    QSet<QString> brokenPlugins;
+
+    /**
      * @brief Находится ли текущий проект в команде
      */
     bool isProjectInTeam = false;
@@ -307,10 +330,10 @@ public:
      */
 };
 
-bool PluginsBuilder::Implementation::initPlugin(const QString& _mimeType)
+QString PluginsBuilder::Implementation::pluginPath(const QString& _mimeType)
 {
-    if (plugins.contains(_mimeType)) {
-        return true;
+    if (const auto path = pluginsPaths.constFind(_mimeType); path != pluginsPaths.constEnd()) {
+        return path.value();
     }
 
     //
@@ -334,14 +357,7 @@ bool PluginsBuilder::Implementation::initPlugin(const QString& _mimeType)
 #endif
 
     //
-    // Если папки с плагинами нет, идём лесом
-    //
-    if (!pluginsDir.cd(pluginsDirName)) {
-        return false;
-    }
-
-    //
-    // Подгружаем плагин
+    // Ищем библиотеку плагина, если папка с плагинами есть
     //
     const QString extensionFilter =
 #ifdef Q_OS_WIN
@@ -353,22 +369,54 @@ bool PluginsBuilder::Implementation::initPlugin(const QString& _mimeType)
 #else
         "";
 #endif
-    const QStringList libCorePluginEntries
-        = pluginsDir.entryList({ kMimeToPlugin.value(_mimeType) + extensionFilter }, QDir::Files);
-    if (libCorePluginEntries.isEmpty()) {
+    QString path;
+    const auto pluginNameFilter = kMimeToPlugin.value(_mimeType);
+    if (!pluginNameFilter.isEmpty() && pluginsDir.cd(pluginsDirName)) {
+        const QStringList libCorePluginEntries
+            = pluginsDir.entryList({ pluginNameFilter + extensionFilter }, QDir::Files);
+        if (libCorePluginEntries.size() > 1) {
+            qCritical() << "Found more than 1 plugins for mime-type:" << _mimeType;
+        } else if (!libCorePluginEntries.isEmpty()) {
+            path = pluginsDir.absoluteFilePath(libCorePluginEntries.constFirst());
+        }
+    }
+
+    pluginsPaths.insert(_mimeType, path);
+    return path;
+}
+
+bool PluginsBuilder::Implementation::isPluginAvailable(const QString& _mimeType)
+{
+    if (const auto plugin = plugins.constFind(_mimeType); plugin != plugins.constEnd()) {
+        return plugin.value() != nullptr;
+    }
+
+    return !brokenPlugins.contains(_mimeType) && !pluginPath(_mimeType).isEmpty();
+}
+
+bool PluginsBuilder::Implementation::initPlugin(const QString& _mimeType)
+{
+    if (plugins.contains(_mimeType)) {
+        return true;
+    }
+
+    //
+    // Если плагина нет, идём лесом
+    //
+    const auto pluginPath = this->pluginPath(_mimeType);
+    if (pluginPath.isEmpty()) {
         qCritical() << "Plugin isn't found for mime-type:" << _mimeType;
         return false;
     }
-    if (libCorePluginEntries.size() > 1) {
-        qCritical() << "Found more than 1 plugins for mime-type:" << _mimeType;
-        return false;
-    }
 
-    const auto pluginPath = libCorePluginEntries.first();
-    QPluginLoader pluginLoader(pluginsDir.absoluteFilePath(pluginPath));
+    //
+    // Подгружаем плагин
+    //
+    QPluginLoader pluginLoader(pluginPath);
     QObject* pluginObject = pluginLoader.instance();
     if (pluginObject == nullptr) {
         qCritical() << pluginLoader.errorString();
+        brokenPlugins.insert(_mimeType);
         return false;
     }
 
@@ -467,6 +515,14 @@ QVector<PluginsBuilder::EditorInfo> PluginsBuilder::editorsInfoFor(const QString
                                      }),
                       editors.end());
     }
+    //
+    // An editor is offered only when its plugin is a part of this build
+    //
+    editors.erase(std::remove_if(editors.begin(), editors.end(),
+                                 [this](const auto& _editorInfo) {
+                                     return !d->isPluginAvailable(_editorInfo.mimeType);
+                                 }),
+                  editors.end());
     return editors;
 }
 

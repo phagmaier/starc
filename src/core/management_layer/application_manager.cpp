@@ -2567,9 +2567,12 @@ void ApplicationManager::exec(const QString& _fileToOpenPath)
             d->state = ApplicationState::Working;
 
             //
-            // Check if the stories were changed on another computer
+            // Check if the stories were changed on another computer. During the initial setup
+            // the stories are checked when the user confirms the repository there
             //
-            d->gitHubSyncManager->checkOnStart();
+            if (settingsValue(DataStorageLayer::kApplicationConfiguredKey).toBool()) {
+                d->gitHubSyncManager->checkOnStart();
+            }
         },
         Qt::QueuedConnection);
 }
@@ -2759,21 +2762,7 @@ void ApplicationManager::initConnections()
     //
     // Менеджер посадки
     //
-    connect(d->onboardingManager.data(), &OnboardingManager::languageChanged, this,
-            [this](QLocale::Language _language) { d->setTranslation(_language); });
-    connect(d->onboardingManager.data(), &OnboardingManager::themeChanged, this,
-            [this](Ui::ApplicationTheme _theme) { d->setDesignSystemTheme(_theme); });
-    connect(d->onboardingManager.data(), &OnboardingManager::useCustomThemeRequested, this,
-            [this](QString _themeHash) {
-                d->setDesignSystemTheme(Ui::ApplicationTheme::Custom);
-                d->setDesignSystemCustomThemeColors(Ui::DesignSystem::Color(_themeHash));
-            });
-    connect(d->onboardingManager.data(), &OnboardingManager::scaleFactorChanged, this,
-            [this](qreal _scaleFactor) {
-                d->setDesignSystemScaleFactor(_scaleFactor);
-                d->settingsManager->updateScaleFactor();
-            });
-    connect(d->onboardingManager.data(), &OnboardingManager::finished, this, [this] {
+    connect(d->onboardingManager.data(), &OnboardingManager::finished, this, [this](bool _sync) {
         setSettingsValue(DataStorageLayer::kApplicationConfiguredKey, true);
         setSettingsValue(DataStorageLayer::kApplicationLanguagedKey, QLocale::system().language());
         setSettingsValue(DataStorageLayer::kApplicationThemeKey,
@@ -2801,9 +2790,16 @@ void ApplicationManager::initConnections()
         // Без этого после аварийного завершения при первом запуске (если вдруг такое случится)
         // левая панель будет занимать весь экран
         //
-        QTimer::singleShot(duration, this, [this] {
+        QTimer::singleShot(duration, this, [this, _sync] {
             setSettingsValues(DataStorageLayer::kApplicationViewStateKey,
                               d->applicationView->saveState());
+
+            //
+            // Check the repository the user has just set and offer the stories it keeps
+            //
+            if (_sync) {
+                d->gitHubSyncManager->sync();
+            }
         });
     });
 
@@ -3148,23 +3144,17 @@ void ApplicationManager::initConnections()
     //
     // Проверка регистрация или вход
     //
-    connect(d->onboardingManager.data(), &OnboardingManager::askConfirmationCodeRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::askConfirmationCode);
     connect(d->accountManager.data(), &AccountManager::askConfirmationCodeRequested,
             d->cloudServiceManager.data(), &CloudServiceManager::askConfirmationCode);
     connect(d->cloudServiceManager.data(), &CloudServiceManager::confirmationCodeInfoRecieved,
             d->accountManager.data(), [this](int _codeLength) {
-                d->onboardingManager->setConfirmationCodeInfo(_codeLength);
                 d->accountManager->setConfirmationCodeInfo(_codeLength);
             });
-    connect(d->onboardingManager.data(), &OnboardingManager::checkConfirmationCodeRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::checkConfirmationCode);
     connect(d->accountManager.data(), &AccountManager::checkConfirmationCodeRequested,
             d->cloudServiceManager.data(), &CloudServiceManager::checkConfirmationCode);
     connect(d->cloudServiceManager.data(), &CloudServiceManager::loginCompleted,
             d->accountManager.data(), [this](bool _isNewAccount) {
                 d->cloudServiceManager->askAccountInfo();
-                d->onboardingManager->completeSignIn();
                 d->accountManager->completeSignIn(_isNewAccount);
                 if (_isNewAccount) {
                     d->menuView->closeMenu();
@@ -3209,7 +3199,6 @@ void ApplicationManager::initConnections()
     //
     connect(d->cloudServiceManager.data(), &CloudServiceManager::accountInfoReceived, this,
             [this](const Domain::AccountInfo& _accountInfo) {
-                d->onboardingManager->setAccountInfo(_accountInfo);
                 d->accountManager->setAccountInfo(_accountInfo);
 
                 d->menuView->setSignInVisible(false);
@@ -3236,8 +3225,6 @@ void ApplicationManager::initConnections()
             d->accountManager.data(), &AccountManager::logoutRequested);
     connect(d->accountManager.data(), &AccountManager::askAccountInfoRequested,
             d->cloudServiceManager.data(), &CloudServiceManager::askAccountInfo);
-    connect(d->onboardingManager.data(), &OnboardingManager::updateAccountInfoRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::setAccountInfo);
     connect(d->accountManager.data(), &AccountManager::updateAccountInfoRequested,
             d->cloudServiceManager.data(), &CloudServiceManager::setAccountInfo);
     connect(d->accountManager.data(), &AccountManager::activatePaymentOptionRequested,

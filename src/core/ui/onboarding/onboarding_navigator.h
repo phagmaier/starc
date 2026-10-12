@@ -2,15 +2,8 @@
 
 #include <ui/widgets/stack_widget/stack_widget.h>
 
-#include <QLocale>
-
-namespace Domain {
-struct AccountInfo;
-}
-
 
 namespace Ui {
-enum class ApplicationTheme;
 
 /**
  * @brief Навигатор по посадочным страницам
@@ -29,79 +22,27 @@ public:
     void showWelcomePage();
 
     /**
-     * @brief Email, который ввёл пользователь
+     * @brief Set the repository and the access token, which are already used for the sync
      */
-    QString email() const;
-
-    /**
-     * @brief Показать виджеты для ввода кода подтверждения
-     */
-    void showConfirmationCodeStep();
-
-    /**
-     * @brief Код подтверждения авторизации
-     */
-    QString confirmationCode() const;
-
-    /**
-     * @brief Задать ошибку авторизации
-     */
-    void setAuthorizationError(const QString& _error);
-
-    /**
-     * @brief Показать страницу с информацией об аккаунте
-     */
-    void showAccountPage();
-
-    /**
-     * @brief Установить параметры аккаунта
-     */
-    void setAccountInfo(const Domain::AccountInfo& _accountInfo);
+    void setGitHubSync(const QString& _repository, const QString& _token);
 
 signals:
     /**
-     * @brief Пользователь выбрал язык приложения
+     * @brief The user wants to sync the stories with the GitHub repository
      */
-    void languageChanged(QLocale::Language _language);
+    void setupGitHubSyncRequested(const QString& _repository, const QString& _token);
 
     /**
-     * @brief Пользователь выбрал тему приложения
+     * @brief The user wants to set up the sync with GitHub later
      */
-    void themeChanged(Ui::ApplicationTheme _theme);
-
-    /**
-     * @brief Пользователь хочет использовать кастомную тему с заданным ХЭШем
-     */
-    void useCustomThemeRequested(QString _themeHash);
-
-    /**
-     * @brief Пользователь изменил масштаб интерфейса
-     */
-    void scaleFactorChanged(qreal _scaleFactor);
-
-    /**
-     * @brief Пользователь нажал кнопку входа в аккаунт
-     */
-    void signInPressed();
-
-    /**
-     * @brief Пользователь ввёл код подтверждения
-     */
-    void confirmationCodeChanged(const QString& _code);
-
-    /**
-     * @brief Пользователь обновил информацию об аккаунте
-     */
-    void accountInfoChanged(const QString& _email, const QString& _name,
-                            const QString& _description, const QString& _subscriptionLanguage,
-                            bool _subscribed, const QByteArray& _avatar);
-
-    /**
-     * @brief Пользователь хочет завершить настройку
-     */
-    void finishOnboardingRequested();
+    void skipGitHubSyncRequested();
 
 protected:
+    /**
+     * @brief Keep the GitHub repository and the access token exactly as they were entered
+     */
+    bool eventFilter(QObject* _watched, QEvent* _event) override;
+
     /**
      * @brief Обновить перевод
      */

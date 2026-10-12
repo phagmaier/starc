@@ -43,6 +43,13 @@ public:
     void setProjectName(const QString& _name);
 
     /**
+     * @brief Set the types of the documents that aren't added to the new document sets
+     * @note Used for the statistics, which make no sense without a view to show them with,
+     *       the other documents of a set are always added
+     */
+    void setOmittedDocumentTypes(const QSet<Domain::DocumentObjectType>& _types);
+
+    /**
      * @brief Добавить документ
      */
     QModelIndex addDocument(Domain::DocumentObjectType _type, const QString& _name = {},

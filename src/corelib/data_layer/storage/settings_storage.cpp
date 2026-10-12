@@ -98,7 +98,7 @@ SettingsStorage::Implementation::Implementation()
     //
     defaultSettings.insert(kApplicationConfiguredKey, false);
     defaultSettings.insert(kApplicationLanguagedKey, QLocale::AnyLanguage);
-    defaultSettings.insert(kApplicationThemeKey, static_cast<int>(Ui::ApplicationTheme::Light));
+    defaultSettings.insert(kApplicationThemeKey, static_cast<int>(Ui::ApplicationTheme::Dark));
     defaultSettings.insert(
         kApplicationCustomThemeColorsKey,
         "323740ffffff2ab177f8f8f2272b34f8f8f222262ef8f8f2ec3740f8f8f2000000f8f8f2272b34f8f8f2");

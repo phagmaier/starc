@@ -319,15 +319,15 @@ void ProjectView::updateTranslations()
     d->documentLoadingPageBodyLabel->setText(
         tr("Please, wait a while and document editor will be activated."));
 
-    d->notImplementedPageTitleLabel->setText(
-        d->unsupportedFormat
-            ? tr("Unsupported document format")
-            : tr("Ooops... looks like editor of this document not implemented yet."));
+    d->notImplementedPageTitleLabel->setText(d->unsupportedFormat
+                                                 ? tr("Unsupported document format")
+                                                 : tr("No editor for this document"));
     d->notImplementedPageBodyLabel->setText(
         d->unsupportedFormat
             ? tr("This document's format is no longer supported. Its content is preserved in "
                  "the project. Open a copy in an application that supports this format to edit it.")
-            : tr("But don't worry, it will be here in one of the future updates!"));
+            : tr("This version of the application has no editor for documents of this type. "
+                 "Its content is preserved in the project."));
 }
 
 void ProjectView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
@@ -364,9 +364,13 @@ void ProjectView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     }
 
     d->notImplementedPage->setBackgroundColor(DesignSystem::color().surface());
+    //
+    // ... side margins keep a wrapped explanation clear of the navigator toggle at the page edge
+    //
     d->notImplementedPageBodyLabel->setContentsMargins(
-        0, static_cast<int>(DesignSystem::layout().px16()),
-        static_cast<int>(DesignSystem::layout().px4()), 0);
+        static_cast<int>(DesignSystem::layout().px48()),
+        static_cast<int>(DesignSystem::layout().px16()),
+        static_cast<int>(DesignSystem::layout().px48()), 0);
     for (auto label : std::vector<Widget*>{
              d->notImplementedPageTitleLabel,
              d->notImplementedPageBodyLabel,

@@ -31,7 +31,7 @@ public:
     void showDocumentLoadingPage();
 
     /**
-     * @brief Показать страницу с информацией о том, что это ещё не реализовано
+     * @brief Show the page saying that this build has no editor for the document
      */
     void showNotImplementedPage();
 
