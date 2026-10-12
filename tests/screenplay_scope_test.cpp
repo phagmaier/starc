@@ -59,9 +59,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QMimeData>
 #include <QPainter>
+#include <QScopedPointer>
 #include <QSettings>
 #include <QSortFilterProxyModel>
+#include <QSqlQuery>
 #include <QStyleOptionGraphicsItem>
 #include <QTextDocument>
 #include <QTimer>
@@ -631,6 +634,13 @@ int main(int argc, char** argv)
     static_assert(static_cast<int>(Type::Novel) == 10500);
     static_assert(static_cast<int>(Type::ScreenplaySeries) == 10110);
     static_assert(static_cast<int>(Type::ScreenplayText) == 10104);
+    static_assert(static_cast<int>(Type::Worlds) == 50000);
+    static_assert(static_cast<int>(Type::World) == 50001);
+    require(Domain::mimeTypeFor(Type::Worlds) == "application/x-starc/document/worlds"
+                && Domain::typeFor("application/x-starc/document/worlds") == Type::Worlds
+                && Domain::mimeTypeFor(Type::World) == "application/x-starc/document/world"
+                && Domain::typeFor("application/x-starc/document/world") == Type::World,
+            "persisted World identifiers and MIME mappings retained");
     checkStoryCardsWithoutCovers(evidence);
 
     // Dialogs require a top-level parent to overlay.
@@ -645,7 +655,13 @@ int main(int argc, char** argv)
         }
     }
     auto createDocument = new Ui::CreateDocumentDialog(&host);
+    QSettings().setValue("widgets/create-document-dialog/last-selected-type",
+                         static_cast<int>(Type::World));
+    require(createDocument->lastSelectedType() == Type::Screenplay,
+            "remembered World creation choice falls back to screenplay");
+    QSettings().remove("widgets/create-document-dialog/last-selected-type");
     for (auto option : createDocument->findChildren<Ui::CreateDocumentDialogOption*>()) {
+        require(option->documentType() != Type::World, "World absent from add-document dialog");
         require(!Domain::isUnsupportedDocumentType(option->documentType()),
                 "no retired document choice");
     }
@@ -780,6 +796,14 @@ int main(int argc, char** argv)
     project.setName("Disposable mixed screenplay");
     manager.loadCurrentProject(&project);
     require(structure, "open disposable project");
+    {
+        ManagementLayer::ProjectModelsFacade facade(structure, nullptr, nullptr);
+        require(!facade.modelFor(Type::Worlds) && !facade.modelFor(Type::World),
+                "World model lookups in new projects are refused");
+    }
+    require(!structure->itemForType(Type::Worlds) && storage->documents(Type::Worlds).isEmpty()
+                && storage->documents(Type::World).isEmpty(),
+            "new projects create no Worlds group or World documents");
     // A project file gets its version on the second open, after the upstream upgrade steps
     // ran once. Those steps rewrite script documents as text, so reach the state of an
     // existing project before adding the documents whose bytes are compared.
@@ -860,6 +884,74 @@ int main(int argc, char** argv)
     QHash<QUuid, QByteArray> retired;
     retired.insert(legacyCoverUuid, legacyCoverBytes);
     QVector<QUuid> retiredText;
+    const auto worldImageUuid = QUuid::createUuid();
+    auto worldImage = storage->createDocument(worldImageUuid, Type::ImageData);
+    const auto worldImageBytes = legacyCoverBytes + "world attachment";
+    worldImage->setContent(worldImageBytes);
+    require(storage->saveDocument(worldImage), "seed retained World image attachment");
+    retired.insert(worldImageUuid, worldImageBytes);
+    const QByteArray worldBytes = QByteArray::fromHex("efbbbf")
+        + "<world unknown='keep'>\r\n<photo>" + worldImageUuid.toString().toUtf8() + "</photo>"
+        + QByteArray::fromHex("00ff") + "</world>\r\n";
+    auto worlds = new BusinessLayer::StructureModelItem(QUuid::createUuid(), Type::Worlds,
+                                                        "Retained Worlds", "First draft", { }, true,
+                                                        false, false);
+    const QByteArray worldsBytes = "<worlds future='keep'>\r\nmap coordinates and routes</worlds>";
+    structure->appendItem(worlds, nullptr, worldsBytes);
+    auto world = new BusinessLayer::StructureModelItem(
+        QUuid::createUuid(), Type::World, "Retained World", "First draft", { }, true, false, false);
+    structure->appendItem(world, worlds, worldBytes);
+    retired.insert(worlds->uuid(), worldsBytes);
+    retired.insert(world->uuid(), worldBytes);
+    auto emptyWorlds = new BusinessLayer::StructureModelItem(QUuid::createUuid(), Type::Worlds,
+                                                             "Retained empty Worlds", "First draft",
+                                                             { }, true, false, false);
+    structure->appendItem(emptyWorlds, nullptr, worldsBytes + "empty");
+    retired.insert(emptyWorlds->uuid(), worldsBytes + "empty");
+    const auto worldChangeUuid = QUuid::createUuid();
+    const QByteArray worldUndo = QByteArray::fromHex("00ff") + "retained World undo";
+    const QByteArray worldRedo = "retained World redo\r\n";
+    {
+        auto worldChangeQuery = DatabaseLayer::Database::query();
+        worldChangeQuery.prepare(
+            "INSERT INTO documents_changes "
+            "(fk_document_uuid, uuid, undo_patch, redo_patch, date_time, user_name, is_synced) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)");
+        worldChangeQuery.addBindValue(worlds->uuid().toString());
+        worldChangeQuery.addBindValue(worldChangeUuid.toString());
+        worldChangeQuery.addBindValue(worldUndo);
+        worldChangeQuery.addBindValue(worldRedo);
+        worldChangeQuery.addBindValue("2020-01-01 00:00:00:000");
+        worldChangeQuery.addBindValue("Retained World author");
+        worldChangeQuery.addBindValue(true);
+        require(worldChangeQuery.exec(), "seed retained Worlds change history");
+        worldChangeQuery.finish();
+    }
+    retiredText.append(worlds->uuid());
+    retiredText.append(world->uuid());
+    retiredText.append(emptyWorlds->uuid());
+    const auto worldsUuid = worlds->uuid();
+    const auto worldUuid = world->uuid();
+    structure->addItemDraft(world, "Retained World draft", { }, false, worldBytes + "draft", false);
+    retired.insert(world->drafts().first()->uuid(), worldBytes + "draft");
+    require(!structure->addDocument(Type::Worlds, "Refused Worlds").isValid()
+                && !structure->addDocument(Type::World, "Refused World").isValid(),
+            "World and Worlds creation refused");
+    {
+        QScopedPointer<QMimeData> mime(structure->mimeData({ structure->indexForItem(world) }));
+        require(!structure->canDropMimeData(mime.data(), Qt::MoveAction, -1, 0, { }),
+                "World cannot be moved even through direct drag MIME data");
+        mime.reset(structure->mimeData({ structure->indexForItem(story) }));
+        require(!structure->canDropMimeData(mime.data(), Qt::MoveAction, -1, 0,
+                                            structure->indexForItem(worlds))
+                    && !structure->canDropMimeData(mime.data(), Qt::MoveAction, -1, 0,
+                                                   structure->indexForItem(world)),
+                "retired Worlds and World refuse dropped documents");
+        mime.reset(structure->mimeData(
+            { structure->indexForItem(world), structure->indexForItem(story) }));
+        require(!structure->canDropMimeData(mime.data(), Qt::MoveAction, -1, 0, { }),
+                "mixed selection cannot move a retired World");
+    }
     // All 32 persisted format identifiers, plus drafts and binary/image data. A novel and a
     // series have one document more than the other retired formats.
     BusinessLayer::StructureModelItem* episodes = nullptr;
@@ -1067,11 +1159,11 @@ int main(int argc, char** argv)
         for (const auto& uuid : retiredText) {
             require(!facade.modelFor(uuid), "retired model refused");
         }
-        for (const auto dictionaries :
+        for (const auto retiredType :
              { Type::ComicBookDictionaries, Type::AudioplayDictionaries,
-               Type::StageplayDictionaries, Type::NovelDictionaries }) {
-            require(!facade.modelFor(dictionaries),
-                    "retired dictionaries are not created on request");
+               Type::StageplayDictionaries, Type::NovelDictionaries, Type::Worlds, Type::World }) {
+            require(!facade.modelFor(retiredType),
+                    "retired document types are not created on request");
         }
     }
     BusinessLayer::ScreenplayExportOptions options;
@@ -1120,6 +1212,32 @@ int main(int argc, char** argv)
     }
     require(structure->document()->content() == structureBytes,
             "project structure survives save/reopen unchanged");
+    {
+        auto worldChangeQuery = DatabaseLayer::Database::query();
+        worldChangeQuery.prepare(
+            "SELECT fk_document_uuid, undo_patch, redo_patch, user_name FROM documents_changes "
+            "WHERE uuid = ?");
+        worldChangeQuery.addBindValue(worldChangeUuid.toString());
+        require(worldChangeQuery.exec() && worldChangeQuery.next()
+                    && worldChangeQuery.value(0).toString() == worldsUuid.toString()
+                    && worldChangeQuery.value(1).toByteArray() == worldUndo
+                    && worldChangeQuery.value(2).toByteArray() == worldRedo
+                    && worldChangeQuery.value(3).toString() == "Retained World author",
+                "retired Worlds change identity, patches and author survive reopen");
+        worldChangeQuery.finish();
+    }
+    require(structure->itemForUuid(worldsUuid) && structure->itemForUuid(worldUuid)
+                && structure->itemForUuid(worldsUuid)->type() == Type::Worlds
+                && structure->itemForUuid(worldUuid)->type() == Type::World
+                && structure->itemForUuid(worldUuid)->parent()->uuid() == worldsUuid
+                && structure->itemForUuid(worldUuid)->drafts().size() == 1,
+            "legacy Worlds hierarchy, identities and draft metadata survive "
+            "reopen");
+    for (const auto uuid : { worldsUuid, worldUuid }) {
+        navigator->setCurrentIndex(proxyIndex(uuid));
+        require(!manager.currentDocument() && unsupportedNoticeShown(manager.view()),
+                "reopened Worlds remain preserved and unsupported");
+    }
     for (auto it = kept.cbegin(); it != kept.cend(); ++it) {
         require(structure->itemForUuid(it.key()) && structure->itemForUuid(it.key())->isVisible()
                     && storage->document(it.key())

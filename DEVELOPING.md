@@ -145,6 +145,11 @@ mind map and character documents of an existing project survive save and reopen.
 It also checks that upstream account, sign-in, subscription, purchase and team
 creation controls are absent, local writing tools need no account, and cached
 team/project records and historical account labels survive load/save/reload.
+World and Worlds are retired too: new projects create neither, remembered World
+creation choices fall back to Screenplay, and existing groups (including empty
+and duplicate groups), World content, drafts, images and change history survive
+save/reopen. Retired items refuse direct and mixed drag MIME data and show the
+preserved-content notice.
 Notifications navigation, filters and release/credits widgets must also be
 absent from the menus. Synthetic release-feed checks retain the update-download
 link's platform/Qt filtering and ordering without network access; old notification

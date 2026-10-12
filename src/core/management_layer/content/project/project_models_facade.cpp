@@ -18,8 +18,6 @@
 #include <business_layer/model/simple_text/simple_text_model.h>
 #include <business_layer/model/structure/structure_model.h>
 #include <business_layer/model/structure/structure_model_item.h>
-#include <business_layer/model/worlds/world_model.h>
-#include <business_layer/model/worlds/worlds_model.h>
 #include <data_layer/storage/document_storage.h>
 #include <data_layer/storage/storage_facade.h>
 #include <domain/document_object.h>
@@ -571,37 +569,6 @@ BusinessLayer::AbstractModel* ProjectModelsFacade::modelFor(Domain::DocumentObje
                     [this, locationModel] { emit locationScenesUpdateRequested(locationModel); });
 
                 model = locationModel;
-                break;
-            }
-
-            case Domain::DocumentObjectType::Worlds: {
-                auto worldsModel = new BusinessLayer::WorldsModel;
-
-                const auto worldDocuments
-                    = DataStorageLayer::StorageFacade::documentStorage()->documents(
-                        Domain::DocumentObjectType::World);
-                for (const auto worldDocument : worldDocuments) {
-                    const auto worldItem
-                        = d->projectStructureModel->itemForUuid(worldDocument->uuid());
-                    if (worldItem == nullptr
-                        || worldItem->parent()->uuid() != documentToLoad->uuid()) {
-                        continue;
-                    }
-
-                    auto worldModel = modelFor(worldDocument);
-                    worldsModel->addWorldModel(
-                        qobject_cast<BusinessLayer::WorldModel*>(worldModel));
-                }
-
-                connect(worldsModel, &BusinessLayer::WorldsModel::createWorldRequested, this,
-                        &ProjectModelsFacade::createWorldRequested);
-
-                model = worldsModel;
-                break;
-            }
-
-            case Domain::DocumentObjectType::World: {
-                model = new BusinessLayer::WorldModel;
                 break;
             }
 

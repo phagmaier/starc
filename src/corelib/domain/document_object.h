@@ -102,7 +102,7 @@ enum class DocumentObjectType {
 };
 
 /**
- * Retired editor formats. Keep their persisted identifiers and MIME mappings so
+ * Retired document types. Keep their persisted identifiers and MIME mappings so
  * existing projects remain readable without interpreting or rewriting content.
  */
 inline bool isUnsupportedDocumentType(DocumentObjectType _type)
@@ -140,6 +140,8 @@ inline bool isUnsupportedDocumentType(DocumentObjectType _type)
     case DocumentObjectType::NovelText:
     case DocumentObjectType::NovelDictionaries:
     case DocumentObjectType::NovelStatistics:
+    case DocumentObjectType::Worlds:
+    case DocumentObjectType::World:
         return true;
     default:
         return false;

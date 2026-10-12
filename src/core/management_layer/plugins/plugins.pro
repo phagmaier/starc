@@ -15,8 +15,7 @@ SUBDIRS = \
     simple_text \
     simple_text_structure \
     title_page \
-    recycle_bin \
-    world_information_structure
+    recycle_bin
 
 exists (project_collaborators/project_collaborators.pro) {
     SUBDIRS += project_collaborators
@@ -40,13 +39,6 @@ exists (location_information/location_information.pro) {
 }
 exists (location_scenes/location_scenes.pro) {
     SUBDIRS += location_scenes
-}
-
-exists (worlds_map/worlds_map.pro) {
-    SUBDIRS += worlds_map
-}
-exists (world_information/world_information.pro) {
-    SUBDIRS += world_information
 }
 
 exists (screenplay_cards/screenplay_cards.pro) {

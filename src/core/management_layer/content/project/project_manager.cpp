@@ -17,8 +17,6 @@
 #include <business_layer/model/structure/structure_model_item.h>
 #include <business_layer/model/structure/structure_proxy_model.h>
 #include <business_layer/model/text/text_model_text_item.h>
-#include <business_layer/model/worlds/world_model.h>
-#include <business_layer/model/worlds/worlds_model.h>
 #include <business_layer/templates/text_template.h>
 #include <data_layer/database.h>
 #include <data_layer/storage/document_change_storage.h>
@@ -1069,8 +1067,6 @@ void ProjectManager::Implementation::addDocument(Domain::DocumentObjectType _typ
         createDocumentDialog->setDocumentType(Domain::DocumentObjectType::Character);
     } else if (currentItem->type() == Domain::DocumentObjectType::Locations) {
         createDocumentDialog->setDocumentType(Domain::DocumentObjectType::Location);
-    } else if (currentItem->type() == Domain::DocumentObjectType::Worlds) {
-        createDocumentDialog->setDocumentType(Domain::DocumentObjectType::World);
     } else {
         createDocumentDialog->setDocumentType(createDocumentDialog->lastSelectedType());
     }
@@ -1099,17 +1095,6 @@ void ProjectManager::Implementation::addDocument(Domain::DocumentObjectType _typ
                     if (locationsModel->exists(_name)) {
                         createDocumentDialog->setNameError(
                             tr("Location with this name already exists"));
-                        return;
-                    }
-                } else if (_type == Domain::DocumentObjectType::World) {
-                    auto document = DataStorageLayer::StorageFacade::documentStorage()->document(
-                        Domain::DocumentObjectType::Worlds);
-                    auto model = modelsFacade.modelFor(document);
-                    auto worldsModel = qobject_cast<BusinessLayer::WorldsModel*>(model);
-                    Q_ASSERT(worldsModel);
-                    if (worldsModel->exists(_name)) {
-                        createDocumentDialog->setNameError(
-                            tr("World with this name already exists"));
                         return;
                     }
                 }
@@ -1698,44 +1683,6 @@ void ProjectManager::Implementation::removeDocumentImpl(BusinessLayer::Structure
             auto location = static_cast<BusinessLayer::LocationModel*>(model);
             for (const auto& photo : location->photos()) {
                 documentsToRemove.append(photo.uuid);
-            }
-            break;
-        }
-
-        case Domain::DocumentObjectType::World: {
-            auto world = static_cast<BusinessLayer::WorldModel*>(model);
-            for (const auto& photo : world->photos()) {
-                documentsToRemove.append(photo.uuid);
-            }
-            for (const auto& item : world->races()) {
-                documentsToRemove.append(item.photo.uuid);
-            }
-            for (const auto& item : world->floras()) {
-                documentsToRemove.append(item.photo.uuid);
-            }
-            for (const auto& item : world->animals()) {
-                documentsToRemove.append(item.photo.uuid);
-            }
-            for (const auto& item : world->naturalResources()) {
-                documentsToRemove.append(item.photo.uuid);
-            }
-            for (const auto& item : world->climates()) {
-                documentsToRemove.append(item.photo.uuid);
-            }
-            for (const auto& item : world->religions()) {
-                documentsToRemove.append(item.photo.uuid);
-            }
-            for (const auto& item : world->ethics()) {
-                documentsToRemove.append(item.photo.uuid);
-            }
-            for (const auto& item : world->languages()) {
-                documentsToRemove.append(item.photo.uuid);
-            }
-            for (const auto& item : world->castes()) {
-                documentsToRemove.append(item.photo.uuid);
-            }
-            for (const auto& item : world->magicTypes()) {
-                documentsToRemove.append(item.photo.uuid);
             }
             break;
         }
@@ -2502,17 +2449,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                 break;
             }
 
-            case Domain::DocumentObjectType::World: {
-                auto worldsDocument = DataStorageLayer::StorageFacade::documentStorage()->document(
-                    Domain::DocumentObjectType::Worlds);
-                auto worldsModel = qobject_cast<BusinessLayer::WorldsModel*>(
-                    d->modelsFacade.modelFor(worldsDocument));
-                auto worldModel = qobject_cast<BusinessLayer::WorldModel*>(documentModel);
-                worldsModel->addWorldModel(worldModel);
-
-                break;
-            }
-
             default:
                 break;
             }
@@ -2602,23 +2538,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                         d->modelsFacade.modelFor(removedItem->uuid())));
                 }
             }
-            //
-            // Восстанавливаем миры
-            //
-            else if (insertedInItem->type() == Domain::DocumentObjectType::Worlds) {
-                const auto worldsDocument
-                    = DataStorageLayer::StorageFacade::documentStorage()->document(
-                        Domain::DocumentObjectType::Worlds);
-                auto worldsModel = d->modelsFacade.modelFor(worldsDocument);
-                auto worlds = qobject_cast<BusinessLayer::WorldsModel*>(worldsModel);
-                for (int row = _first; row <= _last; ++row) {
-                    const auto removedItemIndex = d->projectStructureModel->index(row, 0, _parent);
-                    const auto removedItem
-                        = d->projectStructureModel->itemForIndex(removedItemIndex);
-                    worlds->addWorldModel(qobject_cast<BusinessLayer::WorldModel*>(
-                        d->modelsFacade.modelFor(removedItem->uuid())));
-                }
-            }
         });
     connect(
         d->projectStructureModel, &BusinessLayer::StructureModel::rowsAboutToBeRemoved, this,
@@ -2660,23 +2579,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                     const auto removedItem
                         = d->projectStructureModel->itemForIndex(removedItemIndex);
                     locations->removeLocationModel(qobject_cast<BusinessLayer::LocationModel*>(
-                        d->modelsFacade.modelFor(removedItem->uuid())));
-                }
-            }
-            //
-            // Удаляем миры
-            //
-            else if (removedFromItem->type() == Domain::DocumentObjectType::Worlds) {
-                const auto worldsDocument
-                    = DataStorageLayer::StorageFacade::documentStorage()->document(
-                        Domain::DocumentObjectType::Worlds);
-                auto worldsModel = d->modelsFacade.modelFor(worldsDocument);
-                auto worlds = qobject_cast<BusinessLayer::WorldsModel*>(worldsModel);
-                for (int row = _first; row <= _last; ++row) {
-                    const auto removedItemIndex = d->projectStructureModel->index(row, 0, _parent);
-                    const auto removedItem
-                        = d->projectStructureModel->itemForIndex(removedItemIndex);
-                    worlds->removeWorldModel(qobject_cast<BusinessLayer::WorldModel*>(
                         d->modelsFacade.modelFor(removedItem->uuid())));
                 }
             }
@@ -2749,25 +2651,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                 }
             }
             //
-            // Удаляем мир
-            //
-            else if (sourceParentItem->type() == Domain::DocumentObjectType::Worlds
-                     && destinationItem->type() == Domain::DocumentObjectType::RecycleBin) {
-                const auto worldsDocument
-                    = DataStorageLayer::StorageFacade::documentStorage()->document(
-                        Domain::DocumentObjectType::Worlds);
-                auto worldsModel = d->modelsFacade.modelFor(worldsDocument);
-                auto worlds = qobject_cast<BusinessLayer::WorldsModel*>(worldsModel);
-                for (int row = _sourceStart; row <= _sourceEnd; ++row) {
-                    const auto removedItemIndex
-                        = d->projectStructureModel->index(row, 0, _sourceParent);
-                    const auto removedItem
-                        = d->projectStructureModel->itemForIndex(removedItemIndex);
-                    worlds->removeWorldModel(qobject_cast<BusinessLayer::WorldModel*>(
-                        d->modelsFacade.modelFor(removedItem->uuid())));
-                }
-            }
-            //
             // Восстанавливаем персонажей
             //
             else if (sourceParentItem->type() == Domain::DocumentObjectType::RecycleBin
@@ -2802,25 +2685,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                     const auto removedItem
                         = d->projectStructureModel->itemForIndex(removedItemIndex);
                     locations->addLocationModel(qobject_cast<BusinessLayer::LocationModel*>(
-                        d->modelsFacade.modelFor(removedItem->uuid())));
-                }
-            }
-            //
-            // Восстанавливаем миры
-            //
-            else if (sourceParentItem->type() == Domain::DocumentObjectType::RecycleBin
-                     && destinationItem->type() == Domain::DocumentObjectType::Worlds) {
-                const auto worldsDocument
-                    = DataStorageLayer::StorageFacade::documentStorage()->document(
-                        Domain::DocumentObjectType::Worlds);
-                auto worldsModel = d->modelsFacade.modelFor(worldsDocument);
-                auto worlds = qobject_cast<BusinessLayer::WorldsModel*>(worldsModel);
-                for (int row = _sourceStart; row <= _sourceEnd; ++row) {
-                    const auto removedItemIndex
-                        = d->projectStructureModel->index(row, 0, _sourceParent);
-                    const auto removedItem
-                        = d->projectStructureModel->itemForIndex(removedItemIndex);
-                    worlds->addWorldModel(qobject_cast<BusinessLayer::WorldModel*>(
                         d->modelsFacade.modelFor(removedItem->uuid())));
                 }
             }
@@ -3220,11 +3084,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                 }
 
                 location->setScenes(documentScenes);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::createWorldRequested, this,
-            [this](const QString& _name, const QByteArray& _content) {
-                d->addDocumentToContainer(Domain::DocumentObjectType::Worlds,
-                                          Domain::DocumentObjectType::World, _name, _content);
             });
     //
     connect(&d->modelsFacade, &ProjectModelsFacade::screenplayTitlePageVisibilityChanged, this,
@@ -4115,8 +3974,7 @@ void ProjectManager::mergeDocumentInfo(const Domain::DocumentInfo& _documentInfo
     case Domain::DocumentObjectType::Project:
     case Domain::DocumentObjectType::ScreenplayDictionaries:
     case Domain::DocumentObjectType::Characters:
-    case Domain::DocumentObjectType::Locations:
-    case Domain::DocumentObjectType::Worlds: {
+    case Domain::DocumentObjectType::Locations: {
         document = DataStorageLayer::StorageFacade::documentStorage()->document(documentType);
         DataStorageLayer::StorageFacade::documentStorage()->updateDocumentUuid(document->uuid(),
                                                                                _documentInfo.uuid);
@@ -4325,27 +4183,6 @@ void ProjectManager::mergeDocumentInfo(const Domain::DocumentInfo& _documentInfo
         static_cast<BusinessLayer::LocationsModel*>(
             d->modelsFacade.modelFor(Domain::DocumentObjectType::Locations))
             ->addLocationModel(static_cast<BusinessLayer::LocationModel*>(documentModel));
-        break;
-    }
-
-    case Domain::DocumentObjectType::Worlds: {
-        //
-        // Берём элементы из модели структуры проекта, там они отсортированы в правильном порядке
-        //
-        const auto worldsItem
-            = d->projectStructureModel->itemForType(Domain::DocumentObjectType::Worlds);
-        auto worldsModel = static_cast<BusinessLayer::WorldsModel*>(documentModel);
-        for (int index = 0; index < worldsItem->childCount(); ++index) {
-            auto characterModel = d->modelsFacade.modelFor(worldsItem->childAt(index)->uuid());
-            worldsModel->addWorldModel(qobject_cast<BusinessLayer::WorldModel*>(characterModel));
-        }
-        break;
-    }
-
-    case Domain::DocumentObjectType::World: {
-        static_cast<BusinessLayer::WorldsModel*>(
-            d->modelsFacade.modelFor(Domain::DocumentObjectType::Worlds))
-            ->addWorldModel(static_cast<BusinessLayer::WorldModel*>(documentModel));
         break;
     }
 

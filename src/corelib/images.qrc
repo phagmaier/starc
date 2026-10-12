@@ -8,8 +8,6 @@
         <file alias="breakdown">images/promo/breakdown.png</file>
         <file alias="timeline">images/promo/timeline.png</file>
         <file alias="cards">images/promo/cards.png</file>
-        <file alias="world-profile">images/promo/world-profile.png</file>
-        <file alias="worlds-map">images/promo/worlds-map.png</file>
         <file alias="location-scenes">images/promo/location-scenes.png</file>
         <file alias="location-profile">images/promo/location-profile.png</file>
         <file alias="locations-map">images/promo/locations-map.png</file>

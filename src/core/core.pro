@@ -89,8 +89,6 @@ SOURCES += \
     ui/export/screenplay_export_dialog.cpp \
     ui/export/script_export_dialog.cpp \
     ui/export/simple_text_export_dialog.cpp \
-    ui/export/world_export_dialog.cpp \
-    ui/export/worlds_export_dialog.cpp \
     ui/import/import_dialog.cpp \
     ui/import/import_file_delegate.cpp \
     ui/menu_view.cpp \
@@ -167,8 +165,6 @@ HEADERS += \
     ui/export/screenplay_export_dialog.h \
     ui/export/script_export_dialog.h \
     ui/export/simple_text_export_dialog.h \
-    ui/export/world_export_dialog.h \
-    ui/export/worlds_export_dialog.h \
     ui/import/import_dialog.h \
     ui/import/import_file_delegate.h \
     ui/menu_view.h \

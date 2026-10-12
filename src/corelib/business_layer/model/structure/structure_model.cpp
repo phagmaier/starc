@@ -364,23 +364,6 @@ QModelIndex StructureModel::addDocument(Domain::DocumentObjectType _type, const 
         break;
     }
 
-    case DocumentObjectType::Worlds: {
-        appendItem(createItem(_type, tr("Worlds")), parentItem, _content);
-        break;
-    }
-    case DocumentObjectType::World: {
-        parentItem = itemForType(Domain::DocumentObjectType::Worlds);
-        Q_ASSERT(parentItem);
-        appendItem(createItem(_type, _name.toUpper()), parentItem, _content);
-
-        //
-        // Обновляем родителя, т.к. у него видмость зависит от наличия детей
-        //
-        updateItem(parentItem);
-
-        break;
-    }
-
     case DocumentObjectType::Folder:
     case DocumentObjectType::SimpleText: {
         appendItem(createItem(_type, _name), parentItem, _content);
@@ -746,6 +729,15 @@ bool StructureModel::canDropMimeData(const QMimeData* _data, Qt::DropAction _act
 
     if (d->lastMimeItems.isEmpty()) {
         return false;
+    }
+
+    if (Domain::isUnsupportedDocumentType(itemForIndex(_parent)->type())) {
+        return false;
+    }
+    for (const auto item : std::as_const(d->lastMimeItems)) {
+        if (Domain::isUnsupportedDocumentType(item->type())) {
+            return false;
+        }
     }
 
     //
@@ -1216,7 +1208,6 @@ void StructureModel::initDocument()
         addDocument(Domain::DocumentObjectType::Project);
         addDocument(Domain::DocumentObjectType::Characters);
         addDocument(Domain::DocumentObjectType::Locations);
-        addDocument(Domain::DocumentObjectType::Worlds);
 
         //
         // При необходимости добавим дополнительные элементы в первоначальную структуру

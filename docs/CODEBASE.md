@@ -125,11 +125,11 @@ preferences using synthetic feed records, without networking.
 
 ## Retired formats
 
-Audioplay, stageplay, comic book, novel, and screenplay series editing was removed from this fork, together with the AI assistant. Screenplay, simple text, and the shared project documents remain. A project that already contains documents of a retired format keeps them untouched:
+Audioplay, stageplay, comic book, novel, screenplay series, and World/Worlds support was removed from this fork, together with the AI assistant. Screenplay, simple text, and the shared project documents remain. A project that already contains documents of a retired type keeps them untouched:
 
 | Area | Start here | Notes |
 | --- | --- | --- |
-| Which types are retired | `isUnsupportedDocumentType` in [document_object.h](../src/corelib/domain/document_object.h) | The 32 persisted type identifiers and their MIME mappings stay in the enum and in `document_object.cpp`. Do not renumber or remove them. |
+| Which types are retired | `isUnsupportedDocumentType` in [document_object.h](../src/corelib/domain/document_object.h) | The 34 persisted type identifiers and their MIME mappings stay in the enum and in `document_object.cpp`. Do not renumber or remove them. |
 | No model, no rewrite | `ProjectModelsFacade::modelFor` in [project_models_facade.cpp](../src/core/management_layer/content/project/project_models_facade.cpp) | Returns `nullptr` for a retired type before a document is created or parsed, so its content is never loaded into a model or saved back. |
 | What the user sees | `ProjectManager::showView` and [ProjectView::showUnsupportedFormatPage](../src/core/ui/project/project_view.h) | Selecting such a document shows a notice instead of an editor. It cannot be created, dragged, given drafts, or changed from the context menu. |
 | Structure tree | [StructureModel](../src/corelib/business_layer/model/structure/structure_model.h) | `addDocument` refuses retired types; existing items are still parsed, shown, and serialized. |
@@ -138,6 +138,16 @@ Audioplay, stageplay, comic book, novel, and screenplay series editing was remov
 Several tables in `project_manager.cpp` still list the retired type identifiers (text items, items that cannot be removed separately, sharing). They classify existing structure items and need no retired source code.
 
 The episodes of a series are ordinary screenplay documents nested in its "Episodes" item. Only the series documents themselves are retired: an episode still opens in the screenplay editor and can be dragged out of the series, but nothing can be dropped into it.
+
+New project structures no longer add a Worlds group. Existing Worlds groups
+remain visible even when empty; their World children retain their hierarchy and
+drafts. `Database::validateDatabase` excludes the retired Worlds type from its
+singleton cleanup, preserving duplicate records and their change history.
+World models, export dialogs/exporters, the public navigator, and the two private
+plugin links are removed. Historical settings/promo identifiers remain reserved;
+their World previews are removed. International screenplay templates named
+`world_cp`/`world_cn` and the logline generator's story-world questions are separate
+screenwriting features and remain unchanged.
 
 ## Story sync with GitHub
 

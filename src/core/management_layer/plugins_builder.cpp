@@ -45,10 +45,6 @@ const QString kLocationEditorMime = QStringLiteral("application/x-starc/editor/l
 const QString kLocationNavigatorMime = QStringLiteral("application/x-starc/navigator/location/information");
 const QString kLocationScenesMime = QStringLiteral("application/x-starc/editor/location/scenes");
 //
-const QString kWorldsMapMime = QStringLiteral("application/x-starc/editor/worlds/map");
-const QString kWorldEditorMime = QStringLiteral("application/x-starc/editor/world/information");
-const QString kWorldNavigatorMime = QStringLiteral("application/x-starc/navigator/world/information");
-//
 const QString kSimpleTextFolderEditorMime = QStringLiteral("application/x-starc/editor/folder/text");
 const QString kSimpleTextEditorMime = QStringLiteral("application/x-starc/editor/text/text");
 const QString kSimpleTextNavigatorMime = QStringLiteral("application/x-starc/navigator/text/text");
@@ -76,7 +72,6 @@ const QString kPresentationMime = QStringLiteral("application/x-starc/view/prese
 const QHash<QString, QString> kEditorToNavigator
     = { { kCharacterEditorMime, kCharacterNavigatorMime },
         { kLocationEditorMime, kLocationNavigatorMime },
-        { kWorldEditorMime, kWorldNavigatorMime },
         { kSimpleTextEditorMime, kSimpleTextNavigatorMime },
         { kScreenplayTreatmentEditorMime, kScreenplayTreatmentNavigatorMime },
         { kScreenplayTreatmentCardsMime, kScreenplayTreatmentNavigatorMime },
@@ -115,9 +110,6 @@ const QHash<QString, QVector<PluginsBuilder::EditorInfo>> kDocumentToEditors
         { "application/x-starc/document/locations",  { { kLocationsMapMime, u8"\U000F0982" } } },
         { "application/x-starc/document/location",   { { kLocationEditorMime, u8"\U000f02fd" },
                                                        { kLocationScenesMime, u8"\U000F0571" } } },
-        //
-        { "application/x-starc/document/worlds",  { { kWorldsMapMime, u8"\U000F01E7" } } },
-        { "application/x-starc/document/world",   { { kWorldEditorMime, u8"\U000F01E7" } } },
         //
         { "application/x-starc/document/folder",     { { kSimpleTextFolderEditorMime, u8"\U000f09ed" } } },
         { "application/x-starc/document/text",       { { kSimpleTextEditorMime, u8"\U000f09ed" } } },
@@ -167,9 +159,6 @@ const QHash<QString, QString> kMimeToPlugin
         { kLocationNavigatorMime, "*locationstructureplugin*" },
         { kLocationScenesMime, "*locationscenesplugin*" },
         //
-        { kWorldsMapMime, "*worldsmapplugin*" },
-        { kWorldEditorMime, "*worldinformationplugin*" },
-        { kWorldNavigatorMime, "*worldstructureplugin*" },
         //
         { kMindMapMime, "*mindmapplugin*" },
         { kImagesGalleryMime, "*imagesgalleryplugin*" },
@@ -518,13 +507,6 @@ QString PluginsBuilder::editorDescription(const QString& _documentMimeType,
                   QApplication::translate("ProjectPluginsBuilder", "Location information") },
                 { kLocationScenesMime,
                   QApplication::translate("ProjectPluginsBuilder", "Location scenes") } } },
-            //
-            { "application/x-starc/document/worlds",
-              { { kWorldsMapMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Worlds map") } } },
-            { "application/x-starc/document/world",
-              { { kWorldEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "World information") } } },
             //
             { "application/x-starc/document/folder",
               { { kSimpleTextFolderEditorMime,

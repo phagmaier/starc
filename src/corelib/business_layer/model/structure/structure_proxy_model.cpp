@@ -151,8 +151,7 @@ bool StructureProxyModel::filterAcceptsRow(int _sourceRow, const QModelIndex& _s
     // Отображаем группирующие элементы только если есть дети
     //
     case Domain::DocumentObjectType::Characters:
-    case Domain::DocumentObjectType::Locations:
-    case Domain::DocumentObjectType::Worlds: {
+    case Domain::DocumentObjectType::Locations: {
         return item->hasChildren();
     }
 

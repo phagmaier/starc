@@ -165,12 +165,6 @@ void ModulePromoWidget::Implementation::addPreview(ModulePromoType _forType,
         case ModulePromoType::LocationScenes: {
             return ":/images/promo/location-scenes";
         }
-        case ModulePromoType::WorldsMap: {
-            return ":/images/promo/worlds-map";
-        }
-        case ModulePromoType::WorldInformation: {
-            return ":/images/promo/world-profile";
-        }
         case ModulePromoType::ExtendedStatistics: {
             return ":/images/promo/statistics";
         }
@@ -259,12 +253,6 @@ void ModulePromoWidget::Implementation::updatePreviewUi(int _currentModuleIndex)
         }
         case ModulePromoType::LocationScenes: {
             return tr("Location scenes");
-        }
-        case ModulePromoType::WorldsMap: {
-            return tr("Worlds map");
-        }
-        case ModulePromoType::WorldInformation: {
-            return tr("World information");
         }
         case ModulePromoType::ExtendedStatistics: {
             return tr("Extended statistics");
@@ -382,14 +370,6 @@ void ModulePromoWidget::setupProVersionContent(ModulePromoType _forType)
             componentName = tr("location scenes report");
             break;
         }
-        case ModulePromoType::WorldsMap: {
-            componentName = tr("worlds map");
-            break;
-        }
-        case ModulePromoType::WorldInformation: {
-            componentName = tr("world profile");
-            break;
-        }
         case ModulePromoType::IndexCards: {
             componentName = tr("story index cards");
             break;
@@ -436,8 +416,6 @@ void ModulePromoWidget::setupProVersionContent(ModulePromoType _forType)
         d->addPreview(ModulePromoType::LocationsMap, _forType);
         d->addPreview(ModulePromoType::LocationInformation, _forType);
         d->addPreview(ModulePromoType::LocationScenes, _forType);
-        d->addPreview(ModulePromoType::WorldsMap, _forType);
-        d->addPreview(ModulePromoType::WorldInformation, _forType);
         d->addPreview(ModulePromoType::IndexCards, _forType);
         d->addPreview(ModulePromoType::StoryTimeline, _forType);
         d->addPreview(ModulePromoType::ExtendedStatistics, _forType);
@@ -454,8 +432,7 @@ void ModulePromoWidget::setupProVersionContent(ModulePromoType _forType)
     d->advancedVersionDescription->setText(advancedVersionDescription());
 
     d->clearOptions();
-    d->addOption(
-        tr("Advanced worldbuilding tools (full character, location and world profiles and maps)"));
+    d->addOption(tr("Character and location profiles and maps"));
     d->addOption(tr("Story timeline, index cards, extended statistics"));
     d->addOption(tr("Extended research tools (mind maps, images gallery and presentations)"));
 

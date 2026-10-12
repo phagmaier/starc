@@ -114,9 +114,16 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   imports, exports or configures them, their source is deleted, and documents
   an existing project already has are kept untouched and shown as unsupported.
   The episodes of an old series are ordinary screenplays and still open.
-- [ ] **Remove Worlds.** Only the navigator plugin is in
+- [x] **Remove Worlds.** Only the navigator plugin is in
   this checkout, so a world can be listed but has no editor. Existing project
   data has to be kept either way, as with the retired formats.
+  - Done 2026-10-12: retired World/Worlds creation, models, exports and plugins;
+    new projects have no Worlds group. Existing items show the preserved-content
+    notice. IDs, MIME mappings, raw content, drafts, attachments and history stay.
+    Retired Worlds records are excluded from destructive duplicate cleanup.
+  - Debug build, screenplay/interchange/storage regressions and private Xvfb
+    open/reopen/notice/add-dialog checks passed. Both normal exits were 0; all 67
+    document hashes and 16 change-history entries stayed intact. See `docs/PROJECT.md`.
 - [ ] **Translation catalogs.** 33 files in `src/core/translations/`, including
   the English source. We only need the english language.
 

@@ -118,7 +118,6 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
         layout->setSpacing(0);
         layout->addWidget(makeOption(Domain::DocumentObjectType::Character));
         layout->addWidget(makeOption(Domain::DocumentObjectType::Location));
-        layout->addWidget(makeOption(Domain::DocumentObjectType::World));
         optionsLayout->addLayout(layout);
         optionsGroups.append({ storyWorldTitle, layout });
     }
@@ -171,7 +170,6 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
         { Domain::DocumentObjectType::SimpleText, tr("Add text") },
         { Domain::DocumentObjectType::Character, tr("Add character") },
         { Domain::DocumentObjectType::Location, tr("Add location") },
-        { Domain::DocumentObjectType::World, tr("Add world") },
         { Domain::DocumentObjectType::Screenplay, tr("Add screenplay") },
         { Domain::DocumentObjectType::MindMap, tr("Add mind map") },
         { Domain::DocumentObjectType::ImagesGallery, tr("Add image gallery") },
@@ -187,9 +185,6 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
              "follow his journey within the story.") },
         { Domain::DocumentObjectType::Location,
           tr("Create a document to note down the location's description and keep the details.") },
-        { Domain::DocumentObjectType::World,
-          tr("Create a document with detailed world description to keep all the notes in one "
-             "place") },
         { Domain::DocumentObjectType::Screenplay,
           tr("Create a document set to streamline your work on the feature film, series, or "
              "animation.") },
@@ -205,8 +200,7 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
     title->setText(documenTypeToTitle.value(_type));
     documentInfo->setText(documenTypeToInfo.value(_type));
     if (_type == Domain::DocumentObjectType::Character
-        || _type == Domain::DocumentObjectType::Location
-        || _type == Domain::DocumentObjectType::World) {
+        || _type == Domain::DocumentObjectType::Location) {
         insertIntoParent->hide();
     } else {
         insertIntoParent->setVisible(insertIntoParentEnabled);
@@ -311,8 +305,6 @@ CreateDocumentDialog::CreateDocumentDialog(QWidget* _parent)
                 errorMessage = tr("The character should have a name");
             } else if (documentType == Domain::DocumentObjectType::Location) {
                 errorMessage = tr("The location should have a name");
-            } else if (documentType == Domain::DocumentObjectType::World) {
-                errorMessage = tr("The world should have a name");
             }
             if (!errorMessage.isEmpty()) {
                 d->documentName->setFocus();
@@ -506,7 +498,7 @@ QWidget* CreateDocumentDialog::lastFocusableWidget() const
 void CreateDocumentDialog::updateTranslations()
 {
     d->storyTitle->setText(tr("Story"));
-    d->storyWorldTitle->setText(tr("World of story"));
+    d->storyWorldTitle->setText(tr("Characters & locations"));
     d->otherTitle->setText(tr("Structure & notes"));
 
     d->title->setText(tr("Add document"));

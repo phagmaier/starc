@@ -165,11 +165,6 @@ signals:
     void locationScenesUpdateRequested(BusinessLayer::AbstractModel* _model);
 
     /**
-     * @brief Неоходимо создать мир с заданным именем
-     */
-    void createWorldRequested(const QString& _name, const QByteArray& _content);
-
-    /**
      * @brief Необходимо очистить корзинку
      */
     void emptyRecycleBinRequested();

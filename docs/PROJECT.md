@@ -962,3 +962,79 @@ No visible desktop/Xvfb interaction, owner projects/keyring, real remote sync,
 upstream font request, private cloud build, other platform or release packaging
 was exercised. The removal prevents these font downloads; it does not change
 other network behavior or guarantee glyphs for unavailable local fonts.
+
+## Worlds retired with existing project data preserved
+
+Completed 2026-10-12, limited to the next unchecked Cut item. Removed World and
+Worlds model construction, creation controls, export dispatch/dialogs/exporters,
+the public World information navigator, and the uninitialized private World
+information and Worlds map plugin links. Their source/build/plugin registrations
+and World preview images are gone. New project structures create no Worlds group;
+an old remembered World creation choice falls back to Screenplay.
+
+The persisted IDs `50000`/`50001`, MIME mappings, stored setting keys, and reserved
+promo identifiers remain intact. Existing groups and World documents are listed
+with the same preserved-content notice as other retired types, without loading a
+model or rewriting content. Empty groups remain visible. Retired items reject
+dragging and drops, including direct/mixed MIME data. World map/profile previews
+are removed; Characters and Locations remain. The international screenplay
+templates `world_cp`/`world_cn` and the logline generator's story-world questions
+are unrelated to these documents and remain unchanged.
+
+The first preservation run exposed an inherited destructive boundary:
+`Database::validateDatabase` removed all but one Worlds group on open, together
+with the deleted records' change history. Retired Worlds are now excluded from
+that singleton cleanup. The regression keeps both populated and empty groups
+and asserts exact World/draft/image bytes, identities, hierarchy and history
+through save/reopen. Other singleton validation and database upgrade steps stay.
+
+Validation:
+
+- `./build/dev.sh doctor`, `make qmake_all` in `.build/debug`, and
+  `JOBS=4 ./build/dev.sh build debug`: passed. The final incremental build after
+  the preservation fix passed too. The obsolete World navigator library/debug
+  artifact was moved into retained evidence before runtime checks.
+- `./tools/check-screenplay-scope.sh`: passed. New checks cover no fresh Worlds
+  records or model creation, absent creation choices, remembered-choice fallback,
+  preserved MIME/IDs, both group records, a World with BOM/CRLF/unknown and binary
+  content, its draft and image attachment, unchanged structure/hierarchy, and
+  exact stored change identity/patch/author. Existing keyboard editing, Undo/Redo,
+  pagination, all four exports, mixed-project preservation and Statistics pass;
+  independent DOCX/PDF inspection found the expected text on seven PDF pages.
+- `./tools/check-screenplay-interchange.sh` and
+  `./tools/check-writing-session-storage.sh`: passed for independent Fountain/FDX
+  import/export/save/reopen and writing-session storage respectively.
+- The actual application on private Xvfb opened and reopened a disposable copy
+  of the mixed project. Populated Worlds, its World child, and the empty group
+  remained listed; selecting the populated group and child showed the
+  preserved-content notice without editor/export/draft controls. Add document
+  offered Screenplay, Folder and Text, with no World. Both normal Ctrl+Q exits
+  were `0`. All 67 document UUIDs/types/content hashes and all 16 change-history
+  identities/patches/authors stayed unchanged; both Worlds groups remained and
+  SQLite integrity passed.
+- Source/binary audits found no retired World model/exporter/navigator class
+  routes, and confirmed unchanged enum IDs, MIME maps, screenplay templates,
+  logline questions and setting keys. Changed-code formatting, driver syntax
+  and `git diff --check` passed. Graph coverage was checked and parser gaps and
+  ignored driver files were read directly.
+
+Evidence: `.build/evidence/world-removal-1i27n15n/` contains qmake/build logs,
+coverage/source/binary audits, removed runtime artifacts and private Xvfb driver,
+screenshots, command/exit logs and before/after manifests. Passing regressions:
+`.build/evidence/screenplay-scope-xj9TGC/`,
+`.build/evidence/screenplay-interchange-em8CZr/`, and
+`.build/evidence/writing-session-storage-iJ8ACb/`. The pre-cut creation failure
+is retained in `.build/evidence/screenplay-scope-RtgZQk/`; the failed duplicate
+preservation run and its project are retained in
+`.build/evidence/screenplay-scope-ebLSqA/`. Git's initial refusal to remove the
+private links until `.gitmodules` was staged required no source workaround.
+
+Limits: Linux debug/offscreen and private Xvfb only; World fixtures were generated
+independently of the removed models, not imported from a private upstream editor.
+The UI used a private bus without a keyring provider and dismissed its expected
+startup credential warning; no credentials were edited. Startup, post-close and
+right-click blank captures are retained but excluded from settled GUI evidence;
+`worlds-notice-ready.png`, `world-notice-ready.png` and `add-document-ready.png`
+show the verified surfaces. Owner projects/keyring/desktop, real remote sync,
+private cloud modules, other platforms and release packaging were not exercised.
+Translation catalogs and later TODO items remain outside this task.

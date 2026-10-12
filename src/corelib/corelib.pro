@@ -241,12 +241,6 @@ SOURCES += \
     business_layer/export/simple_text/simple_text_exporter.cpp \
     business_layer/export/simple_text/simple_text_markdown_exporter.cpp \
     business_layer/export/simple_text/simple_text_pdf_exporter.cpp \
-    business_layer/export/worlds/world_docx_exporter.cpp \
-    business_layer/export/worlds/world_exporter.cpp \
-    business_layer/export/worlds/world_pdf_exporter.cpp \
-    business_layer/export/worlds/worlds_docx_exporter.cpp \
-    business_layer/export/worlds/worlds_exporter.cpp \
-    business_layer/export/worlds/worlds_pdf_exporter.cpp \
     business_layer/import/abstract_document_importer.cpp \
     business_layer/import/abstract_fountain_importer.cpp \
     business_layer/import/abstract_markdown_importer.cpp \
@@ -299,8 +293,6 @@ SOURCES += \
     business_layer/model/text/text_model_xml_writer.cpp \
     business_layer/model/base/script_text_model.cpp \
     business_layer/model/base/title_page_model.cpp \
-    business_layer/model/worlds/world_model.cpp \
-    business_layer/model/worlds/worlds_model.cpp \
     business_layer/plots/screenplay/screenplay_characters_activity_plot.cpp \
     business_layer/plots/screenplay/screenplay_structure_analysis_plot.cpp \
     business_layer/reports/abstract_report.cpp \
@@ -516,13 +508,6 @@ HEADERS += \
     business_layer/export/simple_text/simple_text_exporter.h \
     business_layer/export/simple_text/simple_text_markdown_exporter.h \
     business_layer/export/simple_text/simple_text_pdf_exporter.h \
-    business_layer/export/worlds/world_docx_exporter.h \
-    business_layer/export/worlds/world_export_options.h \
-    business_layer/export/worlds/world_exporter.h \
-    business_layer/export/worlds/world_pdf_exporter.h \
-    business_layer/export/worlds/worlds_docx_exporter.h \
-    business_layer/export/worlds/worlds_exporter.h \
-    business_layer/export/worlds/worlds_pdf_exporter.h \
     business_layer/import/abstract_document_importer.h \
     business_layer/import/abstract_fountain_importer.h \
     business_layer/import/abstract_importer.h \
@@ -582,8 +567,6 @@ HEADERS += \
     business_layer/model/text/text_model_xml_writer.h \
     business_layer/model/base/script_text_model.h \
     business_layer/model/base/title_page_model.h \
-    business_layer/model/worlds/world_model.h \
-    business_layer/model/worlds/worlds_model.h \
     business_layer/plots/abstract_plot.h \
     business_layer/plots/screenplay/screenplay_characters_activity_plot.h \
     business_layer/plots/screenplay/screenplay_structure_analysis_plot.h \

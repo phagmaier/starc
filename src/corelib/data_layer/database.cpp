@@ -624,6 +624,7 @@ void Database::validateDatabase(QSqlDatabase& _database)
     //       данных и в то же время после утраты
     // TODO: Выпилить в версии 1.0
     //
+    // Retired Worlds records and their change history must be preserved, including duplicates.
     const QVector<int> singletonDocumentTypes = {
         1, // Domain::DocumentObjectType::Structure
         10001, // Domain::DocumentObjectType::RecycleBin
@@ -631,7 +632,6 @@ void Database::validateDatabase(QSqlDatabase& _database)
         10105, // Domain::DocumentObjectType::ScreenplayDictionaries
         30000, // Domain::DocumentObjectType::Characters
         40000, // Domain::DocumentObjectType::Locations
-        50000, // Domain::DocumentObjectType::Wolrds
     };
 
     _database.transaction();
