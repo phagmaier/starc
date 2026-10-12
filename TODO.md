@@ -102,17 +102,17 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
     editing/save/reopen/story-card checks passed; both process exits were 0.
     Missing-image references also survive open/save. See `docs/PROJECT.md`.
 - [ ] **Font downloads from `starc.app`** for missing fonts
-  (`application_manager.cpp`). Decide: bundle what is needed, or drop it.
+  (`application_manager.cpp`). I only need english.
 - [x] **Novel and screenplay series.** Decided 2026-10-11: this fork is for
   screenplays only. Both are retired like the earlier formats: nothing creates,
   imports, exports or configures them, their source is deleted, and documents
   an existing project already has are kept untouched and shown as unsupported.
   The episodes of an old series are ordinary screenplays and still open.
-- [ ] **Worlds.** Decide whether they stay. Only the navigator plugin is in
+- [ ] **Remove Worlds.** Only the navigator plugin is in
   this checkout, so a world can be listed but has no editor. Existing project
   data has to be kept either way, as with the retired formats.
 - [ ] **Translation catalogs.** 33 files in `src/core/translations/`, including
-  the English source. Decide whether to keep languages other than English.
+  the English source. We only need the english language.
 
 ## Add
 
