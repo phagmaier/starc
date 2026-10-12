@@ -58,13 +58,6 @@ public:
     void reconfigureScreenplayEditor(const QStringList& _changedSettingsKeys);
     void reconfigureScreenplayNavigator();
     void reconfigureScreenplayDuration();
-    void reconfigureComicBookEditor(const QStringList& _changedSettingsKeys);
-    void reconfigureComicBookNavigator();
-    void reconfigureAudioplayEditor(const QStringList& _changedSettingsKeys);
-    void reconfigureAudioplayNavigator();
-    void reconfigureAudioplayDuration();
-    void reconfigureStageplayEditor(const QStringList& _changedSettingsKeys);
-    void reconfigureStageplayNavigator();
     void reconfigureNovelEditor(const QStringList& _changedSettingsKeys);
     void reconfigureNovelNavigator();
 
@@ -115,12 +108,9 @@ public:
      * @brief Добавить данные по документу
      */
     void storeSimpleText(const QString& _name, const QString& _text);
-    void storeAudioplay(const QString& _name, const QString& _titlePage, const QString& _text);
-    void storeComicBook(const QString& _name, const QString& _titlePage, const QString& _text);
     void storeNovel(const QString& _name, const QString& _text);
     void storeScreenplay(const QString& _name, const QString& _titlePage, const QString& _synopsis,
                          const QString& _treatment, const QString& _text);
-    void storeStageplay(const QString& _name, const QString& _titlePage, const QString& _text);
     void storePresentation(const QUuid& _documentUuid, const QString& _name,
                            const QString& _presentationFilePath);
 

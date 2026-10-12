@@ -79,26 +79,6 @@ const QString kScreenplaySeriesBreakdownNavigatorMime = QStringLiteral("applicat
 const QString kScreenplaySeriesStatisticsViewMime = QStringLiteral("application/x-starc/view/screenplay-series/statistics");
 const QString kScreenplaySeriesStatisticsNavigatorMime = QStringLiteral("application/x-starc/navigator/screenplay-series/statistics");
 //
-const QString kComicBookTitlePageEditorMime = QStringLiteral("application/x-starc/editor/comicbook/title-page");
-const QString kComicBookTextEditorMime = QStringLiteral("application/x-starc/editor/comicbook/text");
-const QString kComicBookTextNavigatorMime = QStringLiteral("application/x-starc/navigator/comicbook/text");
-const QString kComicBookStatisticsViewMime = QStringLiteral("application/x-starc/view/comicbook/statistics");
-//
-const QString kAudioplayInformationViewMime = QStringLiteral("application/x-starc/view/audioplay/information");
-const QString kAudioplayParametersViewMime = QStringLiteral("application/x-starc/view/audioplay/parameters");
-const QString kAudioplayTitlePageEditorMime = QStringLiteral("application/x-starc/editor/audioplay/title-page");
-const QString kAudioplayTextEditorMime = QStringLiteral("application/x-starc/editor/audioplay/text");
-const QString kAudioplayTextNavigatorMime = QStringLiteral("application/x-starc/navigator/audioplay/text");
-const QString kAudioplayStatisticsViewMime = QStringLiteral("application/x-starc/view/audioplay/statistics");
-const QString kAudioplayStatisticsNavigatorMime = QStringLiteral("application/x-starc/navigator/audioplay/statistics");
-//
-const QString kStageplayInformationViewMime = QStringLiteral("application/x-starc/view/stageplay/information");
-const QString kStageplayParametersViewMime = QStringLiteral("application/x-starc/view/stageplay/parameters");
-const QString kStageplayTitlePageEditorMime = QStringLiteral("application/x-starc/editor/stageplay/title-page");
-const QString kStageplayTextEditorMime = QStringLiteral("application/x-starc/editor/stageplay/text");
-const QString kStageplayTextNavigatorMime = QStringLiteral("application/x-starc/navigator/stageplay/text");
-const QString kStageplayStatisticsViewMime = QStringLiteral("application/x-starc/view/stageplay/statistics");
-//
 const QString kNovelTitlePageEditorMime = QStringLiteral("application/x-starc/editor/novel/title-page");
 const QString kNovelOutlineEditorMime = QStringLiteral("application/x-starc/editor/novel/outline/text");
 const QString kNovelOutlineNavigatorMime = QStringLiteral("application/x-starc/navigator/novel/outline");
@@ -136,10 +116,6 @@ const QHash<QString, QString> kEditorToNavigator
         { kScreenplaySeriesTextTimelineMime, kScreenplaySeriesTextNavigatorMime },
         { kScreenplaySeriesTextBreakdownMime, kScreenplaySeriesBreakdownNavigatorMime },
         { kScreenplaySeriesStatisticsViewMime, kScreenplaySeriesStatisticsNavigatorMime },
-        { kComicBookTextEditorMime, kComicBookTextNavigatorMime },
-        { kAudioplayTextEditorMime, kAudioplayTextNavigatorMime },
-        { kAudioplayStatisticsViewMime, kAudioplayStatisticsNavigatorMime },
-        { kStageplayTextEditorMime, kStageplayTextNavigatorMime },
         { kNovelOutlineEditorMime, kNovelOutlineNavigatorMime },
         { kNovelOutlineCardsMime, kNovelTextNavigatorMime },
         { kNovelTextEditorMime, kNovelTextNavigatorMime },
@@ -182,27 +158,6 @@ const QHash<QString, QVector<PluginsBuilder::EditorInfo>> kDocumentToEditors
                                                                          { kScreenplaySeriesTextTimelineMime, u8"\U000F066C" },
                                                                          { kScreenplaySeriesTextBreakdownMime, u8"\U000F14DD" } } },
         { "application/x-starc/document/screenplay-series/statistics", { { kScreenplaySeriesStatisticsViewMime, u8"\U000f0127" } } },
-        //
-        { "application/x-starc/document/comicbook",  { { "application/x-starc/editor/comicbook/information", u8"\U000f02fd" },
-                                                       { "application/x-starc/editor/comicbook/parameters", u8"\U000f0493" } } },
-        { "application/x-starc/document/comicbook/title-page",  { { kComicBookTitlePageEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/comicbook/synopsis",    { { kSimpleTextEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/comicbook/text",        { { kComicBookTextEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/comicbook/statistics",  { { kComicBookStatisticsViewMime, u8"\U000f0127" } } },
-        //
-        { "application/x-starc/document/audioplay", { { kAudioplayInformationViewMime, u8"\U000f02fd" },
-                                                       { kAudioplayParametersViewMime, u8"\U000f0493" } } },
-        { "application/x-starc/document/audioplay/title-page",  { { kAudioplayTitlePageEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/audioplay/synopsis",    { { kSimpleTextEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/audioplay/text",        { { kAudioplayTextEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/audioplay/statistics",  { { kAudioplayStatisticsViewMime, u8"\U000f0127" } } },
-        //
-        { "application/x-starc/document/stageplay", { { kStageplayInformationViewMime, u8"\U000f02fd" },
-                                                       { kStageplayParametersViewMime, u8"\U000f0493" } } },
-        { "application/x-starc/document/stageplay/title-page",  { { kStageplayTitlePageEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/stageplay/synopsis",    { { kSimpleTextEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/stageplay/text",        { { kStageplayTextEditorMime, u8"\U000f09ed" } } },
-        { "application/x-starc/document/stageplay/statistics",  { { kStageplayStatisticsViewMime, u8"\U000f0127" } } },
         //
         { "application/x-starc/document/novel", { { "application/x-starc/editor/novel/information", u8"\U000f02fd" },
                                                        { "application/x-starc/editor/novel/parameters", u8"\U000f0493" } } },
@@ -280,28 +235,6 @@ const QHash<QString, QString> kMimeToPlugin
         { kScreenplaySeriesBreakdownNavigatorMime, "*screenplayseriesbreakdownstructureplugin*" },
         { kScreenplaySeriesStatisticsViewMime, "*screenplayseriesstatisticsplugin*" },
         { kScreenplaySeriesStatisticsNavigatorMime, "*screenplayseriesstatisticsstructureplugin*" },
-        //
-        { "application/x-starc/editor/comicbook/information", "*comicbookinformationplugin*" },
-        { "application/x-starc/editor/comicbook/parameters", "*comicbookparametersplugin*" },
-        { kComicBookTitlePageEditorMime, "*titlepageplugin*" },
-        { kComicBookTextEditorMime, "*comicbooktextplugin*" },
-        { kComicBookTextNavigatorMime, "*comicbooktextstructureplugin*" },
-        { kComicBookStatisticsViewMime, "*comicbookstatisticsplugin*" },
-        //
-        { kAudioplayInformationViewMime, "*audioplayinformationplugin*" },
-        { kAudioplayParametersViewMime, "*audioplayparametersplugin*" },
-        { kAudioplayTitlePageEditorMime, "*titlepageplugin*" },
-        { kAudioplayTextEditorMime, "*audioplaytextplugin*" },
-        { kAudioplayTextNavigatorMime, "*audioplaytextstructureplugin*" },
-        { kAudioplayStatisticsViewMime, "*audioplaystatisticsplugin*" },
-        { kAudioplayStatisticsNavigatorMime, "*audioplaystatisticsstructureplugin*" },
-        //
-        { kStageplayInformationViewMime, "*stageplayinformationplugin*" },
-        { kStageplayParametersViewMime, "*stageplayparametersplugin*" },
-        { kStageplayTitlePageEditorMime, "*titlepageplugin*" },
-        { kStageplayTextEditorMime, "*stageplaytextplugin*" },
-        { kStageplayTextNavigatorMime, "*stageplaytextstructureplugin*" },
-        { kStageplayStatisticsViewMime, "*stageplaystatisticsplugin*" },
         //
         { "application/x-starc/editor/novel/information", "*novelinformationplugin*" },
         { "application/x-starc/editor/novel/parameters", "*novelparametersplugin*" },
@@ -613,66 +546,6 @@ QString PluginsBuilder::editorDescription(const QString& _documentMimeType,
                   QApplication::translate("ProjectPluginsBuilder", "Breakdown") } } },
             { "application/x-starc/document/screenplay-series/statistics",
               { { kScreenplaySeriesStatisticsViewMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Statistics") } } },
-            //
-            { "application/x-starc/document/comicbook",
-              { { "application/x-starc/editor/comicbook/information",
-                  QApplication::translate("ProjectPluginsBuilder", "Information about comic book") },
-                { "application/x-starc/editor/comicbook/parameters",
-                  QApplication::translate("ProjectPluginsBuilder", "Comic book parameters") } } },
-            { "application/x-starc/document/comicbook/title-page",
-              { { kComicBookTitlePageEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Title page text") } } },
-            { "application/x-starc/document/comicbook/synopsis",
-              { { kSimpleTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Synopsis text") } } },
-            { "application/x-starc/document/comicbook/text",
-              { { kComicBookTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Comic book text") },
-                { "application/x-starc/editor/comicbook/cards",
-                    QApplication::translate("ProjectPluginsBuilder", "Cards") } } },
-            { "application/x-starc/document/comicbook/statistics",
-              { { kComicBookStatisticsViewMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Statistics") } } },
-            //
-            { "application/x-starc/document/audioplay",
-              { { kAudioplayInformationViewMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Information about audioplay") },
-                { "application/x-starc/editor/audioplay/parameters",
-                  QApplication::translate("ProjectPluginsBuilder", "Audioplay parameters") } } },
-            { "application/x-starc/document/audioplay/title-page",
-              { { kAudioplayTitlePageEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Title page text") } } },
-            { "application/x-starc/document/audioplay/synopsis",
-              { { kSimpleTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Synopsis text") } } },
-            { "application/x-starc/document/audioplay/text",
-              { { kAudioplayTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Audioplay text") },
-                { "application/x-starc/editor/audioplay/cards",
-                    QApplication::translate("ProjectPluginsBuilder", "Cards") } } },
-            { "application/x-starc/document/audioplay/statistics",
-              { { kAudioplayStatisticsViewMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Statistics") } } },
-            //
-            { "application/x-starc/document/stageplay",
-              { { kStageplayInformationViewMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Information about stageplay") },
-                { "application/x-starc/editor/stageplay/parameters",
-                  QApplication::translate("ProjectPluginsBuilder", "Stageplay parameters") } } },
-            { "application/x-starc/document/stageplay/title-page",
-              { { kStageplayTitlePageEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Title page text") } } },
-            { "application/x-starc/document/stageplay/synopsis",
-              { { kSimpleTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Synopsis text") } } },
-            { "application/x-starc/document/stageplay/text",
-              { { kStageplayTextEditorMime,
-                  QApplication::translate("ProjectPluginsBuilder", "Stageplay text") },
-                { "application/x-starc/editor/stageplay/cards",
-                    QApplication::translate("ProjectPluginsBuilder", "Cards") } } },
-            { "application/x-starc/document/stageplay/statistics",
-              { { kStageplayStatisticsViewMime,
                   QApplication::translate("ProjectPluginsBuilder", "Statistics") } } },
             //
             { "application/x-starc/document/novel",
@@ -987,9 +860,6 @@ void PluginsBuilder::reconfigureSimpleTextEditor(const QStringList& _changedSett
     reconfigurePlugin(kSimpleTextEditorMime, _changedSettingsKeys);
     reconfigurePlugin(kScreenplayTitlePageEditorMime, _changedSettingsKeys);
     reconfigurePlugin(kScreenplaySeriesTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kComicBookTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kAudioplayTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kStageplayTitlePageEditorMime, _changedSettingsKeys);
     reconfigurePlugin(kNovelTitlePageEditorMime, _changedSettingsKeys);
 }
 
@@ -1026,39 +896,6 @@ void PluginsBuilder::reconfigureScreenplayNavigator() const
     reconfigurePlugin(kScreenplaySeriesTreatmentNavigatorMime, {});
     reconfigurePlugin(kScreenplaySeriesTextNavigatorMime, {});
     reconfigurePlugin(kScreenplaySeriesBreakdownNavigatorMime, {});
-}
-
-void PluginsBuilder::reconfigureComicBookEditor(const QStringList& _changedSettingsKeys) const
-{
-    reconfigurePlugin(kComicBookTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kComicBookTextEditorMime, _changedSettingsKeys);
-}
-
-void PluginsBuilder::reconfigureComicBookNavigator() const
-{
-    reconfigurePlugin(kComicBookTextNavigatorMime, {});
-}
-
-void PluginsBuilder::reconfigureAudioplayEditor(const QStringList& _changedSettingsKeys) const
-{
-    reconfigurePlugin(kAudioplayTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kAudioplayTextEditorMime, _changedSettingsKeys);
-}
-
-void PluginsBuilder::reconfigureAudioplayNavigator() const
-{
-    reconfigurePlugin(kAudioplayTextNavigatorMime, {});
-}
-
-void PluginsBuilder::reconfigureStageplayEditor(const QStringList& _changedSettingsKeys) const
-{
-    reconfigurePlugin(kStageplayTitlePageEditorMime, _changedSettingsKeys);
-    reconfigurePlugin(kStageplayTextEditorMime, _changedSettingsKeys);
-}
-
-void PluginsBuilder::reconfigureStageplayNavigator() const
-{
-    reconfigurePlugin(kStageplayTextNavigatorMime, {});
 }
 
 void PluginsBuilder::reconfigureNovelEditor(const QStringList& _changedSettingsKeys) const

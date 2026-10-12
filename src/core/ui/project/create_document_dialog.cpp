@@ -110,15 +110,6 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
         if (settingsValue(DataStorageLayer::kComponentsScreenplayAvailableKey).toBool()) {
             storyOptionsLayout->addWidget(makeOption(Domain::DocumentObjectType::Screenplay));
         }
-        if (settingsValue(DataStorageLayer::kComponentsComicBookAvailableKey).toBool()) {
-            storyOptionsLayout->addWidget(makeOption(Domain::DocumentObjectType::ComicBook));
-        }
-        if (settingsValue(DataStorageLayer::kComponentsAudioplayAvailableKey).toBool()) {
-            storyOptionsLayout->addWidget(makeOption(Domain::DocumentObjectType::Audioplay));
-        }
-        if (settingsValue(DataStorageLayer::kComponentsStageplayAvailableKey).toBool()) {
-            storyOptionsLayout->addWidget(makeOption(Domain::DocumentObjectType::Stageplay));
-        }
         if (settingsValue(DataStorageLayer::kComponentsNovelAvailableKey).toBool()) {
             storyOptionsLayout->addWidget(makeOption(Domain::DocumentObjectType::Novel));
         }
@@ -189,9 +180,6 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
         { Domain::DocumentObjectType::Location, tr("Add location") },
         { Domain::DocumentObjectType::World, tr("Add world") },
         { Domain::DocumentObjectType::Screenplay, tr("Add screenplay") },
-        { Domain::DocumentObjectType::ComicBook, tr("Add comic book") },
-        { Domain::DocumentObjectType::Audioplay, tr("Add audioplay") },
-        { Domain::DocumentObjectType::Stageplay, tr("Add stageplay") },
         { Domain::DocumentObjectType::Novel, tr("Add novel") },
         { Domain::DocumentObjectType::MindMap, tr("Add mind map") },
         { Domain::DocumentObjectType::ImagesGallery, tr("Add image gallery") },
@@ -213,13 +201,6 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
         { Domain::DocumentObjectType::Screenplay,
           tr("Create a document set to streamline your work on the feature film, series, or "
              "animation.") },
-        { Domain::DocumentObjectType::ComicBook,
-          tr("Create a document set to streamline your work on the comic book, graphic novel, or "
-             "manga.") },
-        { Domain::DocumentObjectType::Audioplay,
-          tr("Create a document set to streamline your work on the audio drama, or podcast.") },
-        { Domain::DocumentObjectType::Stageplay,
-          tr("Create a document set to streamline your work on the stage play, or musical.") },
         { Domain::DocumentObjectType::Novel,
           tr("Create a document set to streamline your work on the fiction book.") },
         { Domain::DocumentObjectType::MindMap,
@@ -441,7 +422,12 @@ CreateDocumentDialog::~CreateDocumentDialog() = default;
 
 Domain::DocumentObjectType CreateDocumentDialog::lastSelectedType() const
 {
-    return static_cast<Domain::DocumentObjectType>(QSettings().value(kLastSelectedType).toInt());
+    const auto type
+        = static_cast<Domain::DocumentObjectType>(QSettings().value(kLastSelectedType).toInt());
+    //
+    // A remembered choice of a retired format falls back to the screenplay
+    //
+    return Domain::isUnsupportedDocumentType(type) ? Domain::DocumentObjectType::Screenplay : type;
 }
 
 void CreateDocumentDialog::saveSelectedType()

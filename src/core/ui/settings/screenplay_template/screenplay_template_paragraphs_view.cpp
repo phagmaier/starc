@@ -278,30 +278,6 @@ void ScreenplayTemplateParagraphsView::Implementation::updateParagraphOptions(
         break;
     }
 
-    case Domain::DocumentObjectType::ComicBook: {
-        resetDefaultState();
-        break;
-    }
-
-    case Domain::DocumentObjectType::Audioplay: {
-        //
-        // Для персонажа и реплики отображаем отступы в таблице,
-        // а для всех остальных обычные отступы блоков
-        //
-        const auto showIndentationInTable = _type == BusinessLayer::TextParagraphType::Character
-            || _type == BusinessLayer::TextParagraphType::Dialogue;
-        setIndentationVisible(!showIndentationInTable, showIndentationInTable);
-
-        //
-        // Для звуков, музыки и сигналов отображаем параметры заголовка блока
-        //
-        setBlockTitleVisible(_type == BusinessLayer::TextParagraphType::Sound
-                             || _type == BusinessLayer::TextParagraphType::Music
-                             || _type == BusinessLayer::TextParagraphType::Cue);
-
-        break;
-    }
-
     case Domain::DocumentObjectType::Novel: {
         setIndentationVisible(true, false);
         setBlockTitleVisible(false);
@@ -478,46 +454,6 @@ void ScreenplayTemplateParagraphsView::configureTemplateFor(Domain::DocumentObje
             BusinessLayer::TextParagraphType::SequenceFooter,
             BusinessLayer::TextParagraphType::ActHeading,
             BusinessLayer::TextParagraphType::ActFooter,
-        };
-        break;
-    }
-
-    case Domain::DocumentObjectType::ComicBook: {
-        d->paragraphTypes = {
-            BusinessLayer::TextParagraphType::PageHeading,
-            BusinessLayer::TextParagraphType::PanelHeading,
-            BusinessLayer::TextParagraphType::Description,
-            BusinessLayer::TextParagraphType::Character,
-            BusinessLayer::TextParagraphType::Dialogue,
-            BusinessLayer::TextParagraphType::InlineNote,
-            BusinessLayer::TextParagraphType::UnformattedText,
-        };
-        break;
-    }
-
-    case Domain::DocumentObjectType::Audioplay: {
-        d->paragraphTypes = {
-            BusinessLayer::TextParagraphType::SceneHeading,
-            BusinessLayer::TextParagraphType::Character,
-            BusinessLayer::TextParagraphType::Dialogue,
-            BusinessLayer::TextParagraphType::Sound,
-            BusinessLayer::TextParagraphType::Music,
-            BusinessLayer::TextParagraphType::Cue,
-            BusinessLayer::TextParagraphType::InlineNote,
-            BusinessLayer::TextParagraphType::UnformattedText,
-        };
-        break;
-    }
-
-    case Domain::DocumentObjectType::Stageplay: {
-        d->paragraphTypes = {
-            BusinessLayer::TextParagraphType::SceneHeading,
-            BusinessLayer::TextParagraphType::Character,
-            BusinessLayer::TextParagraphType::Parenthetical,
-            BusinessLayer::TextParagraphType::Dialogue,
-            BusinessLayer::TextParagraphType::Action,
-            BusinessLayer::TextParagraphType::InlineNote,
-            BusinessLayer::TextParagraphType::UnformattedText,
         };
         break;
     }

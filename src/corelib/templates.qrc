@@ -12,12 +12,6 @@
         <file>templates/text/mono_cn_a4</file>
         <file>templates/text/sans_letter</file>
         <file>templates/text/sans_a4</file>
-        <file>templates/comicbook/us</file>
-        <file>templates/comicbook/world</file>
-        <file>templates/audioplay/us</file>
-        <file>templates/audioplay/bbc_scene</file>
-        <file>templates/stageplay/bbc</file>
-        <file>templates/stageplay/us</file>
         <file>templates/novel/manuscript_cn_a4</file>
         <file>templates/novel/manuscript_cp_a4</file>
         <file>templates/novel/manuscript_cp_letter</file>
@@ -26,7 +20,5 @@
         <file>templates/novel/modern_a4</file>
         <file>templates/novel/modern_letter</file>
         <file>templates/screenplay/telugu</file>
-        <file>templates/comicbook/script_us</file>
-        <file>templates/comicbook/script_world</file>
     </qresource>
 </RCC>

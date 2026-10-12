@@ -1,20 +1,9 @@
 #include "templates_facade.h"
 
-#include "audioplay_template.h"
-#include "comic_book_template.h"
 #include "novel_template.h"
 #include "screenplay_template.h"
 #include "simple_text_template.h"
-#include "stageplay_template.h"
 
-#include <business_layer/model/audioplay/audioplay_information_model.h>
-#include <business_layer/model/audioplay/audioplay_synopsis_model.h>
-#include <business_layer/model/audioplay/audioplay_title_page_model.h>
-#include <business_layer/model/audioplay/text/audioplay_text_model.h>
-#include <business_layer/model/comic_book/comic_book_information_model.h>
-#include <business_layer/model/comic_book/comic_book_synopsis_model.h>
-#include <business_layer/model/comic_book/comic_book_title_page_model.h>
-#include <business_layer/model/comic_book/text/comic_book_text_model.h>
 #include <business_layer/model/novel/novel_information_model.h>
 #include <business_layer/model/novel/novel_synopsis_model.h>
 #include <business_layer/model/novel/novel_title_page_model.h>
@@ -23,10 +12,6 @@
 #include <business_layer/model/screenplay/screenplay_synopsis_model.h>
 #include <business_layer/model/screenplay/screenplay_title_page_model.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model.h>
-#include <business_layer/model/stageplay/stageplay_information_model.h>
-#include <business_layer/model/stageplay/stageplay_synopsis_model.h>
-#include <business_layer/model/stageplay/stageplay_title_page_model.h>
-#include <business_layer/model/stageplay/text/stageplay_text_model.h>
 
 #include <QApplication>
 #include <QDir>
@@ -41,9 +26,6 @@ namespace {
 
 const QLatin1String kSimpleTextTemplatesDirectory("templates/text");
 const QLatin1String kScreenplayTemplatesDirectory("templates/screenplay");
-const QLatin1String kComicBookTemplatesDirectory("templates/comicbook");
-const QLatin1String kAudioplayTemplatesDirectory("templates/audioplay");
-const QLatin1String kStageplayTemplatesDirectory("templates/stageplay");
 const QLatin1String kNovelTemplatesDirectory("templates/novel");
 
 /**
@@ -102,9 +84,6 @@ public:
 
     TemplateInfo<SimpleTextTemplate> text;
     TemplateInfo<ScreenplayTemplate> screenplay;
-    TemplateInfo<ComicBookTemplate> comicBook;
-    TemplateInfo<AudioplayTemplate> audioplay;
-    TemplateInfo<StageplayTemplate> stageplay;
     TemplateInfo<NovelTemplate> novel;
 };
 
@@ -119,21 +98,6 @@ TemplateInfo<ScreenplayTemplate>& TemplatesFacade::Implementation::templateInfo<
     ScreenplayTemplate>()
 {
     return screenplay;
-}
-template<>
-TemplateInfo<ComicBookTemplate>& TemplatesFacade::Implementation::templateInfo<ComicBookTemplate>()
-{
-    return comicBook;
-}
-template<>
-TemplateInfo<AudioplayTemplate>& TemplatesFacade::Implementation::templateInfo<AudioplayTemplate>()
-{
-    return audioplay;
-}
-template<>
-TemplateInfo<StageplayTemplate>& TemplatesFacade::Implementation::templateInfo<StageplayTemplate>()
-{
-    return stageplay;
 }
 template<>
 TemplateInfo<NovelTemplate>& TemplatesFacade::Implementation::templateInfo<NovelTemplate>()
@@ -392,21 +356,6 @@ QStandardItemModel* TemplatesFacade::screenplayTemplates()
     return instance().d->templatesModel<ScreenplayTemplate>();
 }
 
-QStandardItemModel* TemplatesFacade::comicBookTemplates()
-{
-    return instance().d->templatesModel<ComicBookTemplate>();
-}
-
-QStandardItemModel* TemplatesFacade::audioplayTemplates()
-{
-    return instance().d->templatesModel<AudioplayTemplate>();
-}
-
-QStandardItemModel* TemplatesFacade::stageplayTemplates()
-{
-    return instance().d->templatesModel<StageplayTemplate>();
-}
-
 QStandardItemModel* TemplatesFacade::novelTemplates()
 {
     return instance().d->templatesModel<NovelTemplate>();
@@ -423,30 +372,6 @@ const TextTemplate& TemplatesFacade::textTemplate(const TextModel* _model)
         return screenplayTemplate(model->informationModel()->templateId()).titlePageTemplate();
     } else if (auto model = qobject_cast<const ScreenplaySynopsisModel*>(_model)) {
         return screenplayTemplate(model->informationModel()->templateId()).synopsisTemplate();
-    }
-    //
-    else if (auto model = qobject_cast<const ComicBookTextModel*>(_model)) {
-        return comicBookTemplate(model->informationModel()->templateId());
-    } else if (auto model = qobject_cast<const ComicBookTitlePageModel*>(_model)) {
-        return comicBookTemplate(model->informationModel()->templateId()).titlePageTemplate();
-    } else if (auto model = qobject_cast<const ComicBookSynopsisModel*>(_model)) {
-        return comicBookTemplate(model->informationModel()->templateId()).synopsisTemplate();
-    }
-    //
-    else if (auto model = qobject_cast<const AudioplayTextModel*>(_model)) {
-        return audioplayTemplate(model->informationModel()->templateId());
-    } else if (auto model = qobject_cast<const AudioplayTitlePageModel*>(_model)) {
-        return audioplayTemplate(model->informationModel()->templateId()).titlePageTemplate();
-    } else if (auto model = qobject_cast<const AudioplaySynopsisModel*>(_model)) {
-        return audioplayTemplate(model->informationModel()->templateId()).synopsisTemplate();
-    }
-    //
-    else if (auto model = qobject_cast<const StageplayTextModel*>(_model)) {
-        return stageplayTemplate(model->informationModel()->templateId());
-    } else if (auto model = qobject_cast<const StageplayTitlePageModel*>(_model)) {
-        return stageplayTemplate(model->informationModel()->templateId()).titlePageTemplate();
-    } else if (auto model = qobject_cast<const StageplaySynopsisModel*>(_model)) {
-        return stageplayTemplate(model->informationModel()->templateId()).synopsisTemplate();
     }
     //
     else if (auto model = qobject_cast<const NovelTextModel*>(_model)) {
@@ -469,21 +394,6 @@ const ScreenplayTemplate& TemplatesFacade::screenplayTemplate(const QString& _te
     return instance().d->getTemplate<ScreenplayTemplate>(_templateId);
 }
 
-const ComicBookTemplate& TemplatesFacade::comicBookTemplate(const QString& _templateId)
-{
-    return instance().d->getTemplate<ComicBookTemplate>(_templateId);
-}
-
-const AudioplayTemplate& TemplatesFacade::audioplayTemplate(const QString& _templateId)
-{
-    return instance().d->getTemplate<AudioplayTemplate>(_templateId);
-}
-
-const StageplayTemplate& TemplatesFacade::stageplayTemplate(const QString& _templateId)
-{
-    return instance().d->getTemplate<StageplayTemplate>(_templateId);
-}
-
 const NovelTemplate& TemplatesFacade::novelTemplate(const QString& _templateId)
 {
     return instance().d->getTemplate<NovelTemplate>(_templateId);
@@ -497,21 +407,6 @@ void TemplatesFacade::setDefaultSimpleTextTemplate(const QString& _templateId)
 void TemplatesFacade::setDefaultScreenplayTemplate(const QString& _templateId)
 {
     instance().d->setDefaultTemplate<ScreenplayTemplate>(_templateId);
-}
-
-void TemplatesFacade::setDefaultComicBookTemplate(const QString& _templateId)
-{
-    instance().d->setDefaultTemplate<ComicBookTemplate>(_templateId);
-}
-
-void TemplatesFacade::setDefaultAudioplayTemplate(const QString& _templateId)
-{
-    instance().d->setDefaultTemplate<AudioplayTemplate>(_templateId);
-}
-
-void TemplatesFacade::setDefaultStageplayTemplate(const QString& _templateId)
-{
-    instance().d->setDefaultTemplate<StageplayTemplate>(_templateId);
 }
 
 void TemplatesFacade::setDefaultNovelTemplate(const QString& _templateId)
@@ -529,21 +424,6 @@ void TemplatesFacade::saveScreenplayTemplate(const ScreenplayTemplate& _template
     instance().d->saveTemplate<ScreenplayTemplate>(kScreenplayTemplatesDirectory, _template);
 }
 
-void TemplatesFacade::saveComicBookTemplate(const ComicBookTemplate& _template)
-{
-    instance().d->saveTemplate<ComicBookTemplate>(kComicBookTemplatesDirectory, _template);
-}
-
-void TemplatesFacade::saveAudioplayTemplate(const AudioplayTemplate& _template)
-{
-    instance().d->saveTemplate<AudioplayTemplate>(kAudioplayTemplatesDirectory, _template);
-}
-
-void TemplatesFacade::saveStageplayTemplate(const StageplayTemplate& _template)
-{
-    instance().d->saveTemplate<StageplayTemplate>(kStageplayTemplatesDirectory, _template);
-}
-
 void TemplatesFacade::saveNovelTemplate(const NovelTemplate& _template)
 {
     instance().d->saveTemplate<NovelTemplate>(kNovelTemplatesDirectory, _template);
@@ -559,21 +439,6 @@ void TemplatesFacade::removeScreenplayTemplate(const QString& _templateId)
     instance().d->removeTemplate<ScreenplayTemplate>(kScreenplayTemplatesDirectory, _templateId);
 }
 
-void TemplatesFacade::removeComicBookTemplate(const QString& _templateId)
-{
-    instance().d->removeTemplate<ComicBookTemplate>(kComicBookTemplatesDirectory, _templateId);
-}
-
-void TemplatesFacade::removeAudioplayTemplate(const QString& _templateId)
-{
-    instance().d->removeTemplate<AudioplayTemplate>(kAudioplayTemplatesDirectory, _templateId);
-}
-
-void TemplatesFacade::removeStageplayTemplate(const QString& _templateId)
-{
-    instance().d->removeTemplate<StageplayTemplate>(kStageplayTemplatesDirectory, _templateId);
-}
-
 void TemplatesFacade::removeNovelTemplate(const QString& _templateId)
 {
     instance().d->removeTemplate<NovelTemplate>(kNovelTemplatesDirectory, _templateId);
@@ -583,9 +448,6 @@ void TemplatesFacade::updateTranslations()
 {
     instance().d->updateTranslations<SimpleTextTemplate>();
     instance().d->updateTranslations<ScreenplayTemplate>();
-    instance().d->updateTranslations<ComicBookTemplate>();
-    instance().d->updateTranslations<AudioplayTemplate>();
-    instance().d->updateTranslations<StageplayTemplate>();
     instance().d->updateTranslations<NovelTemplate>();
 }
 
@@ -619,23 +481,6 @@ TemplatesFacade::TemplatesFacade()
                                              QLatin1String("telugu"),
                                              QLatin1String("us"),
                                          });
-    d->loadTemplates<ComicBookTemplate>(kComicBookTemplatesDirectory,
-                                        {
-                                            QLatin1String("world"),
-                                            QLatin1String("us"),
-                                            QLatin1String("script_world"),
-                                            QLatin1String("script_us"),
-                                        });
-    d->loadTemplates<AudioplayTemplate>(kAudioplayTemplatesDirectory,
-                                        {
-                                            QLatin1String("bbc_scene"),
-                                            QLatin1String("us"),
-                                        });
-    d->loadTemplates<StageplayTemplate>(kStageplayTemplatesDirectory,
-                                        {
-                                            QLatin1String("bbc"),
-                                            QLatin1String("us"),
-                                        });
     d->loadTemplates<NovelTemplate>(kNovelTemplatesDirectory,
                                     {
                                         QLatin1String("manuscript_cp_a4"),

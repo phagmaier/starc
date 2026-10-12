@@ -1,19 +1,11 @@
 #include "export_manager.h"
 
-#include <business_layer/export/audioplay/audioplay_docx_exporter.h>
-#include <business_layer/export/audioplay/audioplay_export_options.h>
-#include <business_layer/export/audioplay/audioplay_fountain_exporter.h>
-#include <business_layer/export/audioplay/audioplay_pdf_exporter.h>
 #include <business_layer/export/characters/character_docx_exporter.h>
 #include <business_layer/export/characters/character_export_options.h>
 #include <business_layer/export/characters/character_pdf_exporter.h>
 #include <business_layer/export/characters/characters_docx_exporter.h>
 #include <business_layer/export/characters/characters_export_options.h>
 #include <business_layer/export/characters/characters_pdf_exporter.h>
-#include <business_layer/export/comic_book/comic_book_docx_exporter.h>
-#include <business_layer/export/comic_book/comic_book_export_options.h>
-#include <business_layer/export/comic_book/comic_book_fountain_exporter.h>
-#include <business_layer/export/comic_book/comic_book_pdf_exporter.h>
 #include <business_layer/export/export_options.h>
 #include <business_layer/export/locations/location_docx_exporter.h>
 #include <business_layer/export/locations/location_export_options.h>
@@ -32,21 +24,13 @@
 #include <business_layer/export/simple_text/simple_text_docx_exporter.h>
 #include <business_layer/export/simple_text/simple_text_markdown_exporter.h>
 #include <business_layer/export/simple_text/simple_text_pdf_exporter.h>
-#include <business_layer/export/stageplay/stageplay_docx_exporter.h>
-#include <business_layer/export/stageplay/stageplay_export_options.h>
-#include <business_layer/export/stageplay/stageplay_fountain_exporter.h>
-#include <business_layer/export/stageplay/stageplay_pdf_exporter.h>
 #include <business_layer/export/worlds/world_docx_exporter.h>
 #include <business_layer/export/worlds/world_export_options.h>
 #include <business_layer/export/worlds/world_pdf_exporter.h>
 #include <business_layer/export/worlds/worlds_docx_exporter.h>
 #include <business_layer/export/worlds/worlds_pdf_exporter.h>
-#include <business_layer/model/audioplay/audioplay_information_model.h>
-#include <business_layer/model/audioplay/text/audioplay_text_model.h>
 #include <business_layer/model/characters/character_model.h>
 #include <business_layer/model/characters/characters_model.h>
-#include <business_layer/model/comic_book/comic_book_information_model.h>
-#include <business_layer/model/comic_book/text/comic_book_text_model.h>
 #include <business_layer/model/locations/location_model.h>
 #include <business_layer/model/locations/locations_model.h>
 #include <business_layer/model/novel/novel_information_model.h>
@@ -54,8 +38,6 @@
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model.h>
 #include <business_layer/model/simple_text/simple_text_model.h>
-#include <business_layer/model/stageplay/stageplay_information_model.h>
-#include <business_layer/model/stageplay/text/stageplay_text_model.h>
 #include <business_layer/model/worlds/world_model.h>
 #include <business_layer/model/worlds/worlds_model.h>
 #include <business_layer/templates/simple_text_template.h>
@@ -63,16 +45,13 @@
 #include <data_layer/storage/settings_storage.h>
 #include <data_layer/storage/storage_facade.h>
 #include <domain/document_object.h>
-#include <ui/export/audioplay_export_dialog.h>
 #include <ui/export/character_export_dialog.h>
 #include <ui/export/characters_export_dialog.h>
-#include <ui/export/comic_book_export_dialog.h>
 #include <ui/export/location_export_dialog.h>
 #include <ui/export/locations_export_dialog.h>
 #include <ui/export/novel_export_dialog.h>
 #include <ui/export/screenplay_export_dialog.h>
 #include <ui/export/simple_text_export_dialog.h>
-#include <ui/export/stageplay_export_dialog.h>
 #include <ui/export/world_export_dialog.h>
 #include <ui/export/worlds_export_dialog.h>
 #include <ui/widgets/dialog/standard_dialog.h>
@@ -237,12 +216,6 @@ public:
                            int _currentModelIndex);
     void exportScreenplay(BusinessLayer::AbstractModel* _model,
                           const BusinessLayer::ScreenplayExportOptions& _options);
-    void exportComicBooks(const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models,
-                          int _currentModelIndex);
-    void exportAudioplays(const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models,
-                          int _currentModelIndex);
-    void exportStageplays(const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models,
-                          int _currentModelIndex);
     void exportNovels(const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models,
                       int _currentModelIndex);
     //
@@ -263,9 +236,6 @@ public:
     QWidget* topLevelWidget = nullptr;
 
     Ui::ScreenplayExportDialog* screenplayExportDialog = nullptr;
-    Ui::ComicBookExportDialog* comicBookExportDialog = nullptr;
-    Ui::AudioplayExportDialog* audioplayExportDialog = nullptr;
-    Ui::StageplayExportDialog* stageplayExportDialog = nullptr;
     Ui::NovelExportDialog* novelExportDialog = nullptr;
     Ui::SimpleTextExportDialog* simpleTextExportDialog = nullptr;
     Ui::CharacterExportDialog* characterExportDialog = nullptr;
@@ -414,359 +384,6 @@ void ExportManager::Implementation::exportScreenplay(
         return;
     }
     exporter->exportTo(screenplayTextModel, exportOptions);
-}
-
-void ExportManager::Implementation::exportComicBooks(
-    const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models, int _currentModelIndex)
-{
-    using namespace BusinessLayer;
-
-    if (comicBookExportDialog == nullptr) {
-        const auto currentDraft = _models.constFirst().second;
-        comicBookExportDialog = new Ui::ComicBookExportDialog(
-            currentDraft->document()->uuid().toString(), topLevelWidget);
-        connect(comicBookExportDialog, &Ui::ComicBookExportDialog::exportRequested,
-                comicBookExportDialog, [this, _models] {
-                    //
-                    // Выбираем файл для экспорта
-                    //
-                    auto model = _models.at(comicBookExportDialog->selectedDraftIndex()).second;
-                    const auto textModel = qobject_cast<BusinessLayer::ComicBookTextModel*>(model);
-                    auto exportOptions = comicBookExportDialog->exportOptions();
-                    const auto exportFilePath = buildExportFilePath(
-                        exportOptions.fileFormat, textModel->informationModel()->name(),
-                        comicBookExportDialog->selectedDraftName(), textModel, topLevelWidget);
-                    if (exportFilePath.isEmpty()) {
-                        return;
-                    }
-
-                    //
-                    // Если файл был выбран
-                    //
-                    exportOptions.filePath = exportFilePath;
-                    //
-                    // ... проверяем возможность записи в файл
-                    //
-                    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-                        return;
-                    }
-                    //
-                    // ... донастроим параметры экспорта
-                    //
-                    const auto comicBookInformation = textModel->informationModel();
-                    exportOptions.templateId = comicBookInformation->templateId();
-                    exportOptions.header = comicBookInformation->header();
-                    exportOptions.footer = comicBookInformation->footer();
-                    //
-                    // ... при необходимости подсветить персонажей, делаем это
-                    //
-                    if (exportOptions.highlightCharacters) {
-                        const auto charactersModel = textModel->charactersList();
-                        for (int row = 0; row < charactersModel->rowCount(); ++row) {
-                            const auto characterName
-                                = charactersModel->index(row, 0).data().toString();
-                            const auto character = textModel->character(characterName);
-                            if (character != nullptr && character->color().isValid()) {
-                                exportOptions.highlightCharactersList.insert(character->name(),
-                                                                             character->color());
-                            }
-                        }
-                    }
-                    //
-                    // ... обновим папку, куда в следующий раз он предположительно опять будет
-                    //     экспортировать
-                    //
-                    setSettingsValue(DataStorageLayer::kProjectExportFolderKey,
-                                     QFileInfo(exportFilePath).dir().absolutePath());
-                    //
-                    // ... и экспортируем документ
-                    //
-                    QScopedPointer<BusinessLayer::ComicBookExporter> exporter;
-                    switch (exportOptions.fileFormat) {
-                    default:
-                    case ExportFileFormat::Pdf: {
-                        exporter.reset(new BusinessLayer::ComicBookPdfExporter);
-                        break;
-                    }
-                    case ExportFileFormat::Docx: {
-                        exporter.reset(new BusinessLayer::ComicBookDocxExporter);
-                        break;
-                    }
-                    case ExportFileFormat::Fountain: {
-                        exporter.reset(new BusinessLayer::ComicBookFountainExporter);
-                        break;
-                    }
-                    }
-                    if (exporter.isNull()) {
-                        return;
-                    }
-                    exporter->exportTo(textModel, exportOptions);
-
-                    //
-                    // Если необходимо, откроем экспортированный документ
-                    //
-                    if (comicBookExportDialog->openDocumentAfterExport()) {
-                        QDesktopServices::openUrl(QUrl::fromLocalFile(exportOptions.filePath));
-                    }
-                    //
-                    // ... и закрываем диалог экспорта
-                    //
-                    comicBookExportDialog->hideDialog();
-                });
-        connect(comicBookExportDialog, &Ui::ComicBookExportDialog::canceled, comicBookExportDialog,
-                &Ui::ComicBookExportDialog::hideDialog);
-        connect(comicBookExportDialog, &Ui::ComicBookExportDialog::disappeared,
-                comicBookExportDialog, [this] {
-                    comicBookExportDialog->deleteLater();
-                    comicBookExportDialog = nullptr;
-                });
-    }
-
-    QVector<QString> drafts;
-    for (const auto& draft : _models) {
-        drafts.append(draft.first);
-    }
-    comicBookExportDialog->setDrafts(drafts, _currentModelIndex);
-    comicBookExportDialog->showDialog();
-}
-
-void ExportManager::Implementation::exportAudioplays(
-    const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models, int _currentModelIndex)
-{
-    using namespace BusinessLayer;
-
-    if (audioplayExportDialog == nullptr) {
-        const auto currentDraft = _models.constFirst().second;
-        audioplayExportDialog = new Ui::AudioplayExportDialog(
-            currentDraft->document()->uuid().toString(), topLevelWidget);
-        connect(audioplayExportDialog, &Ui::AudioplayExportDialog::exportRequested,
-                audioplayExportDialog, [this, _models] {
-                    //
-                    // Выбираем файл для экспорта
-                    //
-                    auto model = _models.at(audioplayExportDialog->selectedDraftIndex()).second;
-                    const auto textModel = qobject_cast<BusinessLayer::AudioplayTextModel*>(model);
-                    auto exportOptions = audioplayExportDialog->exportOptions();
-                    const auto exportFilePath = buildExportFilePath(
-                        exportOptions.fileFormat, textModel->informationModel()->name(),
-                        audioplayExportDialog->selectedDraftName(), textModel, topLevelWidget);
-                    if (exportFilePath.isEmpty()) {
-                        return;
-                    }
-
-                    //
-                    // Если файл был выбран
-                    //
-                    exportOptions.filePath = exportFilePath;
-                    //
-                    // ... проверяем возможность записи в файл
-                    //
-                    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-                        return;
-                    }
-
-                    //
-                    // ... донастроим параметры экспорта
-                    //
-                    const auto audioplayInformation = textModel->informationModel();
-                    exportOptions.templateId = audioplayInformation->templateId();
-                    exportOptions.showBlockNumbers = audioplayInformation->showBlockNumbers();
-                    exportOptions.header = audioplayInformation->header();
-                    exportOptions.printHeaderOnTitlePage
-                        = audioplayInformation->printHeaderOnTitlePage();
-                    exportOptions.footer = audioplayInformation->footer();
-                    exportOptions.printFooterOnTitlePage
-                        = audioplayInformation->printFooterOnTitlePage();
-                    //
-                    // ... при необходимости подсветить персонажей, делаем это
-                    //
-                    if (exportOptions.highlightCharacters) {
-                        const auto charactersModel = textModel->charactersList();
-                        for (int row = 0; row < charactersModel->rowCount(); ++row) {
-                            const auto characterName
-                                = charactersModel->index(row, 0).data().toString();
-                            const auto character = textModel->character(characterName);
-                            if (character != nullptr && character->color().isValid()) {
-                                exportOptions.highlightCharactersList.insert(character->name(),
-                                                                             character->color());
-                            }
-                        }
-                    }
-                    //
-                    // ... обновим папку, куда в следующий раз он предположительно опять будет
-                    //     экспортировать
-                    //
-                    setSettingsValue(DataStorageLayer::kProjectExportFolderKey,
-                                     QFileInfo(exportFilePath).dir().absolutePath());
-                    //
-                    // ... и экспортируем документ
-                    //
-                    QScopedPointer<BusinessLayer::AbstractExporter> exporter;
-                    switch (exportOptions.fileFormat) {
-                    default:
-                    case ExportFileFormat::Pdf: {
-                        exporter.reset(new BusinessLayer::AudioplayPdfExporter);
-                        break;
-                    }
-                    case ExportFileFormat::Docx: {
-                        exporter.reset(new BusinessLayer::AudioplayDocxExporter);
-                        break;
-                    }
-                    case ExportFileFormat::Fountain: {
-                        exporter.reset(new BusinessLayer::AudioplayFountainExporter);
-                        break;
-                    }
-                    }
-                    if (exporter.isNull()) {
-                        return;
-                    }
-                    exporter->exportTo(textModel, exportOptions);
-
-                    //
-                    // Если необходимо, откроем экспортированный документ
-                    //
-                    if (audioplayExportDialog->openDocumentAfterExport()) {
-                        QDesktopServices::openUrl(QUrl::fromLocalFile(exportOptions.filePath));
-                    }
-                    //
-                    // ... и закрываем диалог экспорта
-                    //
-                    audioplayExportDialog->hideDialog();
-                });
-        connect(audioplayExportDialog, &Ui::AudioplayExportDialog::canceled, audioplayExportDialog,
-                &Ui::AudioplayExportDialog::hideDialog);
-        connect(audioplayExportDialog, &Ui::AudioplayExportDialog::disappeared,
-                audioplayExportDialog, [this] {
-                    audioplayExportDialog->deleteLater();
-                    audioplayExportDialog = nullptr;
-                });
-    }
-
-    QVector<QString> drafts;
-    for (const auto& draft : _models) {
-        drafts.append(draft.first);
-    }
-    audioplayExportDialog->setDrafts(drafts, _currentModelIndex);
-    audioplayExportDialog->showDialog();
-}
-
-void ExportManager::Implementation::exportStageplays(
-    const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models, int _currentModelIndex)
-{
-    using namespace BusinessLayer;
-
-    if (stageplayExportDialog == nullptr) {
-        const auto currentDraft = _models.constFirst().second;
-        stageplayExportDialog = new Ui::StageplayExportDialog(
-            currentDraft->document()->uuid().toString(), topLevelWidget);
-        connect(stageplayExportDialog, &Ui::StageplayExportDialog::exportRequested,
-                stageplayExportDialog, [this, _models] {
-                    //
-                    // Выбираем файл для экспорта
-                    //
-                    auto model = _models.at(stageplayExportDialog->selectedDraftIndex()).second;
-                    const auto textModel = qobject_cast<BusinessLayer::StageplayTextModel*>(model);
-                    auto exportOptions = stageplayExportDialog->exportOptions();
-                    const auto exportFilePath = buildExportFilePath(
-                        exportOptions.fileFormat, textModel->informationModel()->name(),
-                        stageplayExportDialog->selectedDraftName(), textModel, topLevelWidget);
-                    if (exportFilePath.isEmpty()) {
-                        return;
-                    }
-
-                    //
-                    // Если файл был выбран
-                    //
-                    exportOptions.filePath = exportFilePath;
-                    //
-                    // ... проверяем возможность записи в файл
-                    //
-                    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-                        return;
-                    }
-
-                    //
-                    // ... донастроим параметры экспорта
-                    //
-                    const auto stageplayInformation = textModel->informationModel();
-                    exportOptions.templateId = stageplayInformation->templateId();
-                    exportOptions.header = stageplayInformation->header();
-                    exportOptions.printHeaderOnTitlePage
-                        = stageplayInformation->printHeaderOnTitlePage();
-                    exportOptions.footer = stageplayInformation->footer();
-                    exportOptions.printFooterOnTitlePage
-                        = stageplayInformation->printFooterOnTitlePage();
-                    //
-                    // ... при необходимости подсветить персонажей, делаем это
-                    //
-                    if (exportOptions.highlightCharacters) {
-                        const auto charactersModel = textModel->charactersList();
-                        for (int row = 0; row < charactersModel->rowCount(); ++row) {
-                            const auto characterName
-                                = charactersModel->index(row, 0).data().toString();
-                            const auto character = textModel->character(characterName);
-                            if (character != nullptr && character->color().isValid()) {
-                                exportOptions.highlightCharactersList.insert(character->name(),
-                                                                             character->color());
-                            }
-                        }
-                    }
-                    //
-                    // ... обновим папку, куда в следующий раз он предположительно опять будет
-                    //     экспортировать
-                    //
-                    setSettingsValue(DataStorageLayer::kProjectExportFolderKey,
-                                     QFileInfo(exportFilePath).dir().absolutePath());
-                    //
-                    // ... и экспортируем документ
-                    //
-                    QScopedPointer<BusinessLayer::AbstractExporter> exporter;
-                    switch (exportOptions.fileFormat) {
-                    default:
-                    case ExportFileFormat::Pdf: {
-                        exporter.reset(new BusinessLayer::StageplayPdfExporter);
-                        break;
-                    }
-                    case ExportFileFormat::Docx: {
-                        exporter.reset(new BusinessLayer::StageplayDocxExporter);
-                        break;
-                    }
-                    case ExportFileFormat::Fountain: {
-                        exporter.reset(new BusinessLayer::StageplayFountainExporter);
-                        break;
-                    }
-                    }
-                    if (exporter.isNull()) {
-                        return;
-                    }
-                    exporter->exportTo(textModel, exportOptions);
-
-                    //
-                    // Если необходимо, откроем экспортированный документ
-                    //
-                    if (stageplayExportDialog->openDocumentAfterExport()) {
-                        QDesktopServices::openUrl(QUrl::fromLocalFile(exportOptions.filePath));
-                    }
-                    //
-                    // ... и закрываем диалог экспорта
-                    //
-                    stageplayExportDialog->hideDialog();
-                });
-        connect(stageplayExportDialog, &Ui::StageplayExportDialog::canceled, stageplayExportDialog,
-                &Ui::StageplayExportDialog::hideDialog);
-        connect(stageplayExportDialog, &Ui::StageplayExportDialog::disappeared,
-                stageplayExportDialog, [this] {
-                    stageplayExportDialog->deleteLater();
-                    stageplayExportDialog = nullptr;
-                });
-    }
-
-    QVector<QString> drafts;
-    for (const auto& draft : _models) {
-        drafts.append(draft.first);
-    }
-    stageplayExportDialog->setDrafts(drafts, _currentModelIndex);
-    stageplayExportDialog->showDialog();
 }
 
 void ExportManager::Implementation::exportNovels(
@@ -1472,15 +1089,6 @@ bool ExportManager::canExportDocument(BusinessLayer::AbstractModel* _model) cons
     }
 
     switch (_model->document()->type()) {
-    case Domain::DocumentObjectType::Audioplay:
-    case Domain::DocumentObjectType::AudioplayTitlePage:
-    case Domain::DocumentObjectType::AudioplaySynopsis:
-    case Domain::DocumentObjectType::AudioplayText:
-    //
-    case Domain::DocumentObjectType::ComicBook:
-    case Domain::DocumentObjectType::ComicBookTitlePage:
-    case Domain::DocumentObjectType::ComicBookSynopsis:
-    case Domain::DocumentObjectType::ComicBookText:
     //
     case Domain::DocumentObjectType::Screenplay:
     case Domain::DocumentObjectType::ScreenplayTitlePage:
@@ -1488,11 +1096,6 @@ bool ExportManager::canExportDocument(BusinessLayer::AbstractModel* _model) cons
     case Domain::DocumentObjectType::ScreenplayTreatment:
     case Domain::DocumentObjectType::ScreenplayText:
     case Domain::DocumentObjectType::ScreenplayStatistics:
-    //
-    case Domain::DocumentObjectType::Stageplay:
-    case Domain::DocumentObjectType::StageplayTitlePage:
-    case Domain::DocumentObjectType::StageplaySynopsis:
-    case Domain::DocumentObjectType::StageplayText:
     //
     case Domain::DocumentObjectType::Novel:
     case Domain::DocumentObjectType::NovelTitlePage:
@@ -1534,21 +1137,6 @@ void ExportManager::exportDocument(
     switch (firstModel->document()->type()) {
     case Domain::DocumentObjectType::ScreenplayText: {
         d->exportScreenplays(_models, _currentModelIndex);
-        break;
-    }
-
-    case Domain::DocumentObjectType::ComicBookText: {
-        d->exportComicBooks(_models, _currentModelIndex);
-        break;
-    }
-
-    case Domain::DocumentObjectType::AudioplayText: {
-        d->exportAudioplays(_models, _currentModelIndex);
-        break;
-    }
-
-    case Domain::DocumentObjectType::StageplayText: {
-        d->exportStageplays(_models, _currentModelIndex);
         break;
     }
 

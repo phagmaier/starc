@@ -21,13 +21,8 @@
 // #define PRINT_DOCUMENT_HISTORY
 #ifdef PRINT_DOCUMENT_HISTORY
 #include <business_layer/model/characters/character_model.h>
-#include <business_layer/model/comic_book/comic_book_dictionaries_model.h>
-#include <business_layer/model/comic_book/comic_book_information_model.h>
-#include <business_layer/model/comic_book/text/comic_book_text_model.h>
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model.h>
-#include <business_layer/model/stageplay/stageplay_information_model.h>
-#include <business_layer/model/stageplay/text/stageplay_text_model.h>
 #include <data_layer/mapper/document_change_mapper.h>
 #include <data_layer/mapper/mapper_facade.h>
 #include <data_layer/storage/document_image_storage.h>
@@ -2067,26 +2062,6 @@ void ApplicationManager::Implementation::goToEditCurrentProject(bool _afterProje
     auto document = Domain::ObjectsBuilder::createDocument(
         {}, {}, Domain::DocumentObjectType::ScreenplayText, {}, {});
 
-    //
-    // Comic book text
-    //
-    // BusinessLayer::ComicBookTextModel model;
-    // BusinessLayer::ComicBookInformationModel informationModel;
-    // model.setInformationModel(&informationModel);
-    // BusinessLayer::ComicBookDictionariesModel dictionariesModel;
-    // model.setDictionariesModel(&dictionariesModel);
-    // auto document = Domain::ObjectsBuilder::createDocument(
-    //     {}, {}, Domain::DocumentObjectType::ComicBookText, {}, {});
-
-    //
-    // Stageplay text
-    //
-    // BusinessLayer::StageplayTextModel model;
-    // BusinessLayer::StageplayInformationModel informationModel;
-    // model.setInformationModel(&informationModel);
-    // auto document = Domain::ObjectsBuilder::createDocument(
-    //     {}, {}, Domain::DocumentObjectType::StageplayText, {}, {});
-
     model.setDocument(document);
     const auto changes = DataMappingLayer::MapperFacade::documentChangeMapper()->findAll(uuid);
     for (int index = 0; index < changes.size(); ++index) {
@@ -2965,16 +2940,10 @@ void ApplicationManager::initConnections()
             });
     connect(d->importManager.data(), &ImportManager::simpleTextImported, d->projectManager.data(),
             &ProjectManager::storeSimpleText);
-    connect(d->importManager.data(), &ImportManager::audioplayImported, d->projectManager.data(),
-            &ProjectManager::storeAudioplay);
-    connect(d->importManager.data(), &ImportManager::comicbookImported, d->projectManager.data(),
-            &ProjectManager::storeComicBook);
     connect(d->importManager.data(), &ImportManager::novelImported, d->projectManager.data(),
             &ProjectManager::storeNovel);
     connect(d->importManager.data(), &ImportManager::screenplayImported, d->projectManager.data(),
             &ProjectManager::storeScreenplay);
-    connect(d->importManager.data(), &ImportManager::stageplayImported, d->projectManager.data(),
-            &ProjectManager::storeStageplay);
     connect(d->importManager.data(), &ImportManager::presentationImported, d->projectManager.data(),
             &ProjectManager::storePresentation);
 
@@ -3075,29 +3044,6 @@ void ApplicationManager::initConnections()
         d->projectManager->reconfigureScreenplayNavigator();
         d->projectManager->reconfigureScreenplayDuration();
     });
-    //
-    connect(d->settingsManager.data(), &SettingsManager::comicBookEditorChanged, this,
-            [this](const QStringList& _changedSettingsKeys) {
-                d->projectManager->reconfigureComicBookEditor(_changedSettingsKeys);
-            });
-    connect(d->settingsManager.data(), &SettingsManager::comicBookNavigatorChanged, this,
-            [this] { d->projectManager->reconfigureComicBookNavigator(); });
-    //
-    connect(d->settingsManager.data(), &SettingsManager::audioplayEditorChanged, this,
-            [this](const QStringList& _changedSettingsKeys) {
-                d->projectManager->reconfigureAudioplayEditor(_changedSettingsKeys);
-            });
-    connect(d->settingsManager.data(), &SettingsManager::audioplayNavigatorChanged, this,
-            [this] { d->projectManager->reconfigureAudioplayNavigator(); });
-    connect(d->settingsManager.data(), &SettingsManager::audioplayDurationChanged, this,
-            [this] { d->projectManager->reconfigureAudioplayDuration(); });
-    //
-    connect(d->settingsManager.data(), &SettingsManager::stageplayEditorChanged, this,
-            [this](const QStringList& _changedSettingsKeys) {
-                d->projectManager->reconfigureStageplayEditor(_changedSettingsKeys);
-            });
-    connect(d->settingsManager.data(), &SettingsManager::stageplayNavigatorChanged, this,
-            [this] { d->projectManager->reconfigureStageplayNavigator(); });
     //
     connect(d->settingsManager.data(), &SettingsManager::novelEditorChanged, this,
             [this](const QStringList& _changedSettingsKeys) {

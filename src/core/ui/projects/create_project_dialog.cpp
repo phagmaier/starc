@@ -91,15 +91,6 @@ CreateProjectDialog::Implementation::Implementation(QWidget* _parent)
     if (settingsValue(DataStorageLayer::kComponentsScreenplayAvailableKey).toBool()) {
         projectTypeModel->appendRow(makeItem(Domain::DocumentObjectType::Screenplay));
     }
-    if (settingsValue(DataStorageLayer::kComponentsComicBookAvailableKey).toBool()) {
-        projectTypeModel->appendRow(makeItem(Domain::DocumentObjectType::ComicBook));
-    }
-    if (settingsValue(DataStorageLayer::kComponentsAudioplayAvailableKey).toBool()) {
-        projectTypeModel->appendRow(makeItem(Domain::DocumentObjectType::Audioplay));
-    }
-    if (settingsValue(DataStorageLayer::kComponentsStageplayAvailableKey).toBool()) {
-        projectTypeModel->appendRow(makeItem(Domain::DocumentObjectType::Stageplay));
-    }
     if (settingsValue(DataStorageLayer::kComponentsNovelAvailableKey).toBool()) {
         projectTypeModel->appendRow(makeItem(Domain::DocumentObjectType::Novel));
     }
@@ -417,21 +408,6 @@ void CreateProjectDialog::updateTranslations()
 
         case Domain::DocumentObjectType::Screenplay: {
             item->setText(tr("Screenplay"));
-            break;
-        }
-
-        case Domain::DocumentObjectType::ComicBook: {
-            item->setText(tr("Comic book"));
-            break;
-        }
-
-        case Domain::DocumentObjectType::Audioplay: {
-            item->setText(tr("Audioplay"));
-            break;
-        }
-
-        case Domain::DocumentObjectType::Stageplay: {
-            item->setText(tr("Stageplay"));
             break;
         }
 

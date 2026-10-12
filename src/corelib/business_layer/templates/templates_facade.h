@@ -12,12 +12,9 @@ namespace BusinessLayer {
 
 class TextModel;
 class TextTemplate;
-class AudioplayTemplate;
-class ComicBookTemplate;
 class NovelTemplate;
 class ScreenplayTemplate;
 class SimpleTextTemplate;
-class StageplayTemplate;
 
 /**
  * @brief Фасад доступа к шаблонам текстовых редакторов
@@ -35,9 +32,6 @@ public:
      */
     static QStandardItemModel* simpleTextTemplates();
     static QStandardItemModel* screenplayTemplates();
-    static QStandardItemModel* comicBookTemplates();
-    static QStandardItemModel* audioplayTemplates();
-    static QStandardItemModel* stageplayTemplates();
     static QStandardItemModel* novelTemplates();
 
     /**
@@ -51,9 +45,6 @@ public:
      */
     static const SimpleTextTemplate& simpleTextTemplate(const QString& _templateId = {});
     static const ScreenplayTemplate& screenplayTemplate(const QString& _templateId = {});
-    static const ComicBookTemplate& comicBookTemplate(const QString& _templateId = {});
-    static const AudioplayTemplate& audioplayTemplate(const QString& _templateId = {});
-    static const StageplayTemplate& stageplayTemplate(const QString& _templateId = {});
     static const NovelTemplate& novelTemplate(const QString& _templateId = {});
 
     /**
@@ -61,9 +52,6 @@ public:
      */
     static void setDefaultSimpleTextTemplate(const QString& _templateId);
     static void setDefaultScreenplayTemplate(const QString& _templateId);
-    static void setDefaultComicBookTemplate(const QString& _templateId);
-    static void setDefaultAudioplayTemplate(const QString& _templateId);
-    static void setDefaultStageplayTemplate(const QString& _templateId);
     static void setDefaultNovelTemplate(const QString& _templateId);
 
     /**
@@ -71,9 +59,6 @@ public:
      */
     static void saveSimpleTextTemplate(const SimpleTextTemplate& _template);
     static void saveScreenplayTemplate(const ScreenplayTemplate& _template);
-    static void saveComicBookTemplate(const ComicBookTemplate& _template);
-    static void saveAudioplayTemplate(const AudioplayTemplate& _template);
-    static void saveStageplayTemplate(const StageplayTemplate& _template);
     static void saveNovelTemplate(const NovelTemplate& _template);
 
     /**
@@ -81,9 +66,6 @@ public:
      */
     static void removeSimpleTextTemplate(const QString& _templateId);
     static void removeScreenplayTemplate(const QString& _templateId);
-    static void removeComicBookTemplate(const QString& _templateId);
-    static void removeAudioplayTemplate(const QString& _templateId);
-    static void removeStageplayTemplate(const QString& _templateId);
     static void removeNovelTemplate(const QString& _templateId);
 
     /**

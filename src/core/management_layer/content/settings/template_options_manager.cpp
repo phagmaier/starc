@@ -2,12 +2,9 @@
 
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/screenplay_title_page_model.h>
-#include <business_layer/templates/audioplay_template.h>
-#include <business_layer/templates/comic_book_template.h>
 #include <business_layer/templates/novel_template.h>
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/simple_text_template.h>
-#include <business_layer/templates/stageplay_template.h>
 #include <business_layer/templates/templates_facade.h>
 #include <domain/document_object.h>
 #include <domain/objects_builder.h>
@@ -102,12 +99,6 @@ public:
         {
             if (screenplay.isValid()) {
                 return screenplay;
-            } else if (comicBook.isValid()) {
-                return comicBook;
-            } else if (audioplay.isValid()) {
-                return audioplay;
-            } else if (stageplay.isValid()) {
-                return stageplay;
             } else if (novel.isValid()) {
                 return novel;
             } else {
@@ -117,9 +108,6 @@ public:
 
         BusinessLayer::SimpleTextTemplate simpleText;
         BusinessLayer::ScreenplayTemplate screenplay;
-        BusinessLayer::ComicBookTemplate comicBook;
-        BusinessLayer::AudioplayTemplate audioplay;
-        BusinessLayer::StageplayTemplate stageplay;
         BusinessLayer::NovelTemplate novel;
     } currentTemplate;
 
@@ -187,21 +175,6 @@ void TemplateOptionsManager::Implementation::prepareViewToEdit(const QString& _t
     case Domain::DocumentObjectType::Screenplay: {
         currentTemplate.screenplay
             = BusinessLayer::TemplatesFacade::screenplayTemplate(_templateId);
-        break;
-    }
-
-    case Domain::DocumentObjectType::ComicBook: {
-        currentTemplate.comicBook = BusinessLayer::TemplatesFacade::comicBookTemplate(_templateId);
-        break;
-    }
-
-    case Domain::DocumentObjectType::Audioplay: {
-        currentTemplate.audioplay = BusinessLayer::TemplatesFacade::audioplayTemplate(_templateId);
-        break;
-    }
-
-    case Domain::DocumentObjectType::Stageplay: {
-        currentTemplate.stageplay = BusinessLayer::TemplatesFacade::stageplayTemplate(_templateId);
         break;
     }
 
@@ -374,21 +347,6 @@ void TemplateOptionsManager::Implementation::saveTemplate()
 
     case Domain::DocumentObjectType::Screenplay: {
         BusinessLayer::TemplatesFacade::saveScreenplayTemplate(currentTemplate.screenplay);
-        break;
-    }
-
-    case Domain::DocumentObjectType::ComicBook: {
-        BusinessLayer::TemplatesFacade::saveComicBookTemplate(currentTemplate.comicBook);
-        break;
-    }
-
-    case Domain::DocumentObjectType::Audioplay: {
-        BusinessLayer::TemplatesFacade::saveAudioplayTemplate(currentTemplate.audioplay);
-        break;
-    }
-
-    case Domain::DocumentObjectType::Stageplay: {
-        BusinessLayer::TemplatesFacade::saveStageplayTemplate(currentTemplate.stageplay);
         break;
     }
 

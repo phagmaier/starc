@@ -31,6 +31,7 @@ public:
     Widget* notImplementedPage = nullptr;
     H6Label* notImplementedPageTitleLabel = nullptr;
     Body1Label* notImplementedPageBodyLabel = nullptr;
+    bool unsupportedFormat = false;
 
     Widget* documentEditorPage = nullptr;
     TabBar* documentDrafts = nullptr;
@@ -191,6 +192,15 @@ void ProjectView::showDocumentLoadingPage()
 
 void ProjectView::showNotImplementedPage()
 {
+    d->unsupportedFormat = false;
+    updateTranslations();
+    setCurrentWidget(d->notImplementedPage);
+}
+
+void ProjectView::showUnsupportedFormatPage()
+{
+    d->unsupportedFormat = true;
+    updateTranslations();
     setCurrentWidget(d->notImplementedPage);
 }
 
@@ -310,9 +320,14 @@ void ProjectView::updateTranslations()
         tr("Please, wait a while and document editor will be activated."));
 
     d->notImplementedPageTitleLabel->setText(
-        tr("Ooops... looks like editor of this document not implemented yet."));
+        d->unsupportedFormat
+            ? tr("Unsupported document format")
+            : tr("Ooops... looks like editor of this document not implemented yet."));
     d->notImplementedPageBodyLabel->setText(
-        tr("But don't worry, it will be here in one of the future updates!"));
+        d->unsupportedFormat
+            ? tr("This document's format is no longer supported. Its content is preserved in "
+                 "the project. Open a copy in an application that supports this format to edit it.")
+            : tr("But don't worry, it will be here in one of the future updates!"));
 }
 
 void ProjectView::designSystemChangeEvent(DesignSystemChangeEvent* _event)

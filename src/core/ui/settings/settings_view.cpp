@@ -3,12 +3,9 @@
 #include "widgets/theme_preview.h"
 
 #include <business_layer/chronometry/chronometer.h>
-#include <business_layer/templates/audioplay_template.h>
-#include <business_layer/templates/comic_book_template.h>
 #include <business_layer/templates/novel_template.h>
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/simple_text_template.h>
-#include <business_layer/templates/stageplay_template.h>
 #include <business_layer/templates/templates_facade.h>
 #include <include/custom_events.h>
 #include <ui/design_system/design_system.h>
@@ -154,53 +151,6 @@ QStringListModel* buildScreenplayParagraphTypesModel(QObject* _parent,
                                         TextParagraphType::UnformattedText,
                                     });
 }
-QStringListModel* buildComicBookParagraphTypesModel(QObject* _parent,
-                                                    QStringListModel* _model = nullptr)
-{
-    using namespace BusinessLayer;
-    return buildParagraphTypesModel(_parent, _model,
-                                    {
-                                        TextParagraphType::PageHeading,
-                                        TextParagraphType::PanelHeading,
-                                        TextParagraphType::Description,
-                                        TextParagraphType::Character,
-                                        TextParagraphType::Dialogue,
-                                        TextParagraphType::InlineNote,
-                                        TextParagraphType::UnformattedText,
-                                        TextParagraphType::SequenceHeading,
-                                    });
-}
-QStringListModel* buildAudioplayParagraphTypesModel(QObject* _parent,
-                                                    QStringListModel* _model = nullptr)
-{
-    using namespace BusinessLayer;
-    return buildParagraphTypesModel(_parent, _model,
-                                    {
-                                        TextParagraphType::SceneHeading,
-                                        TextParagraphType::Character,
-                                        TextParagraphType::Dialogue,
-                                        TextParagraphType::Sound,
-                                        TextParagraphType::Music,
-                                        TextParagraphType::Cue,
-                                        TextParagraphType::InlineNote,
-                                        TextParagraphType::UnformattedText,
-                                    });
-}
-QStringListModel* buildStageplayParagraphTypesModel(QObject* _parent,
-                                                    QStringListModel* _model = nullptr)
-{
-    using namespace BusinessLayer;
-    return buildParagraphTypesModel(_parent, _model,
-                                    {
-                                        TextParagraphType::SceneHeading,
-                                        TextParagraphType::Character,
-                                        TextParagraphType::Parenthetical,
-                                        TextParagraphType::Dialogue,
-                                        TextParagraphType::Action,
-                                        TextParagraphType::InlineNote,
-                                        TextParagraphType::UnformattedText,
-                                    });
-}
 QStringListModel* buildNovelParagraphTypesModel(QObject* _parent,
                                                 QStringListModel* _model = nullptr)
 {
@@ -246,9 +196,6 @@ public:
      */
     void initSimpleTextCard();
     void initScreenplayCard();
-    void initComicBookCard();
-    void initAudioplayCard();
-    void initStageplayCard();
     void initNovelCard();
 
     /**
@@ -445,111 +392,6 @@ public:
     //
     int screenplayCardBottomSpacerIndex = 0;
     //
-    // Comic book
-    //
-    Card* comicBookCard = nullptr;
-    QGridLayout* comicBookCardLayout = nullptr;
-    H5Label* comicBookTitle = nullptr;
-    Toggle* comicBookAvailable = nullptr;
-    //
-    // ... Comic book editor
-    //
-    H6Label* comicBookEditorTitle = nullptr;
-    ComboBox* comicBookEditorDefaultTemplate = nullptr;
-    IconButton* comicBookEditorDefaultTemplateOptions = nullptr;
-    CheckBox* comicBookEditorShowDialogueNumber = nullptr;
-    CheckBox* comicBookEditorSaveItemsFromText = nullptr;
-    CheckBox* comicBookEditorShowHintsForAllItems = nullptr;
-    CheckBox* comicBookEditorShowHintsForPrimaryItems = nullptr;
-    CheckBox* comicBookEditorShowHintsForSecondaryItems = nullptr;
-    CheckBox* comicBookEditorShowHintsForTertiaryItems = nullptr;
-    CheckBox* comicBookEditorShowCharacterSuggestionsInEmptyBlock = nullptr;
-    //
-    // ... Comic book navigator
-    //
-    H6Label* comicBookNavigatorTitle = nullptr;
-    CheckBox* comicBookNavigatorShowSceneText = nullptr;
-    RadioButton* comicBookNavigatorSceneDescriptionLines1 = nullptr;
-    RadioButton* comicBookNavigatorSceneDescriptionLines2 = nullptr;
-    RadioButton* comicBookNavigatorSceneDescriptionLines3 = nullptr;
-    RadioButton* comicBookNavigatorSceneDescriptionLines4 = nullptr;
-    RadioButton* comicBookNavigatorSceneDescriptionLines5 = nullptr;
-    //
-    int comicBookCardBottomSpacerIndex = 0;
-    //
-    // Audioplay
-    //
-    Card* audioplayCard = nullptr;
-    QGridLayout* audioplayCardLayout = nullptr;
-    H5Label* audioplayTitle = nullptr;
-    Toggle* audioplayAvailable = nullptr;
-    //
-    // ... Audioplay editor
-    //
-    H6Label* audioplayEditorTitle = nullptr;
-    ComboBox* audioplayEditorDefaultTemplate = nullptr;
-    IconButton* audioplayEditorDefaultTemplateOptions = nullptr;
-    CheckBox* audioplayEditorShowBlockNumber = nullptr;
-    CheckBox* audioplayEditorContinueBlockNumbers = nullptr;
-    CheckBox* audioplayEditorSaveItemsFromText = nullptr;
-    CheckBox* audioplayEditorShowHintsForAllItems = nullptr;
-    CheckBox* audioplayEditorShowHintsForPrimaryItems = nullptr;
-    CheckBox* audioplayEditorShowHintsForSecondaryItems = nullptr;
-    CheckBox* audioplayEditorShowHintsForTertiaryItems = nullptr;
-    CheckBox* audioplayEditorShowCharacterSuggestionsInEmptyBlock = nullptr;
-    //
-    // ... Audioplay navigator
-    //
-    H6Label* audioplayNavigatorTitle = nullptr;
-    CheckBox* audioplayNavigatorShowSceneNumber = nullptr;
-    CheckBox* audioplayNavigatorShowSceneText = nullptr;
-    RadioButton* audioplayNavigatorSceneDescriptionLines1 = nullptr;
-    RadioButton* audioplayNavigatorSceneDescriptionLines2 = nullptr;
-    RadioButton* audioplayNavigatorSceneDescriptionLines3 = nullptr;
-    RadioButton* audioplayNavigatorSceneDescriptionLines4 = nullptr;
-    RadioButton* audioplayNavigatorSceneDescriptionLines5 = nullptr;
-    //
-    // ... Audioplay duration
-    //
-    H6Label* audioplayDurationTitle = nullptr;
-    Body1Label* audioplayDurationByWordsTitle = nullptr;
-    TextField* audioplayDurationByWordsWords = nullptr;
-    TextField* audioplayDurationByWordsDuration = nullptr;
-    //
-    int audioplayCardBottomSpacerIndex = 0;
-    //
-    // Stageplay
-    //
-    Card* stageplayCard = nullptr;
-    QGridLayout* stageplayCardLayout = nullptr;
-    H5Label* stageplayTitle = nullptr;
-    Toggle* stageplayAvailable = nullptr;
-    //
-    // ... Stageplay editor
-    //
-    H6Label* stageplayEditorTitle = nullptr;
-    ComboBox* stageplayEditorDefaultTemplate = nullptr;
-    IconButton* stageplayEditorDefaultTemplateOptions = nullptr;
-    CheckBox* stageplayEditorSaveItemsFromText = nullptr;
-    CheckBox* stageplayEditorShowHintsForAllItems = nullptr;
-    CheckBox* stageplayEditorShowHintsForPrimaryItems = nullptr;
-    CheckBox* stageplayEditorShowHintsForSecondaryItems = nullptr;
-    CheckBox* stageplayEditorShowHintsForTertiaryItems = nullptr;
-    CheckBox* stageplayEditorShowCharacterSuggestionsInEmptyBlock = nullptr;
-    //
-    // ... Stageplay navigator
-    //
-    H6Label* stageplayNavigatorTitle = nullptr;
-    CheckBox* stageplayNavigatorShowSceneNumber = nullptr;
-    CheckBox* stageplayNavigatorShowSceneText = nullptr;
-    RadioButton* stageplayNavigatorSceneDescriptionLines1 = nullptr;
-    RadioButton* stageplayNavigatorSceneDescriptionLines2 = nullptr;
-    RadioButton* stageplayNavigatorSceneDescriptionLines3 = nullptr;
-    RadioButton* stageplayNavigatorSceneDescriptionLines4 = nullptr;
-    RadioButton* stageplayNavigatorSceneDescriptionLines5 = nullptr;
-    //
-    int stageplayCardBottomSpacerIndex = 0;
-    //
     // Simple text
     //
     Card* novelCard = nullptr;
@@ -610,33 +452,6 @@ public:
     QStringListModel* screenplayParagraphTypesModel = nullptr;
     ComboBoxItemDelegate* screenplayParagraphAddTypeDelegate = nullptr;
     ComboBoxItemDelegate* screenplayParagraphChangeTypeDelegate = nullptr;
-    //
-    // ... ComicBook
-    //
-    H6Label* shortcutsForComicBookTitle = nullptr;
-    Tree* shortcutsForComicBook = nullptr;
-    HierarchicalModel* shortcutsForComicBookModel = nullptr;
-    QStringListModel* comicBookParagraphTypesModel = nullptr;
-    ComboBoxItemDelegate* comicBookParagraphAddTypeDelegate = nullptr;
-    ComboBoxItemDelegate* comicBookParagraphChangeTypeDelegate = nullptr;
-    //
-    // ... Audioplay
-    //
-    H6Label* shortcutsForAudioplayTitle = nullptr;
-    Tree* shortcutsForAudioplay = nullptr;
-    HierarchicalModel* shortcutsForAudioplayModel = nullptr;
-    QStringListModel* audioplayParagraphTypesModel = nullptr;
-    ComboBoxItemDelegate* audioplayParagraphAddTypeDelegate = nullptr;
-    ComboBoxItemDelegate* audioplayParagraphChangeTypeDelegate = nullptr;
-    //
-    // ... Stageplay
-    //
-    H6Label* shortcutsForStageplayTitle = nullptr;
-    Tree* shortcutsForStageplay = nullptr;
-    HierarchicalModel* shortcutsForStageplayModel = nullptr;
-    QStringListModel* stageplayParagraphTypesModel = nullptr;
-    ComboBoxItemDelegate* stageplayParagraphAddTypeDelegate = nullptr;
-    ComboBoxItemDelegate* stageplayParagraphChangeTypeDelegate = nullptr;
     //
     // ... Novel
     //
@@ -777,78 +592,6 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     , screenplayDurationConfigurablePerEvery50ForSceneHeading(new TextField(screenplayCard))
     , screenplayDurationUseEighths(new RadioButton(screenplayCard))
     //
-    , comicBookCard(new Card(content))
-    , comicBookCardLayout(new QGridLayout)
-    , comicBookTitle(new H5Label(comicBookCard))
-    , comicBookAvailable(new Toggle(comicBookCard))
-    , comicBookEditorTitle(new H6Label(comicBookCard))
-    , comicBookEditorDefaultTemplate(new ComboBox(comicBookCard))
-    , comicBookEditorDefaultTemplateOptions(new IconButton(comicBookCard))
-    , comicBookEditorShowDialogueNumber(new CheckBox(comicBookCard))
-    , comicBookEditorSaveItemsFromText(new CheckBox(screenplayCard))
-    , comicBookEditorShowHintsForAllItems(new CheckBox(screenplayCard))
-    , comicBookEditorShowHintsForPrimaryItems(new CheckBox(screenplayCard))
-    , comicBookEditorShowHintsForSecondaryItems(new CheckBox(screenplayCard))
-    , comicBookEditorShowHintsForTertiaryItems(new CheckBox(screenplayCard))
-    , comicBookEditorShowCharacterSuggestionsInEmptyBlock(new CheckBox(comicBookCard))
-    , comicBookNavigatorTitle(new H6Label(comicBookCard))
-    , comicBookNavigatorShowSceneText(new CheckBox(comicBookCard))
-    , comicBookNavigatorSceneDescriptionLines1(new RadioButton(comicBookCard))
-    , comicBookNavigatorSceneDescriptionLines2(new RadioButton(comicBookCard))
-    , comicBookNavigatorSceneDescriptionLines3(new RadioButton(comicBookCard))
-    , comicBookNavigatorSceneDescriptionLines4(new RadioButton(comicBookCard))
-    , comicBookNavigatorSceneDescriptionLines5(new RadioButton(comicBookCard))
-    //
-    , audioplayCard(new Card(content))
-    , audioplayCardLayout(new QGridLayout)
-    , audioplayTitle(new H5Label(audioplayCard))
-    , audioplayAvailable(new Toggle(audioplayCard))
-    , audioplayEditorTitle(new H6Label(audioplayCard))
-    , audioplayEditorDefaultTemplate(new ComboBox(audioplayCard))
-    , audioplayEditorDefaultTemplateOptions(new IconButton(audioplayCard))
-    , audioplayEditorShowBlockNumber(new CheckBox(audioplayCard))
-    , audioplayEditorContinueBlockNumbers(new CheckBox(audioplayCard))
-    , audioplayEditorSaveItemsFromText(new CheckBox(screenplayCard))
-    , audioplayEditorShowHintsForAllItems(new CheckBox(screenplayCard))
-    , audioplayEditorShowHintsForPrimaryItems(new CheckBox(screenplayCard))
-    , audioplayEditorShowHintsForSecondaryItems(new CheckBox(screenplayCard))
-    , audioplayEditorShowHintsForTertiaryItems(new CheckBox(screenplayCard))
-    , audioplayEditorShowCharacterSuggestionsInEmptyBlock(new CheckBox(audioplayCard))
-    , audioplayNavigatorTitle(new H6Label(audioplayCard))
-    , audioplayNavigatorShowSceneNumber(new CheckBox(audioplayCard))
-    , audioplayNavigatorShowSceneText(new CheckBox(audioplayCard))
-    , audioplayNavigatorSceneDescriptionLines1(new RadioButton(audioplayCard))
-    , audioplayNavigatorSceneDescriptionLines2(new RadioButton(audioplayCard))
-    , audioplayNavigatorSceneDescriptionLines3(new RadioButton(audioplayCard))
-    , audioplayNavigatorSceneDescriptionLines4(new RadioButton(audioplayCard))
-    , audioplayNavigatorSceneDescriptionLines5(new RadioButton(audioplayCard))
-    , audioplayDurationTitle(new H6Label(audioplayCard))
-    , audioplayDurationByWordsTitle(new Body1Label(audioplayCard))
-    , audioplayDurationByWordsWords(new TextField(audioplayCard))
-    , audioplayDurationByWordsDuration(new TextField(audioplayCard))
-    //
-    , stageplayCard(new Card(content))
-    , stageplayCardLayout(new QGridLayout)
-    , stageplayTitle(new H5Label(stageplayCard))
-    , stageplayAvailable(new Toggle(stageplayCard))
-    , stageplayEditorTitle(new H6Label(stageplayCard))
-    , stageplayEditorDefaultTemplate(new ComboBox(stageplayCard))
-    , stageplayEditorDefaultTemplateOptions(new IconButton(stageplayCard))
-    , stageplayEditorSaveItemsFromText(new CheckBox(screenplayCard))
-    , stageplayEditorShowHintsForAllItems(new CheckBox(screenplayCard))
-    , stageplayEditorShowHintsForPrimaryItems(new CheckBox(screenplayCard))
-    , stageplayEditorShowHintsForSecondaryItems(new CheckBox(screenplayCard))
-    , stageplayEditorShowHintsForTertiaryItems(new CheckBox(screenplayCard))
-    , stageplayEditorShowCharacterSuggestionsInEmptyBlock(new CheckBox(stageplayCard))
-    , stageplayNavigatorTitle(new H6Label(stageplayCard))
-    , stageplayNavigatorShowSceneNumber(new CheckBox(stageplayCard))
-    , stageplayNavigatorShowSceneText(new CheckBox(stageplayCard))
-    , stageplayNavigatorSceneDescriptionLines1(new RadioButton(stageplayCard))
-    , stageplayNavigatorSceneDescriptionLines2(new RadioButton(stageplayCard))
-    , stageplayNavigatorSceneDescriptionLines3(new RadioButton(stageplayCard))
-    , stageplayNavigatorSceneDescriptionLines4(new RadioButton(stageplayCard))
-    , stageplayNavigatorSceneDescriptionLines5(new RadioButton(stageplayCard))
-    //
     , novelCard(new Card(content))
     , novelCardLayout(new QGridLayout)
     , novelTitle(new H5Label(novelCard))
@@ -891,30 +634,6 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     , screenplayParagraphChangeTypeDelegate(
           new ComboBoxItemDelegate(shortcutsForScreenplay, screenplayParagraphTypesModel))
     //
-    , shortcutsForComicBookTitle(new H6Label(shortcutsCard))
-    , shortcutsForComicBook(new Tree(shortcutsCard))
-    , comicBookParagraphTypesModel(buildComicBookParagraphTypesModel(shortcutsForComicBook))
-    , comicBookParagraphAddTypeDelegate(
-          new ComboBoxItemDelegate(shortcutsForComicBook, comicBookParagraphTypesModel))
-    , comicBookParagraphChangeTypeDelegate(
-          new ComboBoxItemDelegate(shortcutsForComicBook, comicBookParagraphTypesModel))
-    //
-    , shortcutsForAudioplayTitle(new H6Label(shortcutsCard))
-    , shortcutsForAudioplay(new Tree(shortcutsCard))
-    , audioplayParagraphTypesModel(buildAudioplayParagraphTypesModel(shortcutsForAudioplay))
-    , audioplayParagraphAddTypeDelegate(
-          new ComboBoxItemDelegate(shortcutsForAudioplay, audioplayParagraphTypesModel))
-    , audioplayParagraphChangeTypeDelegate(
-          new ComboBoxItemDelegate(shortcutsForAudioplay, audioplayParagraphTypesModel))
-    //
-    , shortcutsForStageplayTitle(new H6Label(shortcutsCard))
-    , shortcutsForStageplay(new Tree(shortcutsCard))
-    , stageplayParagraphTypesModel(buildStageplayParagraphTypesModel(shortcutsForStageplay))
-    , stageplayParagraphAddTypeDelegate(
-          new ComboBoxItemDelegate(shortcutsForStageplay, stageplayParagraphTypesModel))
-    , stageplayParagraphChangeTypeDelegate(
-          new ComboBoxItemDelegate(shortcutsForStageplay, stageplayParagraphTypesModel))
-    //
     , shortcutsForNovelTitle(new H6Label(shortcutsCard))
     , shortcutsForNovel(new Tree(shortcutsCard))
     , novelParagraphTypesModel(buildNovelParagraphTypesModel(shortcutsForNovel))
@@ -937,9 +656,6 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     initApplicationCard();
     initSimpleTextCard();
     initScreenplayCard();
-    initComicBookCard();
-    initAudioplayCard();
-    initStageplayCard();
     initNovelCard();
     initShortcutsCard();
     initAdvancedCard();
@@ -949,9 +665,6 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     layout->addWidget(componentsTitle);
     layout->addWidget(simpleTextCard);
     layout->addWidget(screenplayCard);
-    layout->addWidget(comicBookCard);
-    layout->addWidget(audioplayCard);
-    layout->addWidget(stageplayCard);
     layout->addWidget(novelCard);
     layout->addWidget(shortcutsCard);
     layout->addWidget(advancedCard);
@@ -1349,257 +1062,6 @@ void SettingsView::Implementation::initScreenplayCard()
     screenplayCard->setContentLayout(screenplayCardLayout);
 }
 
-void SettingsView::Implementation::initComicBookCard()
-{
-    comicBookEditorDefaultTemplate->setSpellCheckPolicy(SpellCheckPolicy::Manual);
-    comicBookEditorDefaultTemplate->setModel(BusinessLayer::TemplatesFacade::comicBookTemplates());
-    comicBookEditorDefaultTemplateOptions->setIcon(u8"\U000F01D9");
-    //
-    auto linesGroup = new RadioButtonGroup(comicBookCard);
-    linesGroup->add(comicBookNavigatorSceneDescriptionLines1);
-    linesGroup->add(comicBookNavigatorSceneDescriptionLines2);
-    linesGroup->add(comicBookNavigatorSceneDescriptionLines3);
-    linesGroup->add(comicBookNavigatorSceneDescriptionLines4);
-    linesGroup->add(comicBookNavigatorSceneDescriptionLines5);
-    comicBookNavigatorSceneDescriptionLines1->setEnabled(false);
-    comicBookNavigatorSceneDescriptionLines1->setChecked(true);
-    comicBookNavigatorSceneDescriptionLines2->setEnabled(false);
-    comicBookNavigatorSceneDescriptionLines3->setEnabled(false);
-    comicBookNavigatorSceneDescriptionLines4->setEnabled(false);
-    comicBookNavigatorSceneDescriptionLines5->setEnabled(false);
-
-
-    //
-    // Компоновка
-    //
-    comicBookCardLayout->setContentsMargins({});
-    comicBookCardLayout->setSpacing(0);
-    int itemIndex = 0;
-    {
-        auto layout = makeLayout();
-        layout->addWidget(comicBookTitle);
-        layout->addStretch();
-        layout->addWidget(comicBookAvailable, 0, Qt::AlignVCenter);
-        comicBookCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    // ... редактор текста
-    //
-    comicBookCardLayout->addWidget(comicBookEditorTitle, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(comicBookEditorDefaultTemplate, 1);
-        layout->addWidget(comicBookEditorDefaultTemplateOptions);
-        comicBookCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    comicBookCardLayout->addWidget(comicBookEditorShowDialogueNumber, itemIndex++, 0);
-    comicBookCardLayout->addWidget(comicBookEditorSaveItemsFromText, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(comicBookEditorShowHintsForAllItems);
-        layout->addWidget(comicBookEditorShowHintsForPrimaryItems);
-        layout->addWidget(comicBookEditorShowHintsForSecondaryItems);
-        layout->addWidget(comicBookEditorShowHintsForTertiaryItems);
-        layout->addStretch();
-        comicBookCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    comicBookCardLayout->addWidget(comicBookEditorShowCharacterSuggestionsInEmptyBlock, itemIndex++,
-                                   0);
-    //
-    // ... навигатор текста
-    //
-    comicBookCardLayout->addWidget(comicBookNavigatorTitle, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(comicBookNavigatorShowSceneText);
-        layout->addWidget(comicBookNavigatorSceneDescriptionLines1);
-        layout->addWidget(comicBookNavigatorSceneDescriptionLines2);
-        layout->addWidget(comicBookNavigatorSceneDescriptionLines3);
-        layout->addWidget(comicBookNavigatorSceneDescriptionLines4);
-        layout->addWidget(comicBookNavigatorSceneDescriptionLines5);
-        layout->addStretch();
-        comicBookCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    comicBookCardBottomSpacerIndex = itemIndex;
-    comicBookCard->setContentLayout(comicBookCardLayout);
-}
-
-void SettingsView::Implementation::initAudioplayCard()
-{
-    audioplayEditorDefaultTemplate->setSpellCheckPolicy(SpellCheckPolicy::Manual);
-    audioplayEditorDefaultTemplate->setModel(BusinessLayer::TemplatesFacade::audioplayTemplates());
-    audioplayEditorDefaultTemplateOptions->setIcon(u8"\U000F01D9");
-    audioplayEditorContinueBlockNumbers->hide();
-    //
-    auto linesGroup = new RadioButtonGroup(audioplayCard);
-    linesGroup->add(audioplayNavigatorSceneDescriptionLines1);
-    linesGroup->add(audioplayNavigatorSceneDescriptionLines2);
-    linesGroup->add(audioplayNavigatorSceneDescriptionLines3);
-    linesGroup->add(audioplayNavigatorSceneDescriptionLines4);
-    linesGroup->add(audioplayNavigatorSceneDescriptionLines5);
-    audioplayNavigatorSceneDescriptionLines1->setEnabled(false);
-    audioplayNavigatorSceneDescriptionLines1->setChecked(true);
-    audioplayNavigatorSceneDescriptionLines2->setEnabled(false);
-    audioplayNavigatorSceneDescriptionLines3->setEnabled(false);
-    audioplayNavigatorSceneDescriptionLines4->setEnabled(false);
-    audioplayNavigatorSceneDescriptionLines5->setEnabled(false);
-    //
-    audioplayDurationByWordsWords->setSpellCheckPolicy(SpellCheckPolicy::Manual);
-    audioplayDurationByWordsDuration->setSpellCheckPolicy(SpellCheckPolicy::Manual);
-
-
-    //
-    // Компоновка
-    //
-    audioplayCardLayout->setContentsMargins({});
-    audioplayCardLayout->setSpacing(0);
-    int itemIndex = 0;
-    {
-        auto layout = makeLayout();
-        layout->addWidget(audioplayTitle);
-        layout->addStretch();
-        layout->addWidget(audioplayAvailable, 0, Qt::AlignVCenter);
-        audioplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    // ... редактор сценария
-    //
-    audioplayCardLayout->addWidget(audioplayEditorTitle, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(audioplayEditorDefaultTemplate, 1);
-        layout->addWidget(audioplayEditorDefaultTemplateOptions);
-        audioplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    {
-        auto layout = makeLayout();
-        layout->addWidget(audioplayEditorShowBlockNumber);
-        layout->addWidget(audioplayEditorContinueBlockNumbers);
-        layout->addStretch();
-        audioplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    audioplayCardLayout->addWidget(audioplayEditorSaveItemsFromText, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(audioplayEditorShowHintsForAllItems);
-        layout->addWidget(audioplayEditorShowHintsForPrimaryItems);
-        layout->addWidget(audioplayEditorShowHintsForSecondaryItems);
-        layout->addWidget(audioplayEditorShowHintsForTertiaryItems);
-        layout->addStretch();
-        audioplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    audioplayCardLayout->addWidget(audioplayEditorShowCharacterSuggestionsInEmptyBlock, itemIndex++,
-                                   0);
-    //
-    // ... навигатор сценария
-    //
-    audioplayCardLayout->addWidget(audioplayNavigatorTitle, itemIndex++, 0);
-    audioplayCardLayout->addWidget(audioplayNavigatorShowSceneNumber, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(audioplayNavigatorShowSceneText);
-        layout->addWidget(audioplayNavigatorSceneDescriptionLines1);
-        layout->addWidget(audioplayNavigatorSceneDescriptionLines2);
-        layout->addWidget(audioplayNavigatorSceneDescriptionLines3);
-        layout->addWidget(audioplayNavigatorSceneDescriptionLines4);
-        layout->addWidget(audioplayNavigatorSceneDescriptionLines5);
-        layout->addStretch();
-        audioplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    // ... счётчики хронометража
-    //
-    audioplayCardLayout->addWidget(audioplayDurationTitle, itemIndex++, 0);
-    audioplayCardLayout->addWidget(audioplayDurationByWordsTitle, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(audioplayDurationByWordsWords);
-        layout->addWidget(audioplayDurationByWordsDuration);
-        layout->addStretch();
-        audioplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    audioplayCardBottomSpacerIndex = itemIndex;
-    audioplayCard->setContentLayout(audioplayCardLayout);
-}
-
-void SettingsView::Implementation::initStageplayCard()
-{
-    stageplayEditorDefaultTemplate->setSpellCheckPolicy(SpellCheckPolicy::Manual);
-    stageplayEditorDefaultTemplate->setModel(BusinessLayer::TemplatesFacade::stageplayTemplates());
-    stageplayEditorDefaultTemplateOptions->setIcon(u8"\U000F01D9");
-    //
-    auto linesGroup = new RadioButtonGroup(stageplayCard);
-    linesGroup->add(stageplayNavigatorSceneDescriptionLines1);
-    linesGroup->add(stageplayNavigatorSceneDescriptionLines2);
-    linesGroup->add(stageplayNavigatorSceneDescriptionLines3);
-    linesGroup->add(stageplayNavigatorSceneDescriptionLines4);
-    linesGroup->add(stageplayNavigatorSceneDescriptionLines5);
-    stageplayNavigatorSceneDescriptionLines1->setEnabled(false);
-    stageplayNavigatorSceneDescriptionLines1->setChecked(true);
-    stageplayNavigatorSceneDescriptionLines2->setEnabled(false);
-    stageplayNavigatorSceneDescriptionLines3->setEnabled(false);
-    stageplayNavigatorSceneDescriptionLines4->setEnabled(false);
-    stageplayNavigatorSceneDescriptionLines5->setEnabled(false);
-
-
-    //
-    // Компоновка
-    //
-    stageplayCardLayout->setContentsMargins({});
-    stageplayCardLayout->setSpacing(0);
-    int itemIndex = 0;
-    {
-        auto layout = makeLayout();
-        layout->addWidget(stageplayTitle);
-        layout->addStretch();
-        layout->addWidget(stageplayAvailable, 0, Qt::AlignVCenter);
-        stageplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    // ... редактор сценария
-    //
-    stageplayCardLayout->addWidget(stageplayEditorTitle, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(stageplayEditorDefaultTemplate, 1);
-        layout->addWidget(stageplayEditorDefaultTemplateOptions);
-        stageplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    stageplayCardLayout->addWidget(stageplayEditorSaveItemsFromText, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(stageplayEditorShowHintsForAllItems);
-        layout->addWidget(stageplayEditorShowHintsForPrimaryItems);
-        layout->addWidget(stageplayEditorShowHintsForSecondaryItems);
-        layout->addWidget(stageplayEditorShowHintsForTertiaryItems);
-        layout->addStretch();
-        stageplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    stageplayCardLayout->addWidget(stageplayEditorShowCharacterSuggestionsInEmptyBlock, itemIndex++,
-                                   0);
-    //
-    // ... навигатор сценария
-    //
-    stageplayCardLayout->addWidget(stageplayNavigatorTitle, itemIndex++, 0);
-    stageplayCardLayout->addWidget(stageplayNavigatorShowSceneNumber, itemIndex++, 0);
-    {
-        auto layout = makeLayout();
-        layout->addWidget(stageplayNavigatorShowSceneText);
-        layout->addWidget(stageplayNavigatorSceneDescriptionLines1);
-        layout->addWidget(stageplayNavigatorSceneDescriptionLines2);
-        layout->addWidget(stageplayNavigatorSceneDescriptionLines3);
-        layout->addWidget(stageplayNavigatorSceneDescriptionLines4);
-        layout->addWidget(stageplayNavigatorSceneDescriptionLines5);
-        layout->addStretch();
-        stageplayCardLayout->addLayout(layout, itemIndex++, 0);
-    }
-    //
-    stageplayCardBottomSpacerIndex = itemIndex;
-    stageplayCard->setContentLayout(stageplayCardLayout);
-}
-
 void SettingsView::Implementation::initNovelCard()
 {
     novelEditorDefaultTemplate->setSpellCheckPolicy(SpellCheckPolicy::Manual);
@@ -1682,9 +1144,6 @@ void SettingsView::Implementation::initShortcutsCard()
     shortcutsForApplication->setHeader(new HierarchicalHeaderView(shortcutsForApplication));
     shortcutsForSimpleText->setHeader(new HierarchicalHeaderView(shortcutsForSimpleText));
     shortcutsForScreenplay->setHeader(new HierarchicalHeaderView(shortcutsForScreenplay));
-    shortcutsForComicBook->setHeader(new HierarchicalHeaderView(shortcutsForComicBook));
-    shortcutsForAudioplay->setHeader(new HierarchicalHeaderView(shortcutsForAudioplay));
-    shortcutsForStageplay->setHeader(new HierarchicalHeaderView(shortcutsForStageplay));
     shortcutsForNovel->setHeader(new HierarchicalHeaderView(shortcutsForNovel));
 
     shortcutsCardLayout->setContentsMargins({});
@@ -1698,12 +1157,6 @@ void SettingsView::Implementation::initShortcutsCard()
     shortcutsCardLayout->addWidget(shortcutsForSimpleText, itemIndex++, 0);
     shortcutsCardLayout->addWidget(shortcutsForScreenplayTitle, itemIndex++, 0);
     shortcutsCardLayout->addWidget(shortcutsForScreenplay, itemIndex++, 0);
-    shortcutsCardLayout->addWidget(shortcutsForComicBookTitle, itemIndex++, 0);
-    shortcutsCardLayout->addWidget(shortcutsForComicBook, itemIndex++, 0);
-    shortcutsCardLayout->addWidget(shortcutsForAudioplayTitle, itemIndex++, 0);
-    shortcutsCardLayout->addWidget(shortcutsForAudioplay, itemIndex++, 0);
-    shortcutsCardLayout->addWidget(shortcutsForStageplayTitle, itemIndex++, 0);
-    shortcutsCardLayout->addWidget(shortcutsForStageplay, itemIndex++, 0);
     shortcutsCardLayout->addWidget(shortcutsForNovelTitle, itemIndex++, 0);
     shortcutsCardLayout->addWidget(shortcutsForNovel, itemIndex++, 0);
     //
@@ -1763,9 +1216,6 @@ void SettingsView::Implementation::updateTablesGeometry()
     updateTableGeometry(shortcutsForApplication, 0.25);
     updateTableGeometry(shortcutsForSimpleText, 0.25);
     updateTableGeometry(shortcutsForScreenplay, 0.25);
-    updateTableGeometry(shortcutsForComicBook, 0.25);
-    updateTableGeometry(shortcutsForAudioplay, 0.25);
-    updateTableGeometry(shortcutsForStageplay, 0.25);
     updateTableGeometry(shortcutsForNovel, 0.25);
 }
 
@@ -2389,531 +1839,6 @@ SettingsView::SettingsView(QWidget* _parent)
     connect(d->screenplayDurationUseEighths, &RadioButton::checkedChanged, this,
             &SettingsView::screenplayDurationUseEighthsChanged);
     //
-    // ... Редактор комикса
-    //
-    connect(d->comicBookAvailable, &Toggle::checkedChanged, this, [this](bool _available) {
-        for (auto widget : std::vector<QWidget*>{
-                 d->comicBookEditorTitle,
-                 d->comicBookEditorDefaultTemplate,
-                 d->comicBookEditorDefaultTemplateOptions,
-                 d->comicBookEditorShowDialogueNumber,
-                 d->comicBookEditorSaveItemsFromText,
-                 d->comicBookEditorShowHintsForAllItems,
-                 d->comicBookEditorShowHintsForPrimaryItems,
-                 d->comicBookEditorShowHintsForSecondaryItems,
-                 d->comicBookEditorShowHintsForTertiaryItems,
-                 d->comicBookEditorShowCharacterSuggestionsInEmptyBlock,
-                 d->comicBookNavigatorTitle,
-                 d->comicBookNavigatorShowSceneText,
-                 d->comicBookNavigatorSceneDescriptionLines1,
-                 d->comicBookNavigatorSceneDescriptionLines2,
-                 d->comicBookNavigatorSceneDescriptionLines3,
-                 d->comicBookNavigatorSceneDescriptionLines4,
-                 d->comicBookNavigatorSceneDescriptionLines5,
-                 d->shortcutsForComicBookTitle,
-                 d->shortcutsForComicBook,
-             }) {
-            widget->setVisible(_available);
-        }
-        d->comicBookCardLayout->setRowMinimumHeight(d->comicBookCardBottomSpacerIndex,
-                                                    _available ? DesignSystem::layout().px24()
-                                                               : DesignSystem::layout().px12());
-        d->updateTablesGeometry();
-
-        emit comicBookAvailableChanged(_available);
-    });
-    connect(d->comicBookEditorDefaultTemplateOptions, &IconButton::clicked, this, [this] {
-        QVector<QAction*> actions;
-        const auto templateIndex = d->comicBookEditorDefaultTemplate->currentIndex();
-        const auto templateId
-            = templateIndex.data(BusinessLayer::TemplatesFacade::kTemplateIdRole).toString();
-        const auto isDefaultTemplate
-            = BusinessLayer::TemplatesFacade::comicBookTemplate(templateId).isDefault();
-        //
-        if (!isDefaultTemplate) {
-            auto editAction = new QAction(tr("Edit"), d->contextMenu);
-            connect(editAction, &QAction::triggered, this, [this, templateId] {
-                emit editCurrentComicBookEditorTemplateRequested(templateId);
-            });
-            actions.append(editAction);
-        }
-        //
-        auto duplicateAction
-            = new QAction(tr("Create new template based on current"), d->contextMenu);
-        connect(duplicateAction, &QAction::triggered, this, [this, templateId] {
-            emit duplicateCurrentComicBookEditorTemplateRequested(templateId);
-        });
-        actions.append(duplicateAction);
-        //
-        if (!isDefaultTemplate) {
-            auto saveToFileAction = new QAction(tr("Save to file"), d->contextMenu);
-            connect(saveToFileAction, &QAction::triggered, this, [this, templateId] {
-                emit saveToFileCurrentComicBookEditorTemplateRequested(templateId);
-            });
-            actions.append(saveToFileAction);
-            //
-            auto removeAction = new QAction(tr("Remove"), d->contextMenu);
-            connect(removeAction, &QAction::triggered, this, [this, templateId] {
-                emit removeCurrentComicBookEditorTemplateRequested(templateId);
-            });
-            actions.append(removeAction);
-        }
-        //
-        auto loadFromFileAction = new QAction(tr("Load template from file"), d->contextMenu);
-        loadFromFileAction->setSeparator(true);
-        connect(loadFromFileAction, &QAction::triggered, this,
-                &SettingsView::loadFromFileComicBookEditorTemplateRequested);
-        actions.append(loadFromFileAction);
-        //
-        d->contextMenu->setActions(actions);
-        d->contextMenu->showContextMenu(QCursor::pos());
-    });
-    connect(d->comicBookEditorShowHintsForAllItems, &CheckBox::checkedChanged, this,
-            [this](bool _checked) {
-                if (_checked) {
-                    d->comicBookEditorShowHintsForPrimaryItems->setChecked(false);
-                    d->comicBookEditorShowHintsForSecondaryItems->setChecked(false);
-                    d->comicBookEditorShowHintsForTertiaryItems->setChecked(false);
-                }
-            });
-    auto comicBookEditorCorrectShowHintsForAllItems = [this](bool _checked) {
-        if (_checked) {
-            d->comicBookEditorShowHintsForAllItems->setChecked(false);
-        }
-    };
-    connect(d->comicBookEditorShowHintsForPrimaryItems, &CheckBox::checkedChanged, this,
-            comicBookEditorCorrectShowHintsForAllItems);
-    connect(d->comicBookEditorShowHintsForSecondaryItems, &CheckBox::checkedChanged, this,
-            comicBookEditorCorrectShowHintsForAllItems);
-    connect(d->comicBookEditorShowHintsForTertiaryItems, &CheckBox::checkedChanged, this,
-            comicBookEditorCorrectShowHintsForAllItems);
-    //
-    connect(d->comicBookEditorDefaultTemplate, &ComboBox::currentIndexChanged, this,
-            [this](const QModelIndex& _index) {
-                emit comicBookEditorDefaultTemplateChanged(
-                    _index.data(BusinessLayer::TemplatesFacade::kTemplateIdRole).toString());
-            });
-    connect(d->comicBookEditorShowDialogueNumber, &CheckBox::checkedChanged, this,
-            &SettingsView::comicBookEditorShowDialogueNumberChanged);
-    connect(d->comicBookEditorSaveItemsFromText, &CheckBox::checkedChanged, this,
-            &SettingsView::comicBookEditorSaveItemsFromTextChanged);
-    auto notifyComicBookEditorShowHintsChanged = [this] {
-        emit comicBookEditorShowHintsChanged(
-            d->comicBookEditorShowHintsForAllItems->isChecked(),
-            d->comicBookEditorShowHintsForPrimaryItems->isChecked(),
-            d->comicBookEditorShowHintsForSecondaryItems->isChecked(),
-            d->comicBookEditorShowHintsForTertiaryItems->isChecked());
-    };
-    connect(d->comicBookEditorShowHintsForAllItems, &CheckBox::checkedChanged, this,
-            notifyComicBookEditorShowHintsChanged);
-    connect(d->comicBookEditorShowHintsForPrimaryItems, &CheckBox::checkedChanged, this,
-            notifyComicBookEditorShowHintsChanged);
-    connect(d->comicBookEditorShowHintsForSecondaryItems, &CheckBox::checkedChanged, this,
-            notifyComicBookEditorShowHintsChanged);
-    connect(d->comicBookEditorShowHintsForTertiaryItems, &CheckBox::checkedChanged, this,
-            notifyComicBookEditorShowHintsChanged);
-    connect(d->comicBookEditorShowCharacterSuggestionsInEmptyBlock, &CheckBox::checkedChanged, this,
-            &SettingsView::comicBookEditorShowCharacterSuggestionsInEmptyBlockChanged);
-    //
-    // ... навигатор текста
-    //
-    connect(d->comicBookNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->comicBookNavigatorSceneDescriptionLines1, &RadioButton::setEnabled);
-    connect(d->comicBookNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->comicBookNavigatorSceneDescriptionLines2, &RadioButton::setEnabled);
-    connect(d->comicBookNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->comicBookNavigatorSceneDescriptionLines3, &RadioButton::setEnabled);
-    connect(d->comicBookNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->comicBookNavigatorSceneDescriptionLines4, &RadioButton::setEnabled);
-    connect(d->comicBookNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->comicBookNavigatorSceneDescriptionLines5, &RadioButton::setEnabled);
-    //
-    auto notifycomicBookNavigatorShowSceneTextChanged = [this] {
-        int sceneTextLines = 1;
-        if (d->comicBookNavigatorSceneDescriptionLines2->isChecked()) {
-            sceneTextLines = 2;
-        } else if (d->comicBookNavigatorSceneDescriptionLines3->isChecked()) {
-            sceneTextLines = 3;
-        } else if (d->comicBookNavigatorSceneDescriptionLines4->isChecked()) {
-            sceneTextLines = 4;
-        } else if (d->comicBookNavigatorSceneDescriptionLines5->isChecked()) {
-            sceneTextLines = 5;
-        }
-        emit comicBookNavigatorShowSceneTextChanged(d->comicBookNavigatorShowSceneText->isChecked(),
-                                                    sceneTextLines);
-    };
-    connect(d->comicBookNavigatorShowSceneText, &CheckBox::checkedChanged, this,
-            notifycomicBookNavigatorShowSceneTextChanged);
-    connect(d->comicBookNavigatorSceneDescriptionLines1, &RadioButton::checkedChanged, this,
-            notifycomicBookNavigatorShowSceneTextChanged);
-    connect(d->comicBookNavigatorSceneDescriptionLines2, &RadioButton::checkedChanged, this,
-            notifycomicBookNavigatorShowSceneTextChanged);
-    connect(d->comicBookNavigatorSceneDescriptionLines3, &RadioButton::checkedChanged, this,
-            notifycomicBookNavigatorShowSceneTextChanged);
-    connect(d->comicBookNavigatorSceneDescriptionLines4, &RadioButton::checkedChanged, this,
-            notifycomicBookNavigatorShowSceneTextChanged);
-    connect(d->comicBookNavigatorSceneDescriptionLines5, &RadioButton::checkedChanged, this,
-            notifycomicBookNavigatorShowSceneTextChanged);
-    //
-    // ... Редактор аудиопостановки
-    //
-    connect(d->audioplayAvailable, &Toggle::checkedChanged, this, [this](bool _available) {
-        for (auto widget : std::vector<QWidget*>{
-                 d->audioplayEditorTitle,
-                 d->audioplayEditorDefaultTemplate,
-                 d->audioplayEditorDefaultTemplateOptions,
-                 d->audioplayEditorShowBlockNumber,
-                 d->audioplayEditorContinueBlockNumbers,
-                 d->audioplayEditorSaveItemsFromText,
-                 d->audioplayEditorShowHintsForAllItems,
-                 d->audioplayEditorShowHintsForPrimaryItems,
-                 d->audioplayEditorShowHintsForSecondaryItems,
-                 d->audioplayEditorShowHintsForTertiaryItems,
-                 d->audioplayEditorShowCharacterSuggestionsInEmptyBlock,
-                 d->audioplayNavigatorTitle,
-                 d->audioplayNavigatorShowSceneNumber,
-                 d->audioplayNavigatorShowSceneText,
-                 d->audioplayNavigatorSceneDescriptionLines1,
-                 d->audioplayNavigatorSceneDescriptionLines2,
-                 d->audioplayNavigatorSceneDescriptionLines3,
-                 d->audioplayNavigatorSceneDescriptionLines4,
-                 d->audioplayNavigatorSceneDescriptionLines5,
-                 d->audioplayDurationTitle,
-                 d->audioplayDurationByWordsTitle,
-                 d->audioplayDurationByWordsWords,
-                 d->audioplayDurationByWordsDuration,
-                 d->shortcutsForAudioplayTitle,
-                 d->shortcutsForAudioplay,
-             }) {
-            widget->setVisible(_available);
-        }
-        d->audioplayCardLayout->setRowMinimumHeight(d->audioplayCardBottomSpacerIndex,
-                                                    _available ? DesignSystem::layout().px24()
-                                                               : DesignSystem::layout().px12());
-        d->updateTablesGeometry();
-
-        emit audioplayAvailableChanged(_available);
-    });
-    connect(d->audioplayEditorDefaultTemplateOptions, &IconButton::clicked, this, [this] {
-        QVector<QAction*> actions;
-        const auto templateIndex = d->audioplayEditorDefaultTemplate->currentIndex();
-        const auto templateId
-            = templateIndex.data(BusinessLayer::TemplatesFacade::kTemplateIdRole).toString();
-        const auto isDefaultTemplate
-            = BusinessLayer::TemplatesFacade::audioplayTemplate(templateId).isDefault();
-        //
-        if (!isDefaultTemplate) {
-            auto editAction = new QAction(tr("Edit"), d->contextMenu);
-            connect(editAction, &QAction::triggered, this, [this, templateId] {
-                emit editCurrentAudioplayEditorTemplateRequested(templateId);
-            });
-            actions.append(editAction);
-        }
-        //
-        auto duplicateAction
-            = new QAction(tr("Create new template based on current"), d->contextMenu);
-        connect(duplicateAction, &QAction::triggered, this, [this, templateId] {
-            emit duplicateCurrentAudioplayEditorTemplateRequested(templateId);
-        });
-        actions.append(duplicateAction);
-        //
-        if (!isDefaultTemplate) {
-            auto saveToFileAction = new QAction(tr("Save to file"), d->contextMenu);
-            connect(saveToFileAction, &QAction::triggered, this, [this, templateId] {
-                emit saveToFileCurrentAudioplayEditorTemplateRequested(templateId);
-            });
-            actions.append(saveToFileAction);
-            //
-            auto removeAction = new QAction(tr("Remove"), d->contextMenu);
-            connect(removeAction, &QAction::triggered, this, [this, templateId] {
-                emit removeCurrentAudioplayEditorTemplateRequested(templateId);
-            });
-            actions.append(removeAction);
-        }
-        //
-        auto loadFromFileAction = new QAction(tr("Load template from file"), d->contextMenu);
-        loadFromFileAction->setSeparator(true);
-        connect(loadFromFileAction, &QAction::triggered, this,
-                &SettingsView::loadFromFileAudioplayEditorTemplateRequested);
-        actions.append(loadFromFileAction);
-        //
-        d->contextMenu->setActions(actions);
-        d->contextMenu->showContextMenu(QCursor::pos());
-    });
-    connect(d->audioplayEditorShowBlockNumber, &CheckBox::checkedChanged,
-            d->audioplayEditorContinueBlockNumbers, &CheckBox::setEnabled);
-    connect(d->audioplayEditorShowHintsForAllItems, &CheckBox::checkedChanged, this,
-            [this](bool _checked) {
-                if (_checked) {
-                    d->audioplayEditorShowHintsForPrimaryItems->setChecked(false);
-                    d->audioplayEditorShowHintsForSecondaryItems->setChecked(false);
-                    d->audioplayEditorShowHintsForTertiaryItems->setChecked(false);
-                }
-            });
-    auto audioplayEditorCorrectShowHintsForAllItems = [this](bool _checked) {
-        if (_checked) {
-            d->audioplayEditorShowHintsForAllItems->setChecked(false);
-        }
-    };
-    connect(d->audioplayEditorShowHintsForPrimaryItems, &CheckBox::checkedChanged, this,
-            audioplayEditorCorrectShowHintsForAllItems);
-    connect(d->audioplayEditorShowHintsForSecondaryItems, &CheckBox::checkedChanged, this,
-            audioplayEditorCorrectShowHintsForAllItems);
-    connect(d->audioplayEditorShowHintsForTertiaryItems, &CheckBox::checkedChanged, this,
-            audioplayEditorCorrectShowHintsForAllItems);
-    //
-    connect(d->audioplayEditorDefaultTemplate, &ComboBox::currentIndexChanged, this,
-            [this](const QModelIndex& _index) {
-                emit audioplayEditorDefaultTemplateChanged(
-                    _index.data(BusinessLayer::TemplatesFacade::kTemplateIdRole).toString());
-            });
-    auto notifyAudioplayEditorShowSceneNumbersChanged = [this] {
-        emit audioplayEditorShowBlockNumberChanged(
-            d->audioplayEditorShowBlockNumber->isChecked(),
-            d->audioplayEditorContinueBlockNumbers->isChecked());
-    };
-    connect(d->audioplayEditorShowBlockNumber, &CheckBox::checkedChanged, this,
-            notifyAudioplayEditorShowSceneNumbersChanged);
-    connect(d->audioplayEditorContinueBlockNumbers, &CheckBox::checkedChanged, this,
-            notifyAudioplayEditorShowSceneNumbersChanged);
-    connect(d->audioplayEditorSaveItemsFromText, &CheckBox::checkedChanged, this,
-            &SettingsView::audioplayEditorSaveItemsFromTextChanged);
-    auto notifyAudioplayEditorShowHintsChanged = [this] {
-        emit audioplayEditorShowHintsChanged(
-            d->audioplayEditorShowHintsForAllItems->isChecked(),
-            d->audioplayEditorShowHintsForPrimaryItems->isChecked(),
-            d->audioplayEditorShowHintsForSecondaryItems->isChecked(),
-            d->audioplayEditorShowHintsForTertiaryItems->isChecked());
-    };
-    connect(d->audioplayEditorShowHintsForAllItems, &CheckBox::checkedChanged, this,
-            notifyAudioplayEditorShowHintsChanged);
-    connect(d->audioplayEditorShowHintsForPrimaryItems, &CheckBox::checkedChanged, this,
-            notifyAudioplayEditorShowHintsChanged);
-    connect(d->audioplayEditorShowHintsForSecondaryItems, &CheckBox::checkedChanged, this,
-            notifyAudioplayEditorShowHintsChanged);
-    connect(d->audioplayEditorShowHintsForTertiaryItems, &CheckBox::checkedChanged, this,
-            notifyAudioplayEditorShowHintsChanged);
-    connect(d->audioplayEditorShowCharacterSuggestionsInEmptyBlock, &CheckBox::checkedChanged, this,
-            &SettingsView::audioplayEditorShowCharacterSuggestionsInEmptyBlockChanged);
-    //
-    // ... навигатор сценария
-    //
-    connect(d->audioplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->audioplayNavigatorSceneDescriptionLines1, &RadioButton::setEnabled);
-    connect(d->audioplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->audioplayNavigatorSceneDescriptionLines2, &RadioButton::setEnabled);
-    connect(d->audioplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->audioplayNavigatorSceneDescriptionLines3, &RadioButton::setEnabled);
-    connect(d->audioplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->audioplayNavigatorSceneDescriptionLines4, &RadioButton::setEnabled);
-    connect(d->audioplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->audioplayNavigatorSceneDescriptionLines5, &RadioButton::setEnabled);
-    //
-    connect(d->audioplayNavigatorShowSceneNumber, &CheckBox::checkedChanged, this,
-            &SettingsView::audioplayNavigatorShowSceneNumberChanged);
-    auto notifyAudioplayNavigatorShowSceneTextChanged = [this] {
-        int sceneTextLines = 1;
-        if (d->audioplayNavigatorSceneDescriptionLines2->isChecked()) {
-            sceneTextLines = 2;
-        } else if (d->audioplayNavigatorSceneDescriptionLines3->isChecked()) {
-            sceneTextLines = 3;
-        } else if (d->audioplayNavigatorSceneDescriptionLines4->isChecked()) {
-            sceneTextLines = 4;
-        } else if (d->audioplayNavigatorSceneDescriptionLines5->isChecked()) {
-            sceneTextLines = 5;
-        }
-        emit audioplayNavigatorShowSceneTextChanged(d->audioplayNavigatorShowSceneText->isChecked(),
-                                                    sceneTextLines);
-    };
-    connect(d->audioplayNavigatorShowSceneText, &CheckBox::checkedChanged, this,
-            notifyAudioplayNavigatorShowSceneTextChanged);
-    connect(d->audioplayNavigatorSceneDescriptionLines1, &RadioButton::checkedChanged, this,
-            notifyAudioplayNavigatorShowSceneTextChanged);
-    connect(d->audioplayNavigatorSceneDescriptionLines2, &RadioButton::checkedChanged, this,
-            notifyAudioplayNavigatorShowSceneTextChanged);
-    connect(d->audioplayNavigatorSceneDescriptionLines3, &RadioButton::checkedChanged, this,
-            notifyAudioplayNavigatorShowSceneTextChanged);
-    connect(d->audioplayNavigatorSceneDescriptionLines4, &RadioButton::checkedChanged, this,
-            notifyAudioplayNavigatorShowSceneTextChanged);
-    connect(d->audioplayNavigatorSceneDescriptionLines5, &RadioButton::checkedChanged, this,
-            notifyAudioplayNavigatorShowSceneTextChanged);
-    //
-    // ... хронометраж
-    //
-    connect(d->audioplayDurationByWordsWords, &TextField::textChanged, this, [this] {
-        emit audioplayDurationByWordsWordsChanged(d->audioplayDurationByWordsWords->text().toInt());
-    });
-    connect(d->audioplayDurationByWordsDuration, &TextField::textChanged, this, [this] {
-        emit audioplayDurationByWordsDurationChanged(
-            d->audioplayDurationByWordsDuration->text().toInt());
-    });
-    //
-    // ... Редактор пьесы
-    //
-    connect(d->stageplayAvailable, &Toggle::checkedChanged, this, [this](bool _available) {
-        for (auto widget : std::vector<QWidget*>{
-                 d->stageplayEditorTitle,
-                 d->stageplayEditorDefaultTemplate,
-                 d->stageplayEditorDefaultTemplateOptions,
-                 d->stageplayEditorSaveItemsFromText,
-                 d->stageplayEditorShowHintsForAllItems,
-                 d->stageplayEditorShowHintsForPrimaryItems,
-                 d->stageplayEditorShowHintsForSecondaryItems,
-                 d->stageplayEditorShowHintsForTertiaryItems,
-                 d->stageplayEditorShowCharacterSuggestionsInEmptyBlock,
-                 d->stageplayNavigatorTitle,
-                 d->stageplayNavigatorShowSceneNumber,
-                 d->stageplayNavigatorShowSceneText,
-                 d->stageplayNavigatorSceneDescriptionLines1,
-                 d->stageplayNavigatorSceneDescriptionLines2,
-                 d->stageplayNavigatorSceneDescriptionLines3,
-                 d->stageplayNavigatorSceneDescriptionLines4,
-                 d->stageplayNavigatorSceneDescriptionLines5,
-                 d->shortcutsForStageplayTitle,
-                 d->shortcutsForStageplay,
-             }) {
-            widget->setVisible(_available);
-        }
-        d->stageplayCardLayout->setRowMinimumHeight(d->stageplayCardBottomSpacerIndex,
-                                                    _available ? DesignSystem::layout().px24()
-                                                               : DesignSystem::layout().px12());
-        d->updateTablesGeometry();
-
-        emit stageplayAvailableChanged(_available);
-    });
-    connect(d->stageplayEditorDefaultTemplateOptions, &IconButton::clicked, this, [this] {
-        QVector<QAction*> actions;
-        const auto templateIndex = d->stageplayEditorDefaultTemplate->currentIndex();
-        const auto templateId
-            = templateIndex.data(BusinessLayer::TemplatesFacade::kTemplateIdRole).toString();
-        const auto isDefaultTemplate
-            = BusinessLayer::TemplatesFacade::stageplayTemplate(templateId).isDefault();
-        //
-        if (!isDefaultTemplate) {
-            auto editAction = new QAction(tr("Edit"), d->contextMenu);
-            connect(editAction, &QAction::triggered, this, [this, templateId] {
-                emit editCurrentStageplayEditorTemplateRequested(templateId);
-            });
-            actions.append(editAction);
-        }
-        //
-        auto duplicateAction
-            = new QAction(tr("Create new template based on current"), d->contextMenu);
-        connect(duplicateAction, &QAction::triggered, this, [this, templateId] {
-            emit duplicateCurrentStageplayEditorTemplateRequested(templateId);
-        });
-        actions.append(duplicateAction);
-        //
-        if (!isDefaultTemplate) {
-            auto saveToFileAction = new QAction(tr("Save to file"), d->contextMenu);
-            connect(saveToFileAction, &QAction::triggered, this, [this, templateId] {
-                emit saveToFileCurrentStageplayEditorTemplateRequested(templateId);
-            });
-            actions.append(saveToFileAction);
-            //
-            auto removeAction = new QAction(tr("Remove"), d->contextMenu);
-            connect(removeAction, &QAction::triggered, this, [this, templateId] {
-                emit removeCurrentStageplayEditorTemplateRequested(templateId);
-            });
-            actions.append(removeAction);
-        }
-        //
-        auto loadFromFileAction = new QAction(tr("Load template from file"), d->contextMenu);
-        loadFromFileAction->setSeparator(true);
-        connect(loadFromFileAction, &QAction::triggered, this,
-                &SettingsView::loadFromFileStageplayEditorTemplateRequested);
-        actions.append(loadFromFileAction);
-        //
-        d->contextMenu->setActions(actions);
-        d->contextMenu->showContextMenu(QCursor::pos());
-    });
-    connect(d->stageplayEditorShowHintsForAllItems, &CheckBox::checkedChanged, this,
-            [this](bool _checked) {
-                if (_checked) {
-                    d->stageplayEditorShowHintsForPrimaryItems->setChecked(false);
-                    d->stageplayEditorShowHintsForSecondaryItems->setChecked(false);
-                    d->stageplayEditorShowHintsForTertiaryItems->setChecked(false);
-                }
-            });
-    auto stageplayEditorCorrectShowHintsForAllItems = [this](bool _checked) {
-        if (_checked) {
-            d->stageplayEditorShowHintsForAllItems->setChecked(false);
-        }
-    };
-    connect(d->stageplayEditorShowHintsForPrimaryItems, &CheckBox::checkedChanged, this,
-            stageplayEditorCorrectShowHintsForAllItems);
-    connect(d->stageplayEditorShowHintsForSecondaryItems, &CheckBox::checkedChanged, this,
-            stageplayEditorCorrectShowHintsForAllItems);
-    connect(d->stageplayEditorShowHintsForTertiaryItems, &CheckBox::checkedChanged, this,
-            stageplayEditorCorrectShowHintsForAllItems);
-    //
-    connect(d->stageplayEditorDefaultTemplate, &ComboBox::currentIndexChanged, this,
-            [this](const QModelIndex& _index) {
-                emit stageplayEditorDefaultTemplateChanged(
-                    _index.data(BusinessLayer::TemplatesFacade::kTemplateIdRole).toString());
-            });
-    connect(d->stageplayEditorSaveItemsFromText, &CheckBox::checkedChanged, this,
-            &SettingsView::stageplayEditorSaveItemsFromTextChanged);
-    auto notifyStageplayEditorShowHintsChanged = [this] {
-        emit stageplayEditorShowHintsChanged(
-            d->stageplayEditorShowHintsForAllItems->isChecked(),
-            d->stageplayEditorShowHintsForPrimaryItems->isChecked(),
-            d->stageplayEditorShowHintsForSecondaryItems->isChecked(),
-            d->stageplayEditorShowHintsForTertiaryItems->isChecked());
-    };
-    connect(d->stageplayEditorShowHintsForAllItems, &CheckBox::checkedChanged, this,
-            notifyStageplayEditorShowHintsChanged);
-    connect(d->stageplayEditorShowHintsForPrimaryItems, &CheckBox::checkedChanged, this,
-            notifyStageplayEditorShowHintsChanged);
-    connect(d->stageplayEditorShowHintsForSecondaryItems, &CheckBox::checkedChanged, this,
-            notifyStageplayEditorShowHintsChanged);
-    connect(d->stageplayEditorShowHintsForTertiaryItems, &CheckBox::checkedChanged, this,
-            notifyStageplayEditorShowHintsChanged);
-    connect(d->stageplayEditorShowCharacterSuggestionsInEmptyBlock, &CheckBox::checkedChanged, this,
-            &SettingsView::stageplayEditorShowCharacterSuggestionsInEmptyBlockChanged);
-    //
-    // ... навигатор пьесы
-    //
-    connect(d->stageplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->stageplayNavigatorSceneDescriptionLines1, &RadioButton::setEnabled);
-    connect(d->stageplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->stageplayNavigatorSceneDescriptionLines2, &RadioButton::setEnabled);
-    connect(d->stageplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->stageplayNavigatorSceneDescriptionLines3, &RadioButton::setEnabled);
-    connect(d->stageplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->stageplayNavigatorSceneDescriptionLines4, &RadioButton::setEnabled);
-    connect(d->stageplayNavigatorShowSceneText, &CheckBox::checkedChanged,
-            d->stageplayNavigatorSceneDescriptionLines5, &RadioButton::setEnabled);
-    //
-    connect(d->stageplayNavigatorShowSceneNumber, &CheckBox::checkedChanged, this,
-            &SettingsView::stageplayNavigatorShowSceneNumberChanged);
-    auto notifyStageplayNavigatorShowSceneTextChanged = [this] {
-        int sceneTextLines = 1;
-        if (d->stageplayNavigatorSceneDescriptionLines2->isChecked()) {
-            sceneTextLines = 2;
-        } else if (d->stageplayNavigatorSceneDescriptionLines3->isChecked()) {
-            sceneTextLines = 3;
-        } else if (d->stageplayNavigatorSceneDescriptionLines4->isChecked()) {
-            sceneTextLines = 4;
-        } else if (d->stageplayNavigatorSceneDescriptionLines5->isChecked()) {
-            sceneTextLines = 5;
-        }
-        emit stageplayNavigatorShowSceneTextChanged(d->stageplayNavigatorShowSceneText->isChecked(),
-                                                    sceneTextLines);
-    };
-    connect(d->stageplayNavigatorShowSceneText, &CheckBox::checkedChanged, this,
-            notifyStageplayNavigatorShowSceneTextChanged);
-    connect(d->stageplayNavigatorSceneDescriptionLines1, &RadioButton::checkedChanged, this,
-            notifyStageplayNavigatorShowSceneTextChanged);
-    connect(d->stageplayNavigatorSceneDescriptionLines2, &RadioButton::checkedChanged, this,
-            notifyStageplayNavigatorShowSceneTextChanged);
-    connect(d->stageplayNavigatorSceneDescriptionLines3, &RadioButton::checkedChanged, this,
-            notifyStageplayNavigatorShowSceneTextChanged);
-    connect(d->stageplayNavigatorSceneDescriptionLines4, &RadioButton::checkedChanged, this,
-            notifyStageplayNavigatorShowSceneTextChanged);
-    connect(d->stageplayNavigatorSceneDescriptionLines5, &RadioButton::checkedChanged, this,
-            notifyStageplayNavigatorShowSceneTextChanged);
-    //
     // ... Редактор романа
     //
     connect(d->novelAvailable, &Toggle::checkedChanged, this, [this](bool _available) {
@@ -3108,21 +2033,6 @@ void SettingsView::showComponentsSimpleText()
 void SettingsView::showComponentsScreenplay()
 {
     d->scrollToTitle(d->screenplayTitle);
-}
-
-void SettingsView::showComponentsComicBook()
-{
-    d->scrollToTitle(d->comicBookTitle);
-}
-
-void SettingsView::showComponentsAudioplay()
-{
-    d->scrollToTitle(d->audioplayTitle);
-}
-
-void SettingsView::showComponentsStageplay()
-{
-    d->scrollToTitle(d->stageplayTitle);
 }
 
 void SettingsView::showComponentsNovel()
@@ -3583,193 +2493,6 @@ void SettingsView::setScreenplayDurationUseEighths(bool _use)
     d->screenplayDurationUseEighths->setChecked(_use);
 }
 
-void SettingsView::setComicBookAvailable(bool _available)
-{
-    d->comicBookAvailable->setChecked(_available);
-}
-
-void SettingsView::setComicBookEditorDefaultTemplate(const QString& _templateId)
-{
-    using namespace BusinessLayer;
-    for (int row = 0; row < TemplatesFacade::comicBookTemplates()->rowCount(); ++row) {
-        auto item = TemplatesFacade::comicBookTemplates()->item(row);
-        if (item->data(TemplatesFacade::kTemplateIdRole).toString() != _templateId) {
-            continue;
-        }
-
-        d->comicBookEditorDefaultTemplate->setCurrentIndex(item->index());
-        break;
-    }
-}
-
-void SettingsView::setComicBookEditorShowDialogueNumber(bool _show)
-{
-    d->comicBookEditorShowDialogueNumber->setChecked(_show);
-}
-
-void SettingsView::setComicBookEditorSaveItemsFromText(bool _save)
-{
-    d->comicBookEditorSaveItemsFromText->setChecked(_save);
-}
-
-void SettingsView::setComicBookEditorShowHints(bool _all, bool _primary, bool _secondary,
-                                               bool _tertiary)
-{
-    d->comicBookEditorShowHintsForAllItems->setChecked(_all);
-    d->comicBookEditorShowHintsForPrimaryItems->setChecked(_primary);
-    d->comicBookEditorShowHintsForSecondaryItems->setChecked(_secondary);
-    d->comicBookEditorShowHintsForTertiaryItems->setChecked(_tertiary);
-}
-
-void SettingsView::setComicBookEditorShowCharacterSuggestionsInEmptyBlock(bool _show)
-{
-    d->comicBookEditorShowCharacterSuggestionsInEmptyBlock->setChecked(_show);
-}
-
-void SettingsView::setComicBookNavigatorShowSceneText(bool _show, int _lines)
-{
-    d->comicBookNavigatorShowSceneText->setChecked(_show);
-    if (_show) {
-        const QHash<int, RadioButton*> buttons
-            = { { 1, d->comicBookNavigatorSceneDescriptionLines1 },
-                { 2, d->comicBookNavigatorSceneDescriptionLines2 },
-                { 3, d->comicBookNavigatorSceneDescriptionLines3 },
-                { 4, d->comicBookNavigatorSceneDescriptionLines4 },
-                { 5, d->comicBookNavigatorSceneDescriptionLines5 } };
-        buttons[_lines]->setChecked(true);
-    }
-}
-
-void SettingsView::setAudioplayAvailable(bool _available)
-{
-    d->audioplayAvailable->setChecked(_available);
-}
-
-void SettingsView::setAudioplayEditorDefaultTemplate(const QString& _templateId)
-{
-    using namespace BusinessLayer;
-    for (int row = 0; row < TemplatesFacade::audioplayTemplates()->rowCount(); ++row) {
-        auto item = TemplatesFacade::audioplayTemplates()->item(row);
-        if (item->data(TemplatesFacade::kTemplateIdRole).toString() != _templateId) {
-            continue;
-        }
-
-        d->audioplayEditorDefaultTemplate->setCurrentIndex(item->index());
-        break;
-    }
-}
-
-void SettingsView::setAudioplayEditorShowBlockNumber(bool _show, bool _continue)
-{
-    Q_UNUSED(_continue)
-    d->audioplayEditorShowBlockNumber->setChecked(_show);
-}
-
-void SettingsView::setAudioplayEditorSaveItemsFromText(bool _save)
-{
-    d->audioplayEditorSaveItemsFromText->setChecked(_save);
-}
-
-void SettingsView::setAudioplayEditorShowHints(bool _all, bool _primary, bool _secondary,
-                                               bool _tertiary)
-{
-    d->audioplayEditorShowHintsForAllItems->setChecked(_all);
-    d->audioplayEditorShowHintsForPrimaryItems->setChecked(_primary);
-    d->audioplayEditorShowHintsForSecondaryItems->setChecked(_secondary);
-    d->audioplayEditorShowHintsForTertiaryItems->setChecked(_tertiary);
-}
-
-void SettingsView::setAudioplayEditorShowCharacterSuggestionsInEmptyBlock(bool _show)
-{
-    d->audioplayEditorShowCharacterSuggestionsInEmptyBlock->setChecked(_show);
-}
-
-void SettingsView::setAudioplayNavigatorShowSceneNumber(bool _show)
-{
-    d->audioplayNavigatorShowSceneNumber->setChecked(_show);
-}
-
-void SettingsView::setAudioplayNavigatorShowSceneText(bool _show, int _lines)
-{
-    d->audioplayNavigatorShowSceneText->setChecked(_show);
-    if (_show) {
-        const QHash<int, RadioButton*> buttons
-            = { { 1, d->audioplayNavigatorSceneDescriptionLines1 },
-                { 2, d->audioplayNavigatorSceneDescriptionLines2 },
-                { 3, d->audioplayNavigatorSceneDescriptionLines3 },
-                { 4, d->audioplayNavigatorSceneDescriptionLines4 },
-                { 5, d->audioplayNavigatorSceneDescriptionLines5 } };
-        buttons[_lines]->setChecked(true);
-    }
-}
-
-void SettingsView::setAudioplayDurationByWordsWords(int _words)
-{
-    d->audioplayDurationByWordsWords->setText(QString::number(_words));
-}
-
-void SettingsView::setAudioplayDurationByWordsDuration(int _duration)
-{
-    d->audioplayDurationByWordsDuration->setText(QString::number(_duration));
-}
-
-void SettingsView::setStageplayAvailable(bool _available)
-{
-    d->stageplayAvailable->setChecked(_available);
-}
-
-void SettingsView::setStageplayEditorDefaultTemplate(const QString& _templateId)
-{
-    using namespace BusinessLayer;
-    for (int row = 0; row < TemplatesFacade::stageplayTemplates()->rowCount(); ++row) {
-        auto item = TemplatesFacade::stageplayTemplates()->item(row);
-        if (item->data(TemplatesFacade::kTemplateIdRole).toString() != _templateId) {
-            continue;
-        }
-
-        d->stageplayEditorDefaultTemplate->setCurrentIndex(item->index());
-        break;
-    }
-}
-
-void SettingsView::setStageplayEditorSaveItemsFromText(bool _save)
-{
-    d->stageplayEditorSaveItemsFromText->setChecked(_save);
-}
-
-void SettingsView::setStageplayEditorShowHints(bool _all, bool _primary, bool _secondary,
-                                               bool _tertiary)
-{
-    d->stageplayEditorShowHintsForAllItems->setChecked(_all);
-    d->stageplayEditorShowHintsForPrimaryItems->setChecked(_primary);
-    d->stageplayEditorShowHintsForSecondaryItems->setChecked(_secondary);
-    d->stageplayEditorShowHintsForTertiaryItems->setChecked(_tertiary);
-}
-
-void SettingsView::setStageplayEditorShowCharacterSuggestionsInEmptyBlock(bool _show)
-{
-    d->stageplayEditorShowCharacterSuggestionsInEmptyBlock->setChecked(_show);
-}
-
-void SettingsView::setStageplayNavigatorShowSceneNumber(bool _show)
-{
-    d->stageplayNavigatorShowSceneNumber->setChecked(_show);
-}
-
-void SettingsView::setStageplayNavigatorShowSceneText(bool _show, int _lines)
-{
-    d->stageplayNavigatorShowSceneText->setChecked(_show);
-    if (_show) {
-        const QHash<int, RadioButton*> buttons
-            = { { 1, d->stageplayNavigatorSceneDescriptionLines1 },
-                { 2, d->stageplayNavigatorSceneDescriptionLines2 },
-                { 3, d->stageplayNavigatorSceneDescriptionLines3 },
-                { 4, d->stageplayNavigatorSceneDescriptionLines4 },
-                { 5, d->stageplayNavigatorSceneDescriptionLines5 } };
-        buttons[_lines]->setChecked(true);
-    }
-}
-
 void SettingsView::setNovelAvailable(bool _available)
 {
     d->novelAvailable->setChecked(_available);
@@ -3940,141 +2663,6 @@ void SettingsView::setShortcutsForScreenplayModel(HierarchicalModel* _model)
 
             emit shortcutsForScreenplayEditorChanged(blockType, shortcut, jumpByTab, jumpByEnter,
                                                      changeByTab, changeByEnter);
-        });
-}
-
-void SettingsView::setShortcutsForComicBookModel(HierarchicalModel* _model)
-{
-    if (d->shortcutsForComicBookModel) {
-        d->shortcutsForComicBookModel->disconnect(this);
-        d->shortcutsForComicBookModel->deleteLater();
-    }
-
-    d->shortcutsForComicBookModel = _model;
-
-    d->shortcutsForComicBook->setModel(d->shortcutsForComicBookModel);
-    d->shortcutsForComicBook->setItemDelegateForColumn(
-        1, new KeySequenceDelegate(d->shortcutsForComicBook));
-    d->shortcutsForComicBook->setItemDelegateForColumn(2, d->comicBookParagraphAddTypeDelegate);
-    d->shortcutsForComicBook->setItemDelegateForColumn(3, d->comicBookParagraphAddTypeDelegate);
-    d->shortcutsForComicBook->setItemDelegateForColumn(4, d->comicBookParagraphChangeTypeDelegate);
-    d->shortcutsForComicBook->setItemDelegateForColumn(5, d->comicBookParagraphChangeTypeDelegate);
-    d->updateTablesGeometry();
-
-    connect(
-        d->shortcutsForComicBookModel, &HierarchicalModel::dataChanged, this,
-        [this](const QModelIndex& _index) {
-            if (!_index.isValid()) {
-                return;
-            }
-
-            const auto blockType
-                = _index.sibling(_index.row(), TextEditorShortcuts::Type).data().toString();
-            const auto shortcut
-                = _index.sibling(_index.row(), TextEditorShortcuts::Shortcut).data().toString();
-            const auto jumpByTab
-                = _index.sibling(_index.row(), TextEditorShortcuts::JumpByTab).data().toString();
-            const auto jumpByEnter
-                = _index.sibling(_index.row(), TextEditorShortcuts::JumpByEnter).data().toString();
-            const auto changeByTab
-                = _index.sibling(_index.row(), TextEditorShortcuts::ChangeByTab).data().toString();
-            const auto changeByEnter
-                = _index.sibling(_index.row(), TextEditorShortcuts::ChangeByEnter)
-                      .data()
-                      .toString();
-
-            emit shortcutsForComicBookEditorChanged(blockType, shortcut, jumpByTab, jumpByEnter,
-                                                    changeByTab, changeByEnter);
-        });
-}
-
-void SettingsView::setShortcutsForAudioplayModel(HierarchicalModel* _model)
-{
-    if (d->shortcutsForAudioplayModel) {
-        d->shortcutsForAudioplayModel->disconnect(this);
-        d->shortcutsForAudioplayModel->deleteLater();
-    }
-
-    d->shortcutsForAudioplayModel = _model;
-
-    d->shortcutsForAudioplay->setModel(d->shortcutsForAudioplayModel);
-    d->shortcutsForAudioplay->setItemDelegateForColumn(
-        1, new KeySequenceDelegate(d->shortcutsForAudioplay));
-    d->shortcutsForAudioplay->setItemDelegateForColumn(2, d->audioplayParagraphAddTypeDelegate);
-    d->shortcutsForAudioplay->setItemDelegateForColumn(3, d->audioplayParagraphAddTypeDelegate);
-    d->shortcutsForAudioplay->setItemDelegateForColumn(4, d->audioplayParagraphChangeTypeDelegate);
-    d->shortcutsForAudioplay->setItemDelegateForColumn(5, d->audioplayParagraphChangeTypeDelegate);
-    d->updateTablesGeometry();
-
-    connect(
-        d->shortcutsForAudioplayModel, &HierarchicalModel::dataChanged, this,
-        [this](const QModelIndex& _index) {
-            if (!_index.isValid()) {
-                return;
-            }
-
-            const auto blockType
-                = _index.sibling(_index.row(), TextEditorShortcuts::Type).data().toString();
-            const auto shortcut
-                = _index.sibling(_index.row(), TextEditorShortcuts::Shortcut).data().toString();
-            const auto jumpByTab
-                = _index.sibling(_index.row(), TextEditorShortcuts::JumpByTab).data().toString();
-            const auto jumpByEnter
-                = _index.sibling(_index.row(), TextEditorShortcuts::JumpByEnter).data().toString();
-            const auto changeByTab
-                = _index.sibling(_index.row(), TextEditorShortcuts::ChangeByTab).data().toString();
-            const auto changeByEnter
-                = _index.sibling(_index.row(), TextEditorShortcuts::ChangeByEnter)
-                      .data()
-                      .toString();
-
-            emit shortcutsForAudioplayEditorChanged(blockType, shortcut, jumpByTab, jumpByEnter,
-                                                    changeByTab, changeByEnter);
-        });
-}
-
-void SettingsView::setShortcutsForStageplayModel(HierarchicalModel* _model)
-{
-    if (d->shortcutsForStageplayModel) {
-        d->shortcutsForStageplayModel->disconnect(this);
-        d->shortcutsForStageplayModel->deleteLater();
-    }
-
-    d->shortcutsForStageplayModel = _model;
-
-    d->shortcutsForStageplay->setModel(d->shortcutsForStageplayModel);
-    d->shortcutsForStageplay->setItemDelegateForColumn(
-        1, new KeySequenceDelegate(d->shortcutsForStageplay));
-    d->shortcutsForStageplay->setItemDelegateForColumn(2, d->stageplayParagraphAddTypeDelegate);
-    d->shortcutsForStageplay->setItemDelegateForColumn(3, d->stageplayParagraphAddTypeDelegate);
-    d->shortcutsForStageplay->setItemDelegateForColumn(4, d->stageplayParagraphChangeTypeDelegate);
-    d->shortcutsForStageplay->setItemDelegateForColumn(5, d->stageplayParagraphChangeTypeDelegate);
-    d->updateTablesGeometry();
-
-    connect(
-        d->shortcutsForStageplayModel, &HierarchicalModel::dataChanged, this,
-        [this](const QModelIndex& _index) {
-            if (!_index.isValid()) {
-                return;
-            }
-
-            const auto blockType
-                = _index.sibling(_index.row(), TextEditorShortcuts::Type).data().toString();
-            const auto shortcut
-                = _index.sibling(_index.row(), TextEditorShortcuts::Shortcut).data().toString();
-            const auto jumpByTab
-                = _index.sibling(_index.row(), TextEditorShortcuts::JumpByTab).data().toString();
-            const auto jumpByEnter
-                = _index.sibling(_index.row(), TextEditorShortcuts::JumpByEnter).data().toString();
-            const auto changeByTab
-                = _index.sibling(_index.row(), TextEditorShortcuts::ChangeByTab).data().toString();
-            const auto changeByEnter
-                = _index.sibling(_index.row(), TextEditorShortcuts::ChangeByEnter)
-                      .data()
-                      .toString();
-
-            emit shortcutsForStageplayEditorChanged(blockType, shortcut, jumpByTab, jumpByEnter,
-                                                    changeByTab, changeByEnter);
         });
 }
 
@@ -4407,83 +2995,6 @@ void SettingsView::updateTranslations()
     d->screenplayDurationConfigurablePerEvery50ForSceneHeading->setSuffix(tr("seconds"));
     d->screenplayDurationUseEighths->setText(tr("Use page eighths as a duration metric"));
     //
-    d->comicBookTitle->setText(tr("Comic book module"));
-    d->comicBookAvailable->setToolTip(tr("Turn on/off comic book module"));
-    d->comicBookEditorTitle->setText(tr("Text editor"));
-    d->comicBookEditorDefaultTemplate->setLabel(tr("Default template"));
-    d->comicBookEditorDefaultTemplateOptions->setToolTip(
-        tr("Available actions for the selected template"));
-    d->comicBookEditorShowDialogueNumber->setText(tr("Show dialogue number"));
-    d->comicBookEditorSaveItemsFromText->setText(tr("Save characters on typing"));
-    d->comicBookEditorShowHintsForAllItems->setText(
-        tr("Show hints for all characters, or only for"));
-    d->comicBookEditorShowHintsForPrimaryItems->setText(tr("primary"));
-    d->comicBookEditorShowHintsForSecondaryItems->setText(tr("secondary"));
-    d->comicBookEditorShowHintsForTertiaryItems->setText(tr("tertiary"));
-    d->comicBookEditorShowCharacterSuggestionsInEmptyBlock->setText(
-        tr("Show characters suggestions in empty paragraph"));
-    d->comicBookNavigatorTitle->setText(tr("Navigator"));
-    d->comicBookNavigatorShowSceneText->setText(tr("Show panel text, lines"));
-    d->comicBookNavigatorSceneDescriptionLines1->setText("1");
-    d->comicBookNavigatorSceneDescriptionLines2->setText("2");
-    d->comicBookNavigatorSceneDescriptionLines3->setText("3");
-    d->comicBookNavigatorSceneDescriptionLines4->setText("4");
-    d->comicBookNavigatorSceneDescriptionLines5->setText("5");
-    //
-    d->audioplayTitle->setText(tr("Audioplay module"));
-    d->audioplayAvailable->setToolTip(tr("Turn on/off audioplay module"));
-    d->audioplayEditorTitle->setText(tr("Text editor"));
-    d->audioplayEditorDefaultTemplate->setLabel(tr("Default template"));
-    d->audioplayEditorDefaultTemplateOptions->setToolTip(
-        tr("Available actions for the selected template"));
-    d->audioplayEditorShowBlockNumber->setText(tr("Show block numbers"));
-    d->audioplayEditorContinueBlockNumbers->setText(tr("Continue block numbers through document"));
-    d->audioplayEditorSaveItemsFromText->setText(tr("Save characters on typing"));
-    d->audioplayEditorShowHintsForAllItems->setText(
-        tr("Show hints for all characters, or only for"));
-    d->audioplayEditorShowHintsForPrimaryItems->setText(tr("primary"));
-    d->audioplayEditorShowHintsForSecondaryItems->setText(tr("secondary"));
-    d->audioplayEditorShowHintsForTertiaryItems->setText(tr("tertiary"));
-    d->audioplayEditorShowCharacterSuggestionsInEmptyBlock->setText(
-        tr("Show characters suggestions in empty paragraph"));
-    d->audioplayNavigatorTitle->setText(tr("Audioplay navigator"));
-    d->audioplayNavigatorShowSceneNumber->setText(tr("Show scene number"));
-    d->audioplayNavigatorShowSceneText->setText(tr("Show scene text, lines"));
-    d->audioplayNavigatorSceneDescriptionLines1->setText("1");
-    d->audioplayNavigatorSceneDescriptionLines2->setText("2");
-    d->audioplayNavigatorSceneDescriptionLines3->setText("3");
-    d->audioplayNavigatorSceneDescriptionLines4->setText("4");
-    d->audioplayNavigatorSceneDescriptionLines5->setText("5");
-    d->audioplayDurationTitle->setText(tr("Duration"));
-    d->audioplayDurationByWordsTitle->setText(tr("Calculate duration based on the count of words"));
-    d->audioplayDurationByWordsWords->setLabel(tr("at the rate of"));
-    d->audioplayDurationByWordsWords->setSuffix(tr("words"));
-    d->audioplayDurationByWordsDuration->setLabel(tr("has duration"));
-    d->audioplayDurationByWordsDuration->setSuffix(tr("seconds"));
-    //
-    d->stageplayTitle->setText(tr("Stageplay module"));
-    d->stageplayAvailable->setToolTip(tr("Turn on/off stageplay module"));
-    d->stageplayEditorTitle->setText(tr("Text editor"));
-    d->stageplayEditorDefaultTemplate->setLabel(tr("Default template"));
-    d->stageplayEditorDefaultTemplateOptions->setToolTip(
-        tr("Available actions for the selected template"));
-    d->stageplayEditorSaveItemsFromText->setText(tr("Save characters on typing"));
-    d->stageplayEditorShowHintsForAllItems->setText(
-        tr("Show hints for all characters, or only for"));
-    d->stageplayEditorShowHintsForPrimaryItems->setText(tr("primary"));
-    d->stageplayEditorShowHintsForSecondaryItems->setText(tr("secondary"));
-    d->stageplayEditorShowHintsForTertiaryItems->setText(tr("tertiary"));
-    d->stageplayEditorShowCharacterSuggestionsInEmptyBlock->setText(
-        tr("Show characters suggestions in empty paragraph"));
-    d->stageplayNavigatorTitle->setText(tr("Stageplay navigator"));
-    d->stageplayNavigatorShowSceneNumber->setText(tr("Show scene number"));
-    d->stageplayNavigatorShowSceneText->setText(tr("Show scene text, lines"));
-    d->stageplayNavigatorSceneDescriptionLines1->setText("1");
-    d->stageplayNavigatorSceneDescriptionLines2->setText("2");
-    d->stageplayNavigatorSceneDescriptionLines3->setText("3");
-    d->stageplayNavigatorSceneDescriptionLines4->setText("4");
-    d->stageplayNavigatorSceneDescriptionLines5->setText("5");
-    //
     d->novelTitle->setText(tr("Novel module"));
     d->novelAvailable->setToolTip(tr("Turn on/off novel module"));
     d->novelEditorTitle->setText(tr("Text editor"));
@@ -4535,42 +3046,6 @@ void SettingsView::updateTranslations()
     d->screenplayParagraphAddTypeDelegate->setLabel(tr("Add paragraph"));
     d->screenplayParagraphChangeTypeDelegate->setLabel(tr("Change to"));
     //
-    d->shortcutsForComicBookTitle->setText(tr("Comic book editor"));
-    {
-        auto model = d->shortcutsForComicBookModel->headerModel();
-        model->setData(model->index(0, 0), tr("Block name"), Qt::DisplayRole);
-        model->setData(model->index(0, 1), tr("Shortcut"), Qt::DisplayRole);
-        model->setData(model->index(0, 2), tr("If you press in paragraphs end"), Qt::DisplayRole);
-        model->setData(model->index(0, 3), tr("If you press in empty paragraph"), Qt::DisplayRole);
-    }
-    buildComicBookParagraphTypesModel(d->shortcutsForComicBook, d->comicBookParagraphTypesModel);
-    d->comicBookParagraphAddTypeDelegate->setLabel(tr("Add paragraph"));
-    d->comicBookParagraphChangeTypeDelegate->setLabel(tr("Change to"));
-    //
-    d->shortcutsForAudioplayTitle->setText(tr("Audioplay editor"));
-    {
-        auto model = d->shortcutsForAudioplayModel->headerModel();
-        model->setData(model->index(0, 0), tr("Block name"), Qt::DisplayRole);
-        model->setData(model->index(0, 1), tr("Shortcut"), Qt::DisplayRole);
-        model->setData(model->index(0, 2), tr("If you press in paragraphs end"), Qt::DisplayRole);
-        model->setData(model->index(0, 3), tr("If you press in empty paragraph"), Qt::DisplayRole);
-    }
-    buildAudioplayParagraphTypesModel(d->shortcutsForAudioplay, d->audioplayParagraphTypesModel);
-    d->audioplayParagraphAddTypeDelegate->setLabel(tr("Add paragraph"));
-    d->audioplayParagraphChangeTypeDelegate->setLabel(tr("Change to"));
-    //
-    d->shortcutsForStageplayTitle->setText(tr("Stageplay editor"));
-    {
-        auto model = d->shortcutsForStageplayModel->headerModel();
-        model->setData(model->index(0, 0), tr("Block name"), Qt::DisplayRole);
-        model->setData(model->index(0, 1), tr("Shortcut"), Qt::DisplayRole);
-        model->setData(model->index(0, 2), tr("If you press in paragraphs end"), Qt::DisplayRole);
-        model->setData(model->index(0, 3), tr("If you press in empty paragraph"), Qt::DisplayRole);
-    }
-    buildStageplayParagraphTypesModel(d->shortcutsForStageplay, d->stageplayParagraphTypesModel);
-    d->stageplayParagraphAddTypeDelegate->setLabel(tr("Add paragraph"));
-    d->stageplayParagraphChangeTypeDelegate->setLabel(tr("Change to"));
-    //
     d->shortcutsForNovelTitle->setText(tr("Novel editor"));
     {
         auto model = d->shortcutsForNovelModel->headerModel();
@@ -4614,9 +3089,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->applicationCard,
              d->simpleTextCard,
              d->screenplayCard,
-             d->comicBookCard,
-             d->audioplayCard,
-             d->stageplayCard,
              d->novelCard,
              d->shortcutsCard,
              d->advancedCard,
@@ -4642,16 +3114,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayEditorTitle,
              d->screenplayNavigatorTitle,
              d->screenplayDurationTitle,
-             d->comicBookTitle,
-             d->comicBookEditorTitle,
-             d->comicBookNavigatorTitle,
-             d->audioplayTitle,
-             d->audioplayEditorTitle,
-             d->audioplayNavigatorTitle,
-             d->audioplayDurationTitle,
-             d->stageplayTitle,
-             d->stageplayEditorTitle,
-             d->stageplayNavigatorTitle,
              d->novelTitle,
              d->novelEditorTitle,
              d->novelNavigatorTitle,
@@ -4659,9 +3121,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->shortcutsForApplicationTitle,
              d->shortcutsForSimpleTextTitle,
              d->shortcutsForScreenplayTitle,
-             d->shortcutsForComicBookTitle,
-             d->shortcutsForAudioplayTitle,
-             d->shortcutsForStageplayTitle,
              d->shortcutsForNovelTitle,
              d->advancedTitle,
          }) {
@@ -4680,13 +3139,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayEditorTitle,
              d->screenplayNavigatorTitle,
              d->screenplayDurationTitle,
-             d->comicBookEditorTitle,
-             d->comicBookNavigatorTitle,
-             d->audioplayEditorTitle,
-             d->audioplayNavigatorTitle,
-             d->audioplayDurationTitle,
-             d->stageplayEditorTitle,
-             d->stageplayNavigatorTitle,
              d->novelEditorTitle,
              d->novelNavigatorTitle,
          }) {
@@ -4702,9 +3154,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     for (auto toggle : std::vector<Widget*>{
              d->simpleTextAvailable,
              d->screenplayAvailable,
-             d->comicBookAvailable,
-             d->audioplayAvailable,
-             d->stageplayAvailable,
              d->novelAvailable,
          }) {
         toggle->setBackgroundColor(DesignSystem::color().background());
@@ -4727,7 +3176,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayDurationConfigurableForDialoguePlus,
              d->screenplayDurationConfigurableForSceneHeadingLabel,
              d->screenplayDurationConfigurableForSceneHeadingPlus,
-             d->audioplayDurationByWordsTitle,
          }) {
         label->setBackgroundColor(DesignSystem::color().background());
         label->setTextColor(DesignSystem::color().onBackground());
@@ -4740,9 +3188,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->spellCheckerUserDictionary,
              d->simpleTextEditorDefaultTemplateOptions,
              d->screenplayEditorDefaultTemplateOptions,
-             d->comicBookEditorDefaultTemplateOptions,
-             d->audioplayEditorDefaultTemplateOptions,
-             d->stageplayEditorDefaultTemplateOptions,
              d->novelEditorDefaultTemplateOptions,
          }) {
         iconLabel->setBackgroundColor(DesignSystem::color().background());
@@ -4794,35 +3239,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayNavigatorShowSceneText,
              d->screenplayDurationByCharactersIncludingSpaces,
              //
-             d->comicBookEditorShowDialogueNumber,
-             d->comicBookEditorSaveItemsFromText,
-             d->comicBookEditorShowHintsForAllItems,
-             d->comicBookEditorShowHintsForPrimaryItems,
-             d->comicBookEditorShowHintsForSecondaryItems,
-             d->comicBookEditorShowHintsForTertiaryItems,
-             d->comicBookEditorShowCharacterSuggestionsInEmptyBlock,
-             d->comicBookNavigatorShowSceneText,
-             //
-             d->audioplayEditorShowBlockNumber,
-             d->audioplayEditorContinueBlockNumbers,
-             d->audioplayEditorSaveItemsFromText,
-             d->audioplayEditorShowHintsForAllItems,
-             d->audioplayEditorShowHintsForPrimaryItems,
-             d->audioplayEditorShowHintsForSecondaryItems,
-             d->audioplayEditorShowHintsForTertiaryItems,
-             d->audioplayEditorShowCharacterSuggestionsInEmptyBlock,
-             d->audioplayNavigatorShowSceneNumber,
-             d->audioplayNavigatorShowSceneText,
-             //
-             d->stageplayEditorSaveItemsFromText,
-             d->stageplayEditorShowHintsForAllItems,
-             d->stageplayEditorShowHintsForPrimaryItems,
-             d->stageplayEditorShowHintsForSecondaryItems,
-             d->stageplayEditorShowHintsForTertiaryItems,
-             d->stageplayEditorShowCharacterSuggestionsInEmptyBlock,
-             d->stageplayNavigatorShowSceneNumber,
-             d->stageplayNavigatorShowSceneText,
-             //
              d->novelNavigatorShowSceneText,
              d->novelNavigatorCounterType,
              //
@@ -4849,24 +3265,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayDurationByCharacters,
              d->screenplayDurationConfigurable,
              d->screenplayDurationUseEighths,
-             //
-             d->comicBookNavigatorSceneDescriptionLines1,
-             d->comicBookNavigatorSceneDescriptionLines2,
-             d->comicBookNavigatorSceneDescriptionLines3,
-             d->comicBookNavigatorSceneDescriptionLines4,
-             d->comicBookNavigatorSceneDescriptionLines5,
-             //
-             d->audioplayNavigatorSceneDescriptionLines1,
-             d->audioplayNavigatorSceneDescriptionLines2,
-             d->audioplayNavigatorSceneDescriptionLines3,
-             d->audioplayNavigatorSceneDescriptionLines4,
-             d->audioplayNavigatorSceneDescriptionLines5,
-             //
-             d->stageplayNavigatorSceneDescriptionLines1,
-             d->stageplayNavigatorSceneDescriptionLines2,
-             d->stageplayNavigatorSceneDescriptionLines3,
-             d->stageplayNavigatorSceneDescriptionLines4,
-             d->stageplayNavigatorSceneDescriptionLines5,
              //
              d->novelNavigatorSceneDescriptionLines1,
              d->novelNavigatorSceneDescriptionLines2,
@@ -4902,14 +3300,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->screenplayDurationConfigurablePerParagraphForSceneHeading,
              d->screenplayDurationConfigurablePerEvery50ForSceneHeading,
              //
-             d->comicBookEditorDefaultTemplate,
-             //
-             d->audioplayEditorDefaultTemplate,
-             d->audioplayDurationByWordsWords,
-             d->audioplayDurationByWordsDuration,
-             //
-             d->stageplayEditorDefaultTemplate,
-             //
              d->novelEditorDefaultTemplate,
          }) {
         textField->setBackgroundColor(DesignSystem::color().onBackground());
@@ -4923,9 +3313,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     for (auto textField : {
              d->simpleTextEditorDefaultTemplate,
              d->screenplayEditorDefaultTemplate,
-             d->comicBookEditorDefaultTemplate,
-             d->audioplayEditorDefaultTemplate,
-             d->stageplayEditorDefaultTemplate,
              d->novelEditorDefaultTemplate,
          }) {
         textField->setCustomMargins({ isLeftToRight() ? DesignSystem::layout().px24() : 0, 0,
@@ -4935,9 +3322,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->spellCheckerLanguage,
              d->simpleTextEditorDefaultTemplate,
              d->screenplayEditorDefaultTemplate,
-             d->comicBookEditorDefaultTemplate,
-             d->audioplayEditorDefaultTemplate,
-             d->stageplayEditorDefaultTemplate,
              d->novelEditorDefaultTemplate,
          }) {
         combobox->setPopupBackgroundColor(DesignSystem::color().background());
@@ -4945,9 +3329,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     for (auto icon : {
              d->simpleTextEditorDefaultTemplateOptions,
              d->screenplayEditorDefaultTemplateOptions,
-             d->comicBookEditorDefaultTemplateOptions,
-             d->audioplayEditorDefaultTemplateOptions,
-             d->stageplayEditorDefaultTemplateOptions,
              d->novelEditorDefaultTemplateOptions,
          }) {
         icon->setContentsMargins(isLeftToRight() ? 0 : DesignSystem::layout().px16(), 0,
@@ -5005,21 +3386,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
     d->screenplayCardLayout->setRowMinimumHeight(screenplayDurationUseEighthsRow,
                                                  DesignSystem::compactLayout().px62());
     //
-    d->comicBookCardLayout->setRowMinimumHeight(d->comicBookCardBottomSpacerIndex,
-                                                d->comicBookAvailable->isChecked()
-                                                    ? DesignSystem::compactLayout().px24()
-                                                    : DesignSystem::compactLayout().px12());
-    //
-    d->audioplayCardLayout->setRowMinimumHeight(d->audioplayCardBottomSpacerIndex,
-                                                d->audioplayAvailable->isChecked()
-                                                    ? DesignSystem::compactLayout().px24()
-                                                    : DesignSystem::compactLayout().px12());
-    //
-    d->stageplayCardLayout->setRowMinimumHeight(d->stageplayCardBottomSpacerIndex,
-                                                d->stageplayAvailable->isChecked()
-                                                    ? DesignSystem::compactLayout().px24()
-                                                    : DesignSystem::compactLayout().px12());
-    //
     d->novelCardLayout->setRowMinimumHeight(d->simpleTextCardBottomSpacerIndex,
                                             d->novelAvailable->isChecked()
                                                 ? DesignSystem::compactLayout().px24()
@@ -5032,9 +3398,6 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->shortcutsForApplication,
              d->shortcutsForSimpleText,
              d->shortcutsForScreenplay,
-             d->shortcutsForComicBook,
-             d->shortcutsForAudioplay,
-             d->shortcutsForStageplay,
              d->shortcutsForNovel,
          }) {
         table->setBackgroundColor(DesignSystem::color().background());

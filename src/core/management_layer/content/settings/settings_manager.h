@@ -89,13 +89,6 @@ signals:
     void screenplayEditorChanged(const QStringList& _changedSettingsKeys);
     void screenplayNavigatorChanged();
     void screenplayDurationChanged();
-    void comicBookEditorChanged(const QStringList& _changedSettingsKeys);
-    void comicBookNavigatorChanged();
-    void audioplayEditorChanged(const QStringList& _changedSettingsKeys);
-    void audioplayNavigatorChanged();
-    void audioplayDurationChanged();
-    void stageplayEditorChanged(const QStringList& _changedSettingsKeys);
-    void stageplayNavigatorChanged();
     void novelEditorChanged(const QStringList& _changedSettingsKeys);
     void novelNavigatorChanged();
 
@@ -193,49 +186,6 @@ private:
     void setScreenplayDurationUseEighths(bool _use);
 
     //
-    // Сохранение параметров редактора комикса
-    //
-    void setComicBookAvailable(bool _available);
-    //
-    void setComicBookEditorDefaultTemplate(const QString& _templateId);
-    void setComicBookEditorShowDialogueNumber(bool _show);
-    void setComicBookEditorSaveItemsFromText(bool _use);
-    void setComicBookEditorShowHints(bool _all, bool _primary, bool _secondary, bool _tertiary);
-    void setComicBookEditorShowCharacterSuggestionsInEmptyBlock(bool _show);
-    //
-    void setComicBookNavigatorShowSceneText(bool _show, int _lines);
-
-    //
-    // Сохранение параметров редактора подкастов
-    //
-    void setAudioplayAvailable(bool _available);
-    //
-    void setAudioplayEditorDefaultTemplate(const QString& _templateId);
-    void setAudioplayEditorShowBlockNumber(bool _show, bool _continued);
-    void setAudioplayEditorSaveItemsFromText(bool _use);
-    void setAudioplayEditorShowHints(bool _all, bool _primary, bool _secondary, bool _tertiary);
-    void setAudioplayEditorShowCharacterSuggestionsInEmptyBlock(bool _show);
-    //
-    void setAudioplayNavigatorShowSceneNumber(bool _show);
-    void setAudioplayNavigatorShowSceneText(bool _show, int _lines);
-    //
-    void setAudioplayDurationByWordsWords(int _words);
-    void setAudioplayDurationByWordsDuration(int _duration);
-
-    //
-    // Сохранение параметров редактора пьес
-    //
-    void setStageplayAvailable(bool _available);
-    //
-    void setStageplayEditorDefaultTemplate(const QString& _templateId);
-    void setStageplayEditorSaveItemsFromText(bool _use);
-    void setStageplayEditorShowHints(bool _all, bool _primary, bool _secondary, bool _tertiary);
-    void setStageplayEditorShowCharacterSuggestionsInEmptyBlock(bool _show);
-    //
-    void setStageplayNavigatorShowSceneNumber(bool _show);
-    void setStageplayNavigatorShowSceneText(bool _show, int _lines);
-
-    //
     // Сохранение параметров редактора сценария
     //
     void setNovelAvailable(bool _available);
@@ -255,15 +205,6 @@ private:
     void setShortcutsForScreenplayEdit(const QString& _blockType, const QString& _shortcut,
                                        const QString& _jumpByTab, const QString& _jumpByEnter,
                                        const QString& _changeByTab, const QString& _changeByEnter);
-    void setShortcutsForComicBookEdit(const QString& _blockType, const QString& _shortcut,
-                                      const QString& _jumpByTab, const QString& _jumpByEnter,
-                                      const QString& _changeByTab, const QString& _changeByEnter);
-    void setShortcutsForAudioplayEdit(const QString& _blockType, const QString& _shortcut,
-                                      const QString& _jumpByTab, const QString& _jumpByEnter,
-                                      const QString& _changeByTab, const QString& _changeByEnter);
-    void setShortcutsForStageplayEdit(const QString& _blockType, const QString& _shortcut,
-                                      const QString& _jumpByTab, const QString& _jumpByEnter,
-                                      const QString& _changeByTab, const QString& _changeByEnter);
     void setShortcutsForNovelEdit(const QString& _blockType, const QString& _shortcut,
                                   const QString& _jumpByTab, const QString& _jumpByEnter,
                                   const QString& _changeByTab, const QString& _changeByEnter);

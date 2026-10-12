@@ -41,9 +41,6 @@ public:
      */
     static QString filtersForImport();
     static QString filtersForImportScreenplay();
-    static QString filtersForImportComicBook();
-    static QString filtersForImportAudioplay();
-    static QString filtersForImportStageplay();
     static QString filtersForImportNovel();
 
     /**

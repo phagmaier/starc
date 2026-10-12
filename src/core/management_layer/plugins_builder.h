@@ -130,12 +130,6 @@ public:
     void reconfigureSimpleTextNavigator() const;
     void reconfigureScreenplayEditor(const QStringList& _changedSettingsKeys) const;
     void reconfigureScreenplayNavigator() const;
-    void reconfigureComicBookEditor(const QStringList& _changedSettingsKeys) const;
-    void reconfigureComicBookNavigator() const;
-    void reconfigureAudioplayEditor(const QStringList& _changedSettingsKeys) const;
-    void reconfigureAudioplayNavigator() const;
-    void reconfigureStageplayEditor(const QStringList& _changedSettingsKeys) const;
-    void reconfigureStageplayNavigator() const;
     void reconfigureNovelEditor(const QStringList& _changedSettingsKeys) const;
     void reconfigureNovelNavigator() const;
 

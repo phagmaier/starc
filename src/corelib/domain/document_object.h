@@ -102,6 +102,37 @@ enum class DocumentObjectType {
 };
 
 /**
+ * Retired editor formats. Keep their persisted identifiers and MIME mappings so
+ * existing projects remain readable without interpreting or rewriting content.
+ */
+inline bool isUnsupportedDocumentType(DocumentObjectType _type)
+{
+    switch (_type) {
+    case DocumentObjectType::ComicBook:
+    case DocumentObjectType::ComicBookTitlePage:
+    case DocumentObjectType::ComicBookSynopsis:
+    case DocumentObjectType::ComicBookText:
+    case DocumentObjectType::ComicBookDictionaries:
+    case DocumentObjectType::ComicBookStatistics:
+    case DocumentObjectType::Audioplay:
+    case DocumentObjectType::AudioplayTitlePage:
+    case DocumentObjectType::AudioplaySynopsis:
+    case DocumentObjectType::AudioplayText:
+    case DocumentObjectType::AudioplayDictionaries:
+    case DocumentObjectType::AudioplayStatistics:
+    case DocumentObjectType::Stageplay:
+    case DocumentObjectType::StageplayTitlePage:
+    case DocumentObjectType::StageplaySynopsis:
+    case DocumentObjectType::StageplayText:
+    case DocumentObjectType::StageplayDictionaries:
+    case DocumentObjectType::StageplayStatistics:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/**
  * @brief Определим метод для возможности использовать типы объектов в виде ключей в словарях
  */
 inline uint qHash(DocumentObjectType _type)

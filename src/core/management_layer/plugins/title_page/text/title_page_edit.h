@@ -50,11 +50,6 @@ public:
     void redo();
 
     /**
-     * @brief Добавить список действующих лиц
-     */
-    void addCastList();
-
-    /**
      * @brief Восстановить дефолтную титульную страницу из шаблона
      */
     void restoreFromTemplate();

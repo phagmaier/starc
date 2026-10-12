@@ -159,12 +159,6 @@ public:
     Subtitle1Label* modulesDescription = nullptr;
     Toggle* modulesScreenplayToggle = nullptr;
     Body1Label* modulesScreenplayTitle = nullptr;
-    Toggle* modulesComicBookToggle = nullptr;
-    Body1Label* modulesComicBookTitle = nullptr;
-    Toggle* modulesAudioplayToggle = nullptr;
-    Body1Label* modulesAudioplayTitle = nullptr;
-    Toggle* modulesStageplayToggle = nullptr;
-    Body1Label* modulesStageplayTitle = nullptr;
     Toggle* modulesNovelToggle = nullptr;
     Body1Label* modulesNovelTitle = nullptr;
     Button* modulesContinueButton = nullptr;
@@ -250,12 +244,6 @@ OnboardingNavigator::Implementation::Implementation(OnboardingNavigator* _q)
     , modulesDescription(new Subtitle1Label(modulesPage))
     , modulesScreenplayToggle(new Toggle(modulesPage))
     , modulesScreenplayTitle(new Body1Label(modulesPage))
-    , modulesComicBookToggle(new Toggle(modulesPage))
-    , modulesComicBookTitle(new Body1Label(modulesPage))
-    , modulesAudioplayToggle(new Toggle(modulesPage))
-    , modulesAudioplayTitle(new Body1Label(modulesPage))
-    , modulesStageplayToggle(new Toggle(modulesPage))
-    , modulesStageplayTitle(new Body1Label(modulesPage))
     , modulesNovelToggle(new Toggle(modulesPage))
     , modulesNovelTitle(new Body1Label(modulesPage))
     , modulesContinueButton(new Button(modulesPage))
@@ -481,9 +469,6 @@ void OnboardingNavigator::Implementation::initModulesPage()
     pageLayout->addWidget(modulesDescription);
 
     addToggleWithTitle(pageLayout, modulesScreenplayToggle, modulesScreenplayTitle);
-    addToggleWithTitle(pageLayout, modulesComicBookToggle, modulesComicBookTitle);
-    addToggleWithTitle(pageLayout, modulesAudioplayToggle, modulesAudioplayTitle);
-    addToggleWithTitle(pageLayout, modulesStageplayToggle, modulesStageplayTitle);
     addToggleWithTitle(pageLayout, modulesNovelToggle, modulesNovelTitle);
     pageLayout->addStretch();
     pageLayout->addWidget(modulesContinueButton);
@@ -757,15 +742,6 @@ OnboardingNavigator::OnboardingNavigator(QWidget* _parent)
     connect(d->modulesScreenplayToggle, &Toggle::checkedChanged, this, [](bool _checked) {
         setSettingsValue(DataStorageLayer::kComponentsScreenplayAvailableKey, _checked);
     });
-    connect(d->modulesComicBookToggle, &Toggle::checkedChanged, this, [](bool _checked) {
-        setSettingsValue(DataStorageLayer::kComponentsComicBookAvailableKey, _checked);
-    });
-    connect(d->modulesAudioplayToggle, &Toggle::checkedChanged, this, [](bool _checked) {
-        setSettingsValue(DataStorageLayer::kComponentsAudioplayAvailableKey, _checked);
-    });
-    connect(d->modulesStageplayToggle, &Toggle::checkedChanged, this, [](bool _checked) {
-        setSettingsValue(DataStorageLayer::kComponentsStageplayAvailableKey, _checked);
-    });
     connect(d->modulesNovelToggle, &Toggle::checkedChanged, this, [](bool _checked) {
         setSettingsValue(DataStorageLayer::kComponentsNovelAvailableKey, _checked);
     });
@@ -912,9 +888,6 @@ void OnboardingNavigator::updateTranslations()
         tr("Story Architect provides tools for working with any form of writing. Choose which ones "
            "you plan to use:"));
     d->modulesScreenplayTitle->setText(tr("Screenplay"));
-    d->modulesComicBookTitle->setText(tr("Comic book"));
-    d->modulesAudioplayTitle->setText(tr("Audioplay"));
-    d->modulesStageplayTitle->setText(tr("Stageplay"));
     d->modulesNovelTitle->setText(tr("Novel"));
     d->modulesContinueButton->setText(tr("Continue"));
 
@@ -994,9 +967,6 @@ void OnboardingNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _even
              d->modulesSubtitle,
              d->modulesDescription,
              d->modulesScreenplayTitle,
-             d->modulesComicBookTitle,
-             d->modulesAudioplayTitle,
-             d->modulesStageplayTitle,
              d->modulesNovelTitle,
              //
              d->styleChoosePage,
@@ -1136,9 +1106,6 @@ void OnboardingNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _even
 
     for (auto toggle : {
              d->modulesScreenplayToggle,
-             d->modulesComicBookToggle,
-             d->modulesAudioplayToggle,
-             d->modulesStageplayToggle,
              d->modulesNovelToggle,
              d->styleChooseActivateToggle,
          }) {

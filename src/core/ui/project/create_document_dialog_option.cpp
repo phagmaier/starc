@@ -235,21 +235,6 @@ void CreateDocumentDialogOption::updateTranslations()
         break;
     }
 
-    case DocumentObjectType::ComicBook: {
-        d->documentName = tr("Comic book");
-        break;
-    }
-
-    case DocumentObjectType::Audioplay: {
-        d->documentName = tr("Audioplay");
-        break;
-    }
-
-    case DocumentObjectType::Stageplay: {
-        d->documentName = tr("Stageplay");
-        break;
-    }
-
     case DocumentObjectType::Novel: {
         d->documentName = tr("Novel");
         break;

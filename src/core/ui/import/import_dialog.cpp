@@ -45,24 +45,12 @@ const QVector<QPair<const Domain::DocumentObjectType, const QString>> kDocumentT
             QApplication::translate("Ui::ImportDialog", "Simple text"),
         },
         {
-            Domain::DocumentObjectType::Audioplay,
-            QApplication::translate("Ui::ImportDialog", "Audioplay"),
-        },
-        {
-            Domain::DocumentObjectType::ComicBook,
-            QApplication::translate("Ui::ImportDialog", "Comic Book"),
-        },
-        {
             Domain::DocumentObjectType::Novel,
             QApplication::translate("Ui::ImportDialog", "Novel"),
         },
         {
             Domain::DocumentObjectType::Screenplay,
             QApplication::translate("Ui::ImportDialog", "Screenplay"),
-        },
-        {
-            Domain::DocumentObjectType::Stageplay,
-            QApplication::translate("Ui::ImportDialog", "Stageplay"),
         },
         {
             Domain::DocumentObjectType::Presentation,
@@ -120,9 +108,8 @@ QVector<Domain::DocumentObjectType> importTypesForFile(const QString& _path)
     //
     else if (fileIs(ExtensionHelper::fountain())) {
         return {
-            DocumentObjectType::SimpleText, DocumentObjectType::Audioplay,
-            DocumentObjectType::ComicBook,  DocumentObjectType::Screenplay,
-            DocumentObjectType::Stageplay,
+            DocumentObjectType::SimpleText,
+            DocumentObjectType::Screenplay,
         };
     } else if (fileIs(ExtensionHelper::markdown())) {
         return {
@@ -131,9 +118,9 @@ QVector<Domain::DocumentObjectType> importTypesForFile(const QString& _path)
         };
     } else if (fileIs(ExtensionHelper::plainText())) {
         return {
-            DocumentObjectType::SimpleText, DocumentObjectType::Audioplay,
-            DocumentObjectType::ComicBook,  DocumentObjectType::Screenplay,
-            DocumentObjectType::Stageplay,  DocumentObjectType::Novel,
+            DocumentObjectType::SimpleText,
+            DocumentObjectType::Screenplay,
+            DocumentObjectType::Novel,
         };
     }
     //
@@ -363,10 +350,7 @@ void ImportDialog::Implementation::setImportDocumentTypes(
 void ImportDialog::Implementation::updateImportTextLabel()
 {
     switch (currentType()) {
-    case Domain::DocumentObjectType::Audioplay:
-    case Domain::DocumentObjectType::ComicBook:
-    case Domain::DocumentObjectType::Screenplay:
-    case Domain::DocumentObjectType::Stageplay: {
+    case Domain::DocumentObjectType::Screenplay: {
         importText->setText(tr("Import script text"));
         break;
     }
@@ -392,14 +376,6 @@ void ImportDialog::Implementation::updateParametersVisibility()
     auto isImportResearchVisible = true;
     auto isKeepSceneNumbersVisible = true;
     switch (currentType()) {
-    case Domain::DocumentObjectType::Audioplay:
-    case Domain::DocumentObjectType::ComicBook:
-    case Domain::DocumentObjectType::Stageplay: {
-        isImportLocationsVisible = false;
-        isImportResearchVisible = false;
-        isKeepSceneNumbersVisible = false;
-        break;
-    }
     case Domain::DocumentObjectType::Screenplay: {
         isKeepSceneNumbersVisible = importText->isChecked();
         break;

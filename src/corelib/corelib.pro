@@ -196,18 +196,12 @@ SOURCES += \
     business_layer/chronometry/chronometer.cpp \
     business_layer/compliance/compliance_checker.cpp \
     business_layer/compliance/compliance_checker_impl.cpp \
-    business_layer/document/audioplay/text/audioplay_text_corrector.cpp \
-    business_layer/document/audioplay/text/audioplay_text_document.cpp \
-    business_layer/document/comic_book/text/comic_book_text_corrector.cpp \
-    business_layer/document/comic_book/text/comic_book_text_document.cpp \
     business_layer/document/novel/text/novel_text_corrector.cpp \
     business_layer/document/novel/text/novel_text_document.cpp \
     business_layer/document/screenplay/text/screenplay_text_corrector.cpp \
     business_layer/document/screenplay/text/screenplay_text_document.cpp \
     business_layer/document/simple_text/simple_text_corrector.cpp \
     business_layer/document/simple_text/simple_text_document.cpp \
-    business_layer/document/stageplay/text/stageplay_text_corrector.cpp \
-    business_layer/document/stageplay/text/stageplay_text_document.cpp \
     business_layer/document/text/abstract_text_corrector.cpp \
     business_layer/document/text/text_block_data.cpp \
     business_layer/document/text/text_cursor.cpp \
@@ -216,20 +210,12 @@ SOURCES += \
     business_layer/export/abstract_exporter.cpp \
     business_layer/export/abstract_markdown_exporter.cpp \
     business_layer/export/abstract_pdf_exporter.cpp \
-    business_layer/export/audioplay/audioplay_docx_exporter.cpp \
-    business_layer/export/audioplay/audioplay_exporter.cpp \
-    business_layer/export/audioplay/audioplay_fountain_exporter.cpp \
-    business_layer/export/audioplay/audioplay_pdf_exporter.cpp \
     business_layer/export/characters/character_docx_exporter.cpp \
     business_layer/export/characters/character_exporter.cpp \
     business_layer/export/characters/character_pdf_exporter.cpp \
     business_layer/export/characters/characters_docx_exporter.cpp \
     business_layer/export/characters/characters_exporter.cpp \
     business_layer/export/characters/characters_pdf_exporter.cpp \
-    business_layer/export/comic_book/comic_book_docx_exporter.cpp \
-    business_layer/export/comic_book/comic_book_exporter.cpp \
-    business_layer/export/comic_book/comic_book_fountain_exporter.cpp \
-    business_layer/export/comic_book/comic_book_pdf_exporter.cpp \
     business_layer/export/export_options.cpp \
     business_layer/export/locations/location_docx_exporter.cpp \
     business_layer/export/locations/location_exporter.cpp \
@@ -250,10 +236,6 @@ SOURCES += \
     business_layer/export/simple_text/simple_text_exporter.cpp \
     business_layer/export/simple_text/simple_text_markdown_exporter.cpp \
     business_layer/export/simple_text/simple_text_pdf_exporter.cpp \
-    business_layer/export/stageplay/stageplay_docx_exporter.cpp \
-    business_layer/export/stageplay/stageplay_exporter.cpp \
-    business_layer/export/stageplay/stageplay_fountain_exporter.cpp \
-    business_layer/export/stageplay/stageplay_pdf_exporter.cpp \
     business_layer/export/worlds/world_docx_exporter.cpp \
     business_layer/export/worlds/world_exporter.cpp \
     business_layer/export/worlds/world_pdf_exporter.cpp \
@@ -263,8 +245,6 @@ SOURCES += \
     business_layer/import/abstract_document_importer.cpp \
     business_layer/import/abstract_fountain_importer.cpp \
     business_layer/import/abstract_markdown_importer.cpp \
-    business_layer/import/audioplay/audioplay_fountain_importer.cpp \
-    business_layer/import/comic_book/comic_book_fountain_importer.cpp \
     business_layer/import/novel/novel_markdown_importer.cpp \
     business_layer/import/screenplay/screenplay_celtx_importer.cpp \
     business_layer/import/screenplay/screenplay_docx_importer.cpp \
@@ -273,35 +253,14 @@ SOURCES += \
     business_layer/import/screenplay/screenplay_kit_scenarist_importer.cpp \
     business_layer/import/screenplay/screenplay_pdf_importer.cpp \
     business_layer/import/screenplay/screenplay_trelby_importer.cpp \
-    business_layer/import/stageplay/stageplay_fountain_importer.cpp \
     business_layer/import/text/simple_text_docx_importer.cpp \
     business_layer/import/text/simple_text_markdown_importer.cpp \
     business_layer/import/text/simple_text_pdf_importer.cpp \
     business_layer/model/abstract_model.cpp \
     business_layer/model/abstract_model_item.cpp \
     business_layer/model/abstract_model_xml.cpp \
-    business_layer/model/audioplay/audioplay_information_model.cpp \
-    business_layer/model/audioplay/audioplay_statistics_model.cpp \
-    business_layer/model/audioplay/audioplay_synopsis_model.cpp \
-    business_layer/model/audioplay/audioplay_title_page_model.cpp \
-    business_layer/model/audioplay/text/audioplay_text_block_parser.cpp \
-    business_layer/model/audioplay/text/audioplay_text_model.cpp \
-    business_layer/model/audioplay/text/audioplay_text_model_folder_item.cpp \
-    business_layer/model/audioplay/text/audioplay_text_model_scene_item.cpp \
-    business_layer/model/audioplay/text/audioplay_text_model_text_item.cpp \
     business_layer/model/characters/character_model.cpp \
     business_layer/model/characters/characters_model.cpp \
-    business_layer/model/comic_book/comic_book_dictionaries_model.cpp \
-    business_layer/model/comic_book/comic_book_information_model.cpp \
-    business_layer/model/comic_book/comic_book_statistics_model.cpp \
-    business_layer/model/comic_book/comic_book_synopsis_model.cpp \
-    business_layer/model/comic_book/comic_book_title_page_model.cpp \
-    business_layer/model/comic_book/text/comic_book_text_block_parser.cpp \
-    business_layer/model/comic_book/text/comic_book_text_model.cpp \
-    business_layer/model/comic_book/text/comic_book_text_model_folder_item.cpp \
-    business_layer/model/comic_book/text/comic_book_text_model_page_item.cpp \
-    business_layer/model/comic_book/text/comic_book_text_model_panel_item.cpp \
-    business_layer/model/comic_book/text/comic_book_text_model_text_item.cpp \
     business_layer/model/images/images_gallery_model.cpp \
     business_layer/model/locations/location_model.cpp \
     business_layer/model/locations/locations_model.cpp \
@@ -342,14 +301,6 @@ SOURCES += \
     business_layer/model/simple_text/simple_text_model.cpp \
     business_layer/model/simple_text/simple_text_model_chapter_item.cpp \
     business_layer/model/simple_text/simple_text_model_folder_item.cpp \
-    business_layer/model/stageplay/stageplay_information_model.cpp \
-    business_layer/model/stageplay/stageplay_statistics_model.cpp \
-    business_layer/model/stageplay/stageplay_synopsis_model.cpp \
-    business_layer/model/stageplay/stageplay_title_page_model.cpp \
-    business_layer/model/stageplay/text/stageplay_text_block_parser.cpp \
-    business_layer/model/stageplay/text/stageplay_text_model.cpp \
-    business_layer/model/stageplay/text/stageplay_text_model_folder_item.cpp \
-    business_layer/model/stageplay/text/stageplay_text_model_scene_item.cpp \
     business_layer/model/structure/structure_model.cpp \
     business_layer/model/structure/structure_model_item.cpp \
     business_layer/model/structure/structure_proxy_model.cpp \
@@ -364,19 +315,10 @@ SOURCES += \
     business_layer/model/base/title_page_model.cpp \
     business_layer/model/worlds/world_model.cpp \
     business_layer/model/worlds/worlds_model.cpp \
-    business_layer/plots/audioplay/audioplay_characters_activity_plot.cpp \
-    business_layer/plots/audioplay/audioplay_structure_analysis_plot.cpp \
     business_layer/plots/screenplay/screenplay_characters_activity_plot.cpp \
     business_layer/plots/screenplay/screenplay_structure_analysis_plot.cpp \
     business_layer/plots/screenplay/series/screenplay_series_characters_activity_plot.cpp \
     business_layer/reports/abstract_report.cpp \
-    business_layer/reports/audioplay/audioplay_cast_report.cpp \
-    business_layer/reports/audioplay/audioplay_dialogues_report.cpp \
-    business_layer/reports/audioplay/audioplay_gender_report.cpp \
-    business_layer/reports/audioplay/audioplay_location_report.cpp \
-    business_layer/reports/audioplay/audioplay_scene_report.cpp \
-    business_layer/reports/audioplay/audioplay_summary_report.cpp \
-    business_layer/reports/comic_book/comic_book_summary_report.cpp \
     business_layer/reports/novel/novel_summary_report.cpp \
     business_layer/reports/screenplay/screenplay_cast_report.cpp \
     business_layer/reports/screenplay/screenplay_dialogues_report.cpp \
@@ -389,13 +331,9 @@ SOURCES += \
     business_layer/reports/screenplay/series/screenplay_series_location_report.cpp \
     business_layer/reports/screenplay/series/screenplay_series_scene_report.cpp \
     business_layer/reports/screenplay/series/screenplay_series_summary_report.cpp \
-    business_layer/reports/stageplay/stageplay_summary_report.cpp \
-    business_layer/templates/audioplay_template.cpp \
-    business_layer/templates/comic_book_template.cpp \
     business_layer/templates/novel_template.cpp \
     business_layer/templates/screenplay_template.cpp \
     business_layer/templates/simple_text_template.cpp \
-    business_layer/templates/stageplay_template.cpp \
     business_layer/templates/templates_facade.cpp \
     business_layer/templates/text_template.cpp \
     data_layer/database.cpp \
@@ -565,18 +503,12 @@ HEADERS += \
     business_layer/chronometry/chronometer.h \
     business_layer/compliance/compliance_checker.h \
     business_layer/compliance/compliance_checker_impl.h \
-    business_layer/document/audioplay/text/audioplay_text_corrector.h \
-    business_layer/document/audioplay/text/audioplay_text_document.h \
-    business_layer/document/comic_book/text/comic_book_text_corrector.h \
-    business_layer/document/comic_book/text/comic_book_text_document.h \
     business_layer/document/novel/text/novel_text_corrector.h \
     business_layer/document/novel/text/novel_text_document.h \
     business_layer/document/screenplay/text/screenplay_text_corrector.h \
     business_layer/document/screenplay/text/screenplay_text_document.h \
     business_layer/document/simple_text/simple_text_corrector.h \
     business_layer/document/simple_text/simple_text_document.h \
-    business_layer/document/stageplay/text/stageplay_text_corrector.h \
-    business_layer/document/stageplay/text/stageplay_text_document.h \
     business_layer/document/text/abstract_text_corrector.h \
     business_layer/document/text/text_block_data.h \
     business_layer/document/text/text_cursor.h \
@@ -585,11 +517,6 @@ HEADERS += \
     business_layer/export/abstract_exporter.h \
     business_layer/export/abstract_markdown_exporter.h \
     business_layer/export/abstract_pdf_exporter.h \
-    business_layer/export/audioplay/audioplay_docx_exporter.h \
-    business_layer/export/audioplay/audioplay_export_options.h \
-    business_layer/export/audioplay/audioplay_exporter.h \
-    business_layer/export/audioplay/audioplay_fountain_exporter.h \
-    business_layer/export/audioplay/audioplay_pdf_exporter.h \
     business_layer/export/characters/character_docx_exporter.h \
     business_layer/export/characters/character_export_options.h \
     business_layer/export/characters/character_exporter.h \
@@ -598,11 +525,6 @@ HEADERS += \
     business_layer/export/characters/characters_export_options.h \
     business_layer/export/characters/characters_exporter.h \
     business_layer/export/characters/characters_pdf_exporter.h \
-    business_layer/export/comic_book/comic_book_docx_exporter.h \
-    business_layer/export/comic_book/comic_book_export_options.h \
-    business_layer/export/comic_book/comic_book_exporter.h \
-    business_layer/export/comic_book/comic_book_fountain_exporter.h \
-    business_layer/export/comic_book/comic_book_pdf_exporter.h \
     business_layer/export/export_options.h \
     business_layer/export/locations/location_docx_exporter.h \
     business_layer/export/locations/location_export_options.h \
@@ -626,11 +548,6 @@ HEADERS += \
     business_layer/export/simple_text/simple_text_exporter.h \
     business_layer/export/simple_text/simple_text_markdown_exporter.h \
     business_layer/export/simple_text/simple_text_pdf_exporter.h \
-    business_layer/export/stageplay/stageplay_docx_exporter.h \
-    business_layer/export/stageplay/stageplay_export_options.h \
-    business_layer/export/stageplay/stageplay_exporter.h \
-    business_layer/export/stageplay/stageplay_fountain_exporter.h \
-    business_layer/export/stageplay/stageplay_pdf_exporter.h \
     business_layer/export/worlds/world_docx_exporter.h \
     business_layer/export/worlds/world_export_options.h \
     business_layer/export/worlds/world_exporter.h \
@@ -642,10 +559,6 @@ HEADERS += \
     business_layer/import/abstract_fountain_importer.h \
     business_layer/import/abstract_importer.h \
     business_layer/import/abstract_markdown_importer.h \
-    business_layer/import/audioplay/abstract_audioplay_importer.h \
-    business_layer/import/audioplay/audioplay_fountain_importer.h \
-    business_layer/import/comic_book/abstract_comic_book_importer.h \
-    business_layer/import/comic_book/comic_book_fountain_importer.h \
     business_layer/import/import_options.h \
     business_layer/import/novel/abstract_novel_importer.h \
     business_layer/import/novel/novel_markdown_importer.h \
@@ -657,8 +570,6 @@ HEADERS += \
     business_layer/import/screenplay/screenplay_kit_scenarist_importer.h \
     business_layer/import/screenplay/screenplay_pdf_importer.h \
     business_layer/import/screenplay/screenplay_trelby_importer.h \
-    business_layer/import/stageplay/abstract_stageplay_importer.h \
-    business_layer/import/stageplay/stageplay_fountain_importer.h \
     business_layer/import/text/abstract_simple_text_importer.h \
     business_layer/import/text/simple_text_docx_importer.h \
     business_layer/import/text/simple_text_markdown_importer.h \
@@ -668,28 +579,8 @@ HEADERS += \
     business_layer/model/abstract_model_item.h \
     business_layer/model/abstract_model_xml.h \
     business_layer/model/abstract_raw_data_wrapper.h \
-    business_layer/model/audioplay/audioplay_information_model.h \
-    business_layer/model/audioplay/audioplay_statistics_model.h \
-    business_layer/model/audioplay/audioplay_synopsis_model.h \
-    business_layer/model/audioplay/audioplay_title_page_model.h \
-    business_layer/model/audioplay/text/audioplay_text_block_parser.h \
-    business_layer/model/audioplay/text/audioplay_text_model.h \
-    business_layer/model/audioplay/text/audioplay_text_model_folder_item.h \
-    business_layer/model/audioplay/text/audioplay_text_model_scene_item.h \
-    business_layer/model/audioplay/text/audioplay_text_model_text_item.h \
     business_layer/model/characters/character_model.h \
     business_layer/model/characters/characters_model.h \
-    business_layer/model/comic_book/comic_book_dictionaries_model.h \
-    business_layer/model/comic_book/comic_book_information_model.h \
-    business_layer/model/comic_book/comic_book_statistics_model.h \
-    business_layer/model/comic_book/comic_book_synopsis_model.h \
-    business_layer/model/comic_book/comic_book_title_page_model.h \
-    business_layer/model/comic_book/text/comic_book_text_block_parser.h \
-    business_layer/model/comic_book/text/comic_book_text_model.h \
-    business_layer/model/comic_book/text/comic_book_text_model_folder_item.h \
-    business_layer/model/comic_book/text/comic_book_text_model_page_item.h \
-    business_layer/model/comic_book/text/comic_book_text_model_panel_item.h \
-    business_layer/model/comic_book/text/comic_book_text_model_text_item.h \
     business_layer/model/images/images_gallery_model.h \
     business_layer/model/locations/location_model.h \
     business_layer/model/locations/locations_model.h \
@@ -730,14 +621,6 @@ HEADERS += \
     business_layer/model/simple_text/simple_text_model.h \
     business_layer/model/simple_text/simple_text_model_chapter_item.h \
     business_layer/model/simple_text/simple_text_model_folder_item.h \
-    business_layer/model/stageplay/stageplay_information_model.h \
-    business_layer/model/stageplay/stageplay_statistics_model.h \
-    business_layer/model/stageplay/stageplay_synopsis_model.h \
-    business_layer/model/stageplay/stageplay_title_page_model.h \
-    business_layer/model/stageplay/text/stageplay_text_block_parser.h \
-    business_layer/model/stageplay/text/stageplay_text_model.h \
-    business_layer/model/stageplay/text/stageplay_text_model_folder_item.h \
-    business_layer/model/stageplay/text/stageplay_text_model_scene_item.h \
     business_layer/model/structure/structure_model.h \
     business_layer/model/structure/structure_model_item.h \
     business_layer/model/structure/structure_proxy_model.h \
@@ -754,19 +637,10 @@ HEADERS += \
     business_layer/model/worlds/world_model.h \
     business_layer/model/worlds/worlds_model.h \
     business_layer/plots/abstract_plot.h \
-    business_layer/plots/audioplay/audioplay_characters_activity_plot.h \
-    business_layer/plots/audioplay/audioplay_structure_analysis_plot.h \
     business_layer/plots/screenplay/screenplay_characters_activity_plot.h \
     business_layer/plots/screenplay/screenplay_structure_analysis_plot.h \
     business_layer/plots/screenplay/series/screenplay_series_characters_activity_plot.h \
     business_layer/reports/abstract_report.h \
-    business_layer/reports/audioplay/audioplay_cast_report.h \
-    business_layer/reports/audioplay/audioplay_dialogues_report.h \
-    business_layer/reports/audioplay/audioplay_gender_report.h \
-    business_layer/reports/audioplay/audioplay_location_report.h \
-    business_layer/reports/audioplay/audioplay_scene_report.h \
-    business_layer/reports/audioplay/audioplay_summary_report.h \
-    business_layer/reports/comic_book/comic_book_summary_report.h \
     business_layer/reports/novel/novel_summary_report.h \
     business_layer/reports/screenplay/screenplay_cast_report.h \
     business_layer/reports/screenplay/screenplay_dialogues_report.h \
@@ -779,13 +653,9 @@ HEADERS += \
     business_layer/reports/screenplay/series/screenplay_series_location_report.h \
     business_layer/reports/screenplay/series/screenplay_series_scene_report.h \
     business_layer/reports/screenplay/series/screenplay_series_summary_report.h \
-    business_layer/reports/stageplay/stageplay_summary_report.h \
-    business_layer/templates/audioplay_template.h \
-    business_layer/templates/comic_book_template.h \
     business_layer/templates/novel_template.h \
     business_layer/templates/screenplay_template.h \
     business_layer/templates/simple_text_template.h \
-    business_layer/templates/stageplay_template.h \
     business_layer/templates/templates_facade.h \
     business_layer/templates/text_template.h \
     corelib_global.h \

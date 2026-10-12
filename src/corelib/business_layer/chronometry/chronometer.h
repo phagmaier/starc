@@ -110,18 +110,4 @@ public:
                          const ChronometerOptions& _options);
 };
 
-/**
- * @brief Фасад для вычисления хронометража способом, настроенным пользователем
- */
-class CORE_LIBRARY_EXPORT AudioplayChronometer
-{
-public:
-    /**
-     * @brief Определить длительность заданного блока
-     */
-    static std::chrono::milliseconds duration(TextParagraphType _type, const QString& _text,
-                                              const QString& _templateId,
-                                              const ChronometerOptions& _options);
-};
-
 } // namespace BusinessLayer

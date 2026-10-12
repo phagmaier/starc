@@ -272,6 +272,10 @@ QModelIndex StructureModel::addDocument(Domain::DocumentObjectType _type, const 
 
     using namespace Domain;
 
+    if (isUnsupportedDocumentType(_type)) {
+        return {};
+    }
+
     auto createItem = [_visible](DocumentObjectType _type, const QString& _name) {
         auto uuid = QUuid::createUuid();
         const auto readOnly = false;
@@ -344,48 +348,6 @@ QModelIndex StructureModel::addDocument(Domain::DocumentObjectType _type, const 
                        synopsisItem);
         }
 
-        break;
-    }
-
-    case DocumentObjectType::ComicBook: {
-        auto comicBookItem = createItem(DocumentObjectType::ComicBook,
-                                        !_name.isEmpty() ? _name : tr("Comic book"));
-        appendItem(comicBookItem, parentItem);
-        appendItem(createItem(DocumentObjectType::ComicBookTitlePage, tr("Title page")),
-                   comicBookItem);
-        appendItem(createItem(DocumentObjectType::ComicBookSynopsis, tr("Synopsis")),
-                   comicBookItem);
-        appendItem(createItem(DocumentObjectType::ComicBookText, tr("Script")), comicBookItem);
-        appendItem(createItem(DocumentObjectType::ComicBookStatistics, tr("Statistics")),
-                   comicBookItem);
-        break;
-    }
-
-    case DocumentObjectType::Audioplay: {
-        auto audioplayItem
-            = createItem(DocumentObjectType::Audioplay, !_name.isEmpty() ? _name : tr("Audioplay"));
-        appendItem(audioplayItem, parentItem);
-        appendItem(createItem(DocumentObjectType::AudioplayTitlePage, tr("Title page")),
-                   audioplayItem);
-        appendItem(createItem(DocumentObjectType::AudioplaySynopsis, tr("Synopsis")),
-                   audioplayItem);
-        appendItem(createItem(DocumentObjectType::AudioplayText, tr("Script")), audioplayItem);
-        appendItem(createItem(DocumentObjectType::AudioplayStatistics, tr("Statistics")),
-                   audioplayItem);
-        break;
-    }
-
-    case DocumentObjectType::Stageplay: {
-        auto audioplayItem
-            = createItem(DocumentObjectType::Stageplay, !_name.isEmpty() ? _name : tr("Stageplay"));
-        appendItem(audioplayItem, parentItem);
-        appendItem(createItem(DocumentObjectType::StageplayTitlePage, tr("Title page")),
-                   audioplayItem);
-        appendItem(createItem(DocumentObjectType::StageplaySynopsis, tr("Synopsis")),
-                   audioplayItem);
-        appendItem(createItem(DocumentObjectType::StageplayText, tr("Script")), audioplayItem);
-        appendItem(createItem(DocumentObjectType::StageplayStatistics, tr("Statistics")),
-                   audioplayItem);
         break;
     }
 
@@ -720,6 +682,9 @@ Qt::ItemFlags StructureModel::flags(const QModelIndex& _index) const
 {
     const auto item = itemForIndex(_index);
     const auto defaultFlags = Qt::ItemIsEnabled | Qt::ItemIsSelectable;
+    if (Domain::isUnsupportedDocumentType(item->type())) {
+        return defaultFlags;
+    }
     switch (item->type()) {
     //
     // Элемент можно перемещать и вставлять внутрь другие
@@ -748,9 +713,6 @@ Qt::ItemFlags StructureModel::flags(const QModelIndex& _index) const
     //
     case Domain::DocumentObjectType::Screenplay:
     case Domain::DocumentObjectType::ScreenplaySeries:
-    case Domain::DocumentObjectType::ComicBook:
-    case Domain::DocumentObjectType::Audioplay:
-    case Domain::DocumentObjectType::Stageplay:
     case Domain::DocumentObjectType::Novel:
     case Domain::DocumentObjectType::SimpleText:
     case Domain::DocumentObjectType::MindMap:
@@ -772,18 +734,6 @@ Qt::ItemFlags StructureModel::flags(const QModelIndex& _index) const
     case Domain::DocumentObjectType::ScreenplaySeriesTreatment:
     case Domain::DocumentObjectType::ScreenplaySeriesText:
     case Domain::DocumentObjectType::ScreenplaySeriesStatistics:
-    case Domain::DocumentObjectType::ComicBookTitlePage:
-    case Domain::DocumentObjectType::ComicBookSynopsis:
-    case Domain::DocumentObjectType::ComicBookText:
-    case Domain::DocumentObjectType::ComicBookStatistics:
-    case Domain::DocumentObjectType::AudioplayTitlePage:
-    case Domain::DocumentObjectType::AudioplaySynopsis:
-    case Domain::DocumentObjectType::AudioplayText:
-    case Domain::DocumentObjectType::AudioplayStatistics:
-    case Domain::DocumentObjectType::StageplayTitlePage:
-    case Domain::DocumentObjectType::StageplaySynopsis:
-    case Domain::DocumentObjectType::StageplayText:
-    case Domain::DocumentObjectType::StageplayStatistics:
     case Domain::DocumentObjectType::NovelTitlePage:
     case Domain::DocumentObjectType::NovelSynopsis:
     case Domain::DocumentObjectType::NovelOutline:

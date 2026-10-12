@@ -31,9 +31,6 @@ public:
      * @brief Импортировать все возможные данные из указанного файла
      */
     void importScreenplay(const QString& _filePath, bool _importDocuments = true);
-    void importComicBook(const QString& _filePath, bool _importDocuments = true);
-    void importAudioplay(const QString& _filePath, bool _importDocuments = true);
-    void importStageplay(const QString& _filePath, bool _importDocuments = true);
     void importNovel(const QString& _filePath);
 
     /**
@@ -62,13 +59,10 @@ signals:
      * @brief Документ загружен
      */
     void simpleTextImported(const QString& _name, const QString& _text);
-    void audioplayImported(const QString& _name, const QString& _titlePage, const QString& _text);
-    void comicbookImported(const QString& _name, const QString& _titlePage, const QString& _text);
     void novelImported(const QString& _name, const QString& _screenplay);
     void screenplayImported(const QString& _name, const QString& _titlePage,
                             const QString& _synopsis, const QString& _treatment,
                             const QString& _screenplay);
-    void stageplayImported(const QString& _name, const QString& _titlePage, const QString& _text);
     void presentationImported(const QUuid& _documentUuid, const QString& _name,
                               const QString& _presentationFilePath);
 

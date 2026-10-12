@@ -1,0 +1,423 @@
+#include <business_layer/export/screenplay/screenplay_docx_exporter.h>
+#include <business_layer/export/screenplay/screenplay_export_options.h>
+#include <business_layer/export/screenplay/screenplay_fdx_exporter.h>
+#include <business_layer/export/screenplay/screenplay_fountain_exporter.h>
+#include <business_layer/export/screenplay/screenplay_pdf_exporter.h>
+#include <business_layer/model/screenplay/text/screenplay_text_model.h>
+#include <business_layer/model/structure/structure_model.h>
+#include <business_layer/model/structure/structure_model_item.h>
+#include <business_layer/model/text/text_model_text_item.h>
+#include <business_layer/templates/text_template.h>
+#include <data_layer/database.h>
+#include <data_layer/storage/document_storage.h>
+#include <data_layer/storage/storage_facade.h>
+#include <domain/document_object.h>
+#include <interfaces/ui/i_document_view.h>
+#include <management_layer/content/project/project_manager.h>
+#include <management_layer/content/project/project_models_facade.h>
+#include <management_layer/content/projects/projects_model_project_item.h>
+#include <management_layer/content/settings/settings_manager.h>
+#include <management_layer/content/shortcuts/shortcuts_manager.h>
+#include <management_layer/plugins/screenplay_text/text/screenplay_text_edit.h>
+#include <management_layer/plugins_builder.h>
+#include <ui/account/account_navigator.h>
+#include <ui/onboarding/onboarding_navigator.h>
+#include <ui/project/create_document_dialog.h>
+#include <ui/project/create_document_dialog_option.h>
+#include <ui/project/project_navigator.h>
+#include <ui/project/project_view.h>
+#include <ui/projects/create_project_dialog.h>
+#include <ui/settings/settings_navigator.h>
+#include <ui/settings/settings_view.h>
+#include <ui/widgets/combo_box/combo_box.h>
+#include <ui/widgets/label/label.h>
+#include <ui/widgets/tree/tree.h>
+
+#include <QAction>
+#include <QApplication>
+#include <QDir>
+#include <QFile>
+#include <QFontDatabase>
+#include <QKeyEvent>
+#include <QSortFilterProxyModel>
+#include <QTextDocument>
+#include <QTimer>
+
+#include <cstdio>
+#include <cstdlib>
+
+namespace {
+void require(bool _ok, const char* _label)
+{
+    if (!_ok) {
+        std::fprintf(stderr, "FAIL: %s\n", _label);
+        std::exit(1);
+    }
+    std::printf("ok: %s\n", _label);
+}
+void noAi(QWidget* _widget)
+{
+    require(_widget, "construct retained view");
+    for (auto object : _widget->findChildren<QObject*>()) {
+        require(!QString(object->metaObject()->className()).contains("AiAssistant"),
+                "no AI widget");
+        if (auto action = qobject_cast<QAction*>(object)) {
+            require(!action->toolTip().contains("AI assistant"), "no AI toolbar control");
+        }
+    }
+}
+// Names of the retired formats and of the removed assistant must not be offered anywhere.
+void requireRetained(const QString& _text)
+{
+    for (const auto retired : { "comic", "audioplay", "audio drama", "audio play", "stageplay",
+                                "stage play", "ai assistant" }) {
+        if (_text.contains(QLatin1String(retired), Qt::CaseInsensitive)) {
+            std::fprintf(stderr, "FAIL: retired choice offered: %s\n", qPrintable(_text));
+            std::exit(1);
+        }
+    }
+}
+void requireRetained(const QAbstractItemModel* _model, const QModelIndex& _parent)
+{
+    if (_model == nullptr) {
+        return;
+    }
+    for (int row = 0; row < _model->rowCount(_parent); ++row) {
+        const auto index = _model->index(row, 0, _parent);
+        requireRetained(index.data().toString());
+        requireRetained(_model, index);
+    }
+}
+void key(QWidget* _editor, int _key, const QString& _text = {},
+         Qt::KeyboardModifiers _modifiers = Qt::NoModifier)
+{
+    QKeyEvent press(QEvent::KeyPress, _key, _modifiers, _text);
+    QKeyEvent release(QEvent::KeyRelease, _key, _modifiers, _text);
+    QApplication::sendEvent(_editor, &press);
+    QApplication::sendEvent(_editor, &release);
+    QApplication::processEvents();
+}
+// Models write edits to their documents after a short idle period, as when a writer pauses.
+void pause(int _milliseconds)
+{
+    QEventLoop loop;
+    QTimer::singleShot(_milliseconds, &loop, &QEventLoop::quit);
+    loop.exec();
+}
+void type(QWidget* _editor, const QString& _text)
+{
+    for (const auto character : _text) {
+        key(_editor, Qt::Key_unknown, QString(character));
+    }
+}
+// The editor lives in a scalable graphics proxy, outside the ordinary child widget tree.
+Ui::ScreenplayTextEdit* screenplayEdit()
+{
+    const auto widgets = QApplication::allWidgets();
+    for (auto widget : widgets) {
+        if (auto edit = qobject_cast<Ui::ScreenplayTextEdit*>(widget)) {
+            return edit;
+        }
+    }
+    return nullptr;
+}
+bool unsupportedNoticeShown(QWidget* _view)
+{
+    for (auto label : _view->findChildren<AbstractLabel*>()) {
+        if (label->text() == "Unsupported document format" && label->isVisibleTo(_view)) {
+            return true;
+        }
+    }
+    return false;
+}
+QByteArray read(const QString& _path)
+{
+    QFile file(_path);
+    require(file.open(QIODevice::ReadOnly), "read export");
+    return file.readAll();
+}
+} // namespace
+
+int main(int argc, char** argv)
+{
+    // Keep the log complete when a failure stops the process abruptly.
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
+    QApplication app(argc, argv);
+    app.setApplicationName("Screenplay scope regression");
+    app.setOrganizationName("Disposable tests");
+    // The version the application registers. Without one every open looks like a project from
+    // before 0.1.3 and the retained upstream upgrade steps rewrite script documents as text.
+    app.setApplicationVersion("0.8.4");
+    require(argc == 2, "evidence directory argument");
+    const QString evidence = QString::fromLocal8Bit(argv[1]);
+    for (const auto font : { ":/fonts/roboto-regular", ":/fonts/materialdesignicons",
+                             ":/fonts/font-awesome-brands" }) {
+        require(QFontDatabase::addApplicationFont(font) >= 0, "embedded font");
+    }
+    using Type = Domain::DocumentObjectType;
+    static_assert(static_cast<int>(Type::ComicBook) == 10200);
+    static_assert(static_cast<int>(Type::Audioplay) == 10300);
+    static_assert(static_cast<int>(Type::Stageplay) == 10400);
+    static_assert(static_cast<int>(Type::Novel) == 10500);
+    static_assert(static_cast<int>(Type::ScreenplayText) == 10104);
+
+    // Dialogs require a top-level parent to overlay.
+    QWidget host;
+    host.resize(1280, 800);
+    auto createProject = new Ui::CreateProjectDialog(&host);
+    for (auto combo : createProject->findChildren<ComboBox*>()) {
+        for (int row = 0; row < combo->model()->rowCount(); ++row) {
+            const auto type
+                = static_cast<Type>(combo->model()->index(row, 0).data(Qt::UserRole + 1).toInt());
+            require(!Domain::isUnsupportedDocumentType(type), "no retired project choice");
+        }
+    }
+    auto createDocument = new Ui::CreateDocumentDialog(&host);
+    for (auto option : createDocument->findChildren<Ui::CreateDocumentDialogOption*>()) {
+        require(!Domain::isUnsupportedDocumentType(option->documentType()),
+                "no retired document choice");
+    }
+    // The settings screen as the application builds it, with its shortcut tables.
+    ManagementLayer::PluginsBuilder plugins;
+    ManagementLayer::ShortcutsManager shortcuts;
+    ManagementLayer::SettingsManager settings(nullptr, &host, plugins, &shortcuts);
+    auto onboarding = new Ui::OnboardingNavigator(&host);
+    auto account = new Ui::AccountNavigator(&host);
+    QApplication::processEvents();
+    for (QWidget* widget :
+         QVector<QWidget*>{ settings.view(), settings.navigator(), onboarding, account }) {
+        noAi(widget);
+        for (auto label : widget->findChildren<AbstractLabel*>()) {
+            requireRetained(label->text());
+        }
+        for (auto tree : widget->findChildren<Tree*>()) {
+            requireRetained(tree->model(), {});
+        }
+    }
+    {
+        int components = 0;
+        const auto navigation = settings.navigator()->findChild<Tree*>()->model();
+        for (int row = 0; row < navigation->rowCount(); ++row) {
+            components = qMax(components, navigation->rowCount(navigation->index(row, 0)));
+        }
+        require(components == 3, "settings list simple text, screenplay and novel components");
+    }
+
+    const QString path = evidence + "/mixed-project.starc";
+    DatabaseLayer::Database::setCurrentFile(path);
+    QWidget parent;
+    ManagementLayer::ProjectManager manager(nullptr, &parent, plugins);
+    BusinessLayer::StructureModel* structure = nullptr;
+    QObject::connect(&manager, &ManagementLayer::ProjectManager::structureModelChanged,
+                     [&](BusinessLayer::AbstractModel* model) {
+                         structure = qobject_cast<BusinessLayer::StructureModel*>(model);
+                     });
+    auto storage = DataStorageLayer::StorageFacade::documentStorage();
+    BusinessLayer::ProjectsModelProjectItem project;
+    project.setProjectType(BusinessLayer::ProjectType::Local);
+    project.setPath(path);
+    project.setName("Disposable mixed screenplay");
+    manager.loadCurrentProject(&project);
+    require(structure, "open disposable project");
+    // A project file gets its version on the second open, after the upstream upgrade steps
+    // ran once. Those steps rewrite script documents as text, so reach the state of an
+    // existing project before adding the documents whose bytes are compared.
+    manager.saveChanges();
+    DatabaseLayer::Database::commit();
+    manager.closeCurrentProject(path);
+    storage->clear();
+    DatabaseLayer::Database::closeCurrentFile();
+    DatabaseLayer::Database::setCurrentFile(path);
+    manager.loadCurrentProject(&project);
+    require(structure, "reopen the new project");
+    const auto screenplay = structure->addDocument(Type::Screenplay, "Kept screenplay");
+    require(screenplay.isValid(), "create screenplay");
+    auto story = structure->itemForIndex(screenplay);
+    BusinessLayer::StructureModelItem* script = nullptr;
+    for (int i = 0; i < story->childCount(); ++i) {
+        if (story->childAt(i)->type() == Type::ScreenplayText)
+            script = story->childAt(i);
+    }
+    require(script, "screenplay text created");
+    const auto scriptUuid = script->uuid();
+    QHash<QUuid, QByteArray> retired;
+    QVector<QUuid> retiredText;
+    // All 18 persisted format identifiers, plus drafts and binary/image data.
+    for (const int base : { 10200, 10300, 10400 }) {
+        BusinessLayer::StructureModelItem* bundle = nullptr;
+        for (int offset = 0; offset <= 5; ++offset) {
+            const auto uuid = QUuid::createUuid();
+            const auto documentType = static_cast<Type>(base + offset);
+            const QByteArray bytes = QByteArray::fromHex("efbbbf") + "<legacy unknown='keep'>\r\n"
+                + QByteArray::number(base + offset) + QByteArray::fromHex("00ff") + "</legacy>\r\n";
+            auto item = new BusinessLayer::StructureModelItem(
+                uuid, documentType, "Retained legacy document", "First draft", {}, true, false,
+                false);
+            structure->appendItem(item, bundle, bytes);
+            if (offset == 0)
+                bundle = item;
+            retired.insert(uuid, bytes);
+            require(storage->document(uuid)->content() == bytes, "seed legacy bytes");
+            if (offset == 3) {
+                retiredText.append(uuid);
+                structure->addItemDraft(item, "Retained draft", {}, false, bytes + "draft", false);
+                const auto draft = item->drafts().first();
+                retired.insert(draft->uuid(), bytes + "draft");
+            }
+        }
+        require(!structure->addDocument(static_cast<Type>(base), "Refused").isValid(),
+                "reject retired format creation");
+    }
+    for (const auto documentType : { Type::ImageData, Type::BinaryData }) {
+        const auto uuid = QUuid::createUuid();
+        auto doc = storage->createDocument(uuid, documentType);
+        const QByteArray bytes = QByteArray::fromHex("00010200ffff");
+        doc->setContent(bytes);
+        require(storage->saveDocument(doc), "save retained raw data");
+        retired.insert(uuid, bytes);
+    }
+
+    auto navigator = qobject_cast<Ui::ProjectNavigator*>(manager.navigator());
+    require(navigator, "project navigator");
+    auto tree = navigator->findChild<Tree*>();
+    require(tree, "project tree");
+    auto proxy = qobject_cast<QSortFilterProxyModel*>(tree->model());
+    require(proxy, "project proxy model");
+    for (const auto uuid : retiredText) {
+        const auto index
+            = proxy->mapFromSource(structure->indexForItem(structure->itemForUuid(uuid)));
+        require(index.isValid(), "legacy document remains in navigator");
+        navigator->setCurrentIndex(index);
+        require(!manager.currentDocument(), "legacy document has no editor model");
+        require(!(structure->flags(structure->indexForItem(structure->itemForUuid(uuid)))
+                  & Qt::ItemIsDragEnabled),
+                "legacy document is read only");
+        require(unsupportedNoticeShown(manager.view()), "unsupported-format explanation");
+    }
+
+    navigator->setCurrentIndex(proxy->mapFromSource(structure->indexForItem(script)));
+    require(manager.currentDocument() && manager.currentDocument()->uuid() == scriptUuid,
+            "open screenplay in mixed project");
+    require(!unsupportedNoticeShown(manager.view()), "screenplay replaces the unsupported notice");
+    auto edit = screenplayEdit();
+    require(edit, "actual screenplay editor");
+    noAi(manager.view());
+    noAi(edit);
+    edit->setCurrentParagraphType(BusinessLayer::TextParagraphType::SceneHeading);
+    type(edit, "INT. ROOM - DAY");
+    key(edit, Qt::Key_Return, "\r");
+    require(edit->currentParagraphType() == BusinessLayer::TextParagraphType::Action,
+            "scene heading Enter transitions to action");
+    type(edit, "A writer waits.");
+    key(edit, Qt::Key_Return, "\r");
+    key(edit, Qt::Key_Tab, "\t");
+    require(edit->currentParagraphType() == BusinessLayer::TextParagraphType::Character,
+            "action Tab transitions to character");
+    type(edit, "HERO");
+    key(edit, Qt::Key_Return, "\r");
+    require(edit->currentParagraphType() == BusinessLayer::TextParagraphType::Dialogue,
+            "character Enter transitions to dialogue");
+    type(edit, "We keep the screenplay.");
+    // An Undo step is what the model recorded between two saves of its changes. The
+    // application saves them on a timer; the check does it explicitly to get a defined step.
+    auto scriptModel = manager.firstScriptModel();
+    require(scriptModel && scriptModel->document()->uuid() == scriptUuid,
+            "editor is bound to the screenplay model");
+    scriptModel->saveChanges();
+    const QString before = edit->toPlainText();
+    type(edit, "X");
+    require(edit->toPlainText() == before + "X", "typing exact text");
+    edit->undo();
+    require(edit->toPlainText() == before, "screenplay Undo");
+    edit->redo();
+    require(edit->toPlainText() == before + "X", "screenplay Redo");
+    key(edit, Qt::Key_Return, "\r");
+    edit->setCurrentParagraphType(BusinessLayer::TextParagraphType::Action);
+    for (int i = 0; i < 140; ++i) {
+        type(edit, "The scene continues with an ordinary action paragraph.");
+        key(edit, Qt::Key_Return, "\r");
+    }
+    require(edit->document()->pageCount() > 1, "screenplay pagination spans pages");
+    const auto expectedText = edit->toPlainText();
+    // Save all loaded models through the application's project save path.
+    pause(1000);
+    manager.saveChanges();
+    DatabaseLayer::Database::commit();
+    const auto screenplayBytes = manager.currentDocument()->content();
+    require(screenplayBytes.contains("We keep the screenplay.X")
+                && screenplayBytes.count("The scene continues with an ordinary action paragraph.")
+                    == 140,
+            "typed screenplay persisted");
+
+    // The model the editor is bound to, as the application's export would use it.
+    auto model = manager.firstScriptModel();
+    require(model && model->document()->uuid() == scriptUuid, "screenplay model dispatcher");
+    {
+        ManagementLayer::ProjectModelsFacade facade(structure, nullptr, nullptr);
+        for (const auto& uuid : retiredText) {
+            require(!facade.modelFor(uuid), "retired model refused");
+        }
+        for (const int base : { 10200, 10300, 10400 }) {
+            require(!facade.modelFor(static_cast<Type>(base + 4)),
+                    "retired dictionaries are not created on request");
+        }
+    }
+    BusinessLayer::ScreenplayExportOptions options;
+    options.includeTitlePage = false;
+    options.templateId = "world_cp";
+    options.fileFormat = BusinessLayer::ExportFileFormat::Fountain;
+    options.filePath = evidence + "/screenplay.fountain";
+    BusinessLayer::ScreenplayFountainExporter().exportTo(model, options);
+    require(read(options.filePath).contains("We keep the screenplay"), "Fountain export text");
+    options.fileFormat = BusinessLayer::ExportFileFormat::Fdx;
+    options.filePath = evidence + "/screenplay.fdx";
+    BusinessLayer::ScreenplayFdxExporter().exportTo(model, options);
+    require(read(options.filePath).contains("We keep the screenplay"), "FDX export text");
+    options.fileFormat = BusinessLayer::ExportFileFormat::Docx;
+    options.filePath = evidence + "/screenplay.docx";
+    BusinessLayer::ScreenplayDocxExporter().exportTo(model, options);
+    require(read(options.filePath).startsWith("PK"), "DOCX export container");
+    options.fileFormat = BusinessLayer::ExportFileFormat::Pdf;
+    options.filePath = evidence + "/screenplay.pdf";
+    BusinessLayer::ScreenplayPdfExporter().exportTo(model, options);
+    require(read(options.filePath).startsWith("%PDF"), "PDF export container");
+    manager.closeCurrentProject(path);
+    storage->clear();
+    DatabaseLayer::Database::closeCurrentFile();
+    DatabaseLayer::Database::setCurrentFile(path);
+    manager.loadCurrentProject(&project);
+    require(storage->document(scriptUuid)->content() == screenplayBytes,
+            "screenplay bytes survive reopen");
+    for (auto it = retired.cbegin(); it != retired.cend(); ++it) {
+        const auto document = storage->document(it.key());
+        if (document == nullptr || document->content() != it.value()) {
+            std::fprintf(stderr, "retained document %s of type %d: expected %s, found %s\n",
+                         qPrintable(it.key().toString()),
+                         document ? static_cast<int>(document->type()) : -1,
+                         it.value().toHex().constData(),
+                         document ? document->content().toHex().constData() : "nothing");
+        }
+        require(document && document->content() == it.value(),
+                "legacy document, draft, and raw data bytes survive save/reopen");
+    }
+    navigator->setCurrentIndex(
+        proxy->mapFromSource(structure->indexForItem(structure->itemForUuid(scriptUuid))));
+    edit = screenplayEdit();
+    QApplication::processEvents();
+    if (edit != nullptr && edit->toPlainText() != expectedText) {
+        const auto found = edit->toPlainText();
+        int at = 0;
+        while (at < found.size() && at < expectedText.size() && found[at] == expectedText[at]) {
+            ++at;
+        }
+        std::fprintf(stderr, "reopened text differs at %d of %d/%d: expected [%s] found [%s]\n", at,
+                     int(expectedText.size()), int(found.size()),
+                     qPrintable(expectedText.mid(at - 20, 80)), qPrintable(found.mid(at - 20, 80)));
+    }
+    require(edit && edit->toPlainText() == expectedText, "screenplay editor text survives reopen");
+    manager.closeCurrentProject(path);
+    storage->clear();
+    DatabaseLayer::Database::closeCurrentFile();
+    std::puts("PASS: screenplay scope, keyboard editing, Undo/Redo, pagination, exports, "
+              "mixed-project preservation");
+}

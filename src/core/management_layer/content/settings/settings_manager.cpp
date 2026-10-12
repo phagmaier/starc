@@ -4,12 +4,9 @@
 #include "template_options_manager.h"
 
 #include <3rd_party/webloader/src/NetworkRequest.h>
-#include <business_layer/templates/audioplay_template.h>
-#include <business_layer/templates/comic_book_template.h>
 #include <business_layer/templates/novel_template.h>
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/simple_text_template.h>
-#include <business_layer/templates/stageplay_template.h>
 #include <business_layer/templates/templates_facade.h>
 #include <data_layer/storage/settings_storage.h>
 #include <data_layer/storage/storage_facade.h>
@@ -76,17 +73,11 @@ public:
     void loadComponentsSettings();
     void loadSimpleTextSettings();
     void loadScreenplaySettings();
-    void loadComicBookSettings();
-    void loadAudioplaySettings();
-    void loadStageplaySettings();
     void loadNovelSettings();
     void loadShortcutsSettings();
     void loadShortcutsForApplicationSettings();
     void loadShortcutsForSimpleTextSettings();
     void loadShortcutsForScreenplaySettings();
-    void loadShortcutsForComicBookSettings();
-    void loadShortcutsForAudioplaySettings();
-    void loadShortcutsForStageplaySettings();
     void loadShortcutsForNovelSettings();
 
     /**
@@ -184,9 +175,6 @@ void SettingsManager::Implementation::loadComponentsSettings()
 {
     loadSimpleTextSettings();
     loadScreenplaySettings();
-    loadComicBookSettings();
-    loadAudioplaySettings();
-    loadStageplaySettings();
     loadNovelSettings();
 }
 
@@ -303,107 +291,6 @@ void SettingsManager::Implementation::loadScreenplaySettings()
         settingsValue(DataStorageLayer::kComponentsScreenplayDurationUseEighthsKey).toBool());
 }
 
-void SettingsManager::Implementation::loadComicBookSettings()
-{
-    view->setComicBookAvailable(
-        settingsValue(DataStorageLayer::kComponentsComicBookAvailableKey).toBool());
-    const auto defaultTemplate
-        = settingsValue(DataStorageLayer::kComponentsComicBookEditorDefaultTemplateKey).toString();
-    view->setComicBookEditorDefaultTemplate(defaultTemplate);
-    BusinessLayer::TemplatesFacade::setDefaultComicBookTemplate(defaultTemplate);
-    view->setComicBookEditorShowDialogueNumber(
-        settingsValue(DataStorageLayer::kComponentsComicBookEditorShowDialogueNumberKey).toBool());
-    view->setComicBookEditorSaveItemsFromText(
-        settingsValue(DataStorageLayer::kComponentsComicBookEditorSaveItemsFromTextKey).toBool());
-    view->setComicBookEditorShowHints(
-        settingsValue(DataStorageLayer::kComponentsComicBookEditorShowHintsForAllItemsKey).toBool(),
-        settingsValue(DataStorageLayer::kComponentsComicBookEditorShowHintsForPrimaryItemsKey)
-            .toBool(),
-        settingsValue(DataStorageLayer::kComponentsComicBookEditorShowHintsForSecondaryItemsKey)
-            .toBool(),
-        settingsValue(DataStorageLayer::kComponentsComicBookEditorShowHintsForTertiaryItemsKey)
-            .toBool());
-    view->setComicBookEditorShowCharacterSuggestionsInEmptyBlock(
-        settingsValue(
-            DataStorageLayer::kComponentsComicBookEditorShowCharacterSuggestionsInEmptyBlockKey)
-            .toBool());
-    //
-    view->setComicBookNavigatorShowSceneText(
-        settingsValue(DataStorageLayer::kComponentsComicBookNavigatorShowSceneTextKey).toBool(),
-        settingsValue(DataStorageLayer::kComponentsComicBookNavigatorSceneTextLinesKey).toInt());
-}
-
-void SettingsManager::Implementation::loadAudioplaySettings()
-{
-    view->setAudioplayAvailable(
-        settingsValue(DataStorageLayer::kComponentsAudioplayAvailableKey).toBool());
-    const auto defaultTemplate
-        = settingsValue(DataStorageLayer::kComponentsAudioplayEditorDefaultTemplateKey).toString();
-    view->setAudioplayEditorDefaultTemplate(defaultTemplate);
-    BusinessLayer::TemplatesFacade::setDefaultAudioplayTemplate(defaultTemplate);
-    view->setAudioplayEditorShowBlockNumber(
-        settingsValue(DataStorageLayer::kComponentsAudioplayEditorShowBlockNumbersKey).toBool(),
-        settingsValue(DataStorageLayer::kComponentsAudioplayEditorContinueBlockNumbersKey)
-            .toBool());
-    view->setAudioplayEditorSaveItemsFromText(
-        settingsValue(DataStorageLayer::kComponentsAudioplayEditorSaveItemsFromTextKey).toBool());
-    view->setAudioplayEditorShowHints(
-        settingsValue(DataStorageLayer::kComponentsAudioplayEditorShowHintsForAllItemsKey).toBool(),
-        settingsValue(DataStorageLayer::kComponentsAudioplayEditorShowHintsForPrimaryItemsKey)
-            .toBool(),
-        settingsValue(DataStorageLayer::kComponentsAudioplayEditorShowHintsForSecondaryItemsKey)
-            .toBool(),
-        settingsValue(DataStorageLayer::kComponentsAudioplayEditorShowHintsForTertiaryItemsKey)
-            .toBool());
-    view->setAudioplayEditorShowCharacterSuggestionsInEmptyBlock(
-        settingsValue(
-            DataStorageLayer::kComponentsAudioplayEditorShowCharacterSuggestionsInEmptyBlockKey)
-            .toBool());
-    //
-    view->setAudioplayNavigatorShowSceneNumber(
-        settingsValue(DataStorageLayer::kComponentsAudioplayNavigatorShowSceneNumberKey).toBool());
-    view->setAudioplayNavigatorShowSceneText(
-        settingsValue(DataStorageLayer::kComponentsAudioplayNavigatorShowSceneTextKey).toBool(),
-        settingsValue(DataStorageLayer::kComponentsAudioplayNavigatorSceneTextLinesKey).toInt());
-    //
-    view->setAudioplayDurationByWordsWords(
-        settingsValue(DataStorageLayer::kComponentsAudioplayDurationByWordsWordsKey).toInt());
-    view->setAudioplayDurationByWordsDuration(
-        settingsValue(DataStorageLayer::kComponentsAudioplayDurationByWordsDurationKey).toInt());
-}
-
-void SettingsManager::Implementation::loadStageplaySettings()
-{
-    view->setStageplayAvailable(
-        settingsValue(DataStorageLayer::kComponentsStageplayAvailableKey).toBool());
-    const auto defaultTemplate
-        = settingsValue(DataStorageLayer::kComponentsStageplayEditorDefaultTemplateKey).toString();
-    view->setStageplayEditorDefaultTemplate(defaultTemplate);
-    BusinessLayer::TemplatesFacade::setDefaultStageplayTemplate(defaultTemplate);
-    view->setStageplayEditorSaveItemsFromText(
-        settingsValue(DataStorageLayer::kComponentsStageplayEditorSaveItemsFromTextKey).toBool());
-    view->setStageplayEditorShowHints(
-        settingsValue(DataStorageLayer::kComponentsStageplayEditorShowHintsForAllItemsKey).toBool(),
-        settingsValue(DataStorageLayer::kComponentsStageplayEditorShowHintsForPrimaryItemsKey)
-            .toBool(),
-        settingsValue(DataStorageLayer::kComponentsStageplayEditorShowHintsForSecondaryItemsKey)
-            .toBool(),
-        settingsValue(DataStorageLayer::kComponentsStageplayEditorShowHintsForTertiaryItemsKey)
-            .toBool());
-    view->setStageplayEditorShowCharacterSuggestionsInEmptyBlock(
-        settingsValue(
-            DataStorageLayer::kComponentsStageplayEditorShowCharacterSuggestionsInEmptyBlockKey)
-            .toBool());
-    view->setStageplayEditorShowCharacterSuggestionsInEmptyBlock(
-        settingsValue(DataStorageLayer::kComponentsStageplayEditorShortcutsKey).toBool());
-    //
-    view->setStageplayNavigatorShowSceneNumber(
-        settingsValue(DataStorageLayer::kComponentsStageplayNavigatorShowSceneNumberKey).toBool());
-    view->setStageplayNavigatorShowSceneText(
-        settingsValue(DataStorageLayer::kComponentsStageplayNavigatorShowSceneTextKey).toBool(),
-        settingsValue(DataStorageLayer::kComponentsStageplayNavigatorSceneTextLinesKey).toInt());
-}
-
 void SettingsManager::Implementation::loadNovelSettings()
 {
     view->setNovelAvailable(settingsValue(DataStorageLayer::kComponentsNovelAvailableKey).toBool());
@@ -424,9 +311,6 @@ void SettingsManager::Implementation::loadShortcutsSettings()
     loadShortcutsForApplicationSettings();
     loadShortcutsForSimpleTextSettings();
     loadShortcutsForScreenplaySettings();
-    loadShortcutsForComicBookSettings();
-    loadShortcutsForAudioplaySettings();
-    loadShortcutsForStageplaySettings();
     loadShortcutsForNovelSettings();
 }
 
@@ -610,229 +494,6 @@ void SettingsManager::Implementation::loadShortcutsForScreenplaySettings()
     view->setShortcutsForScreenplayModel(model);
 }
 
-void SettingsManager::Implementation::loadShortcutsForComicBookSettings()
-{
-    using namespace BusinessLayer;
-
-    //
-    // Сформировать строку таблицы переходов между блоками для заданного типа
-    //
-    auto blocksJumpsModelRow = [](TextParagraphType _type) {
-        const auto shortcut = ShortcutsHelper::comicBookShortcut(_type);
-        const auto jumpForTab = ShortcutsHelper::comicBookJumpByTab(_type);
-        const auto jumpForEnter = ShortcutsHelper::comicBookJumpByEnter(_type);
-        const auto changeForTab = ShortcutsHelper::comicBookChangeByTab(_type);
-        const auto changeForEnter = ShortcutsHelper::comicBookChangeByEnter(_type);
-
-        QList<QStandardItem*> result;
-        result << new QStandardItem(toDisplayString(_type)) << new QStandardItem(shortcut)
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(jumpForTab)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(jumpForEnter)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(changeForTab)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(changeForEnter)));
-        result.first()->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        return result;
-    };
-    //
-    // ... таблика переходов между разными блоками
-    //
-    const int rows = 0;
-    const int columns = 6;
-    QStandardItemModel* blocksJumpsModel = new QStandardItemModel(rows, columns, view);
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::PageHeading));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::PanelHeading));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Description));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Character));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Dialogue));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::InlineNote));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::UnformattedText));
-    //
-    // ... модель переходов между блоками, её заголовок и делегат
-    //
-    QStandardItemModel* blockJumpsHeaderModel = new QStandardItemModel(view);
-    {
-        auto columnAfterText = new QStandardItem();
-        {
-            auto tab = new QStandardItem("Tab");
-            tab->setData(u8"\U000F0312", Qt::DecorationRole);
-            columnAfterText->appendColumn({ tab });
-
-            auto enter = new QStandardItem("Enter");
-            enter->setData(u8"\U000F0311", Qt::DecorationRole);
-            columnAfterText->appendColumn({ enter });
-        }
-        auto columnEmptyText = new QStandardItem();
-        {
-            auto tab = new QStandardItem("Tab");
-            tab->setData(u8"\U000F0312", Qt::DecorationRole);
-            columnEmptyText->appendColumn({ tab });
-
-            auto enter = new QStandardItem("Enter");
-            enter->setData(u8"\U000F0311", Qt::DecorationRole);
-            columnEmptyText->appendColumn({ enter });
-        }
-
-        blockJumpsHeaderModel->setItem(0, 0, new QStandardItem());
-        blockJumpsHeaderModel->setItem(0, 1, new QStandardItem());
-        blockJumpsHeaderModel->setItem(0, 2, columnAfterText);
-        blockJumpsHeaderModel->setItem(0, 3, columnEmptyText);
-    }
-
-    auto model = new HierarchicalModel(view);
-    model->setSourceModel(blocksJumpsModel);
-    model->setHeaderModel(blockJumpsHeaderModel);
-    view->setShortcutsForComicBookModel(model);
-}
-
-void SettingsManager::Implementation::loadShortcutsForAudioplaySettings()
-{
-    using namespace BusinessLayer;
-
-    //
-    // Сформировать строку таблицы переходов между блоками для заданного типа
-    //
-    auto blocksJumpsModelRow = [](TextParagraphType _type) {
-        const auto shortcut = ShortcutsHelper::audioplayShortcut(_type);
-        const auto jumpForTab = ShortcutsHelper::audioplayJumpByTab(_type);
-        const auto jumpForEnter = ShortcutsHelper::audioplayJumpByEnter(_type);
-        const auto changeForTab = ShortcutsHelper::audioplayChangeByTab(_type);
-        const auto changeForEnter = ShortcutsHelper::audioplayChangeByEnter(_type);
-
-        QList<QStandardItem*> result;
-        result << new QStandardItem(toDisplayString(_type)) << new QStandardItem(shortcut)
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(jumpForTab)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(jumpForEnter)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(changeForTab)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(changeForEnter)));
-        result.first()->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        return result;
-    };
-    //
-    // ... таблика переходов между разными блоками
-    //
-    const int rows = 0;
-    const int columns = 6;
-    QStandardItemModel* blocksJumpsModel = new QStandardItemModel(rows, columns, view);
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::SceneHeading));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Character));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Dialogue));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Sound));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Music));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Cue));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::InlineNote));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::UnformattedText));
-    //
-    // ... модель переходов между блоками, её заголовок и делегат
-    //
-    QStandardItemModel* blockJumpsHeaderModel = new QStandardItemModel(view);
-    {
-        auto columnAfterText = new QStandardItem();
-        {
-            auto tab = new QStandardItem("Tab");
-            tab->setData(u8"\U000F0312", Qt::DecorationRole);
-            columnAfterText->appendColumn({ tab });
-
-            auto enter = new QStandardItem("Enter");
-            enter->setData(u8"\U000F0311", Qt::DecorationRole);
-            columnAfterText->appendColumn({ enter });
-        }
-        auto columnEmptyText = new QStandardItem();
-        {
-            auto tab = new QStandardItem("Tab");
-            tab->setData(u8"\U000F0312", Qt::DecorationRole);
-            columnEmptyText->appendColumn({ tab });
-
-            auto enter = new QStandardItem("Enter");
-            enter->setData(u8"\U000F0311", Qt::DecorationRole);
-            columnEmptyText->appendColumn({ enter });
-        }
-
-        blockJumpsHeaderModel->setItem(0, 0, new QStandardItem());
-        blockJumpsHeaderModel->setItem(0, 1, new QStandardItem());
-        blockJumpsHeaderModel->setItem(0, 2, columnAfterText);
-        blockJumpsHeaderModel->setItem(0, 3, columnEmptyText);
-    }
-
-    auto model = new HierarchicalModel(view);
-    model->setSourceModel(blocksJumpsModel);
-    model->setHeaderModel(blockJumpsHeaderModel);
-    view->setShortcutsForAudioplayModel(model);
-}
-
-void SettingsManager::Implementation::loadShortcutsForStageplaySettings()
-{
-    using namespace BusinessLayer;
-
-    //
-    // Сформировать строку таблицы переходов между блоками для заданного типа
-    //
-    auto blocksJumpsModelRow = [](TextParagraphType _type) {
-        const auto shortcut = ShortcutsHelper::stageplayShortcut(_type);
-        const auto jumpForTab = ShortcutsHelper::stageplayJumpByTab(_type);
-        const auto jumpForEnter = ShortcutsHelper::stageplayJumpByEnter(_type);
-        const auto changeForTab = ShortcutsHelper::stageplayChangeByTab(_type);
-        const auto changeForEnter = ShortcutsHelper::stageplayChangeByEnter(_type);
-
-        QList<QStandardItem*> result;
-        result << new QStandardItem(toDisplayString(_type)) << new QStandardItem(shortcut)
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(jumpForTab)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(jumpForEnter)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(changeForTab)))
-               << new QStandardItem(toDisplayString(textParagraphTypeFromString(changeForEnter)));
-        result.first()->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled);
-        return result;
-    };
-    //
-    // ... таблика переходов между разными блоками
-    //
-    const int rows = 0;
-    const int columns = 6;
-    QStandardItemModel* blocksJumpsModel = new QStandardItemModel(rows, columns, view);
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::SceneHeading));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Character));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Parenthetical));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Dialogue));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::Action));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::InlineNote));
-    blocksJumpsModel->appendRow(blocksJumpsModelRow(TextParagraphType::UnformattedText));
-    //
-    // ... модель переходов между блоками, её заголовок и делегат
-    //
-    QStandardItemModel* blockJumpsHeaderModel = new QStandardItemModel(view);
-    {
-        auto columnAfterText = new QStandardItem();
-        {
-            auto tab = new QStandardItem("Tab");
-            tab->setData(u8"\U000F0312", Qt::DecorationRole);
-            columnAfterText->appendColumn({ tab });
-
-            auto enter = new QStandardItem("Enter");
-            enter->setData(u8"\U000F0311", Qt::DecorationRole);
-            columnAfterText->appendColumn({ enter });
-        }
-        auto columnEmptyText = new QStandardItem();
-        {
-            auto tab = new QStandardItem("Tab");
-            tab->setData(u8"\U000F0312", Qt::DecorationRole);
-            columnEmptyText->appendColumn({ tab });
-
-            auto enter = new QStandardItem("Enter");
-            enter->setData(u8"\U000F0311", Qt::DecorationRole);
-            columnEmptyText->appendColumn({ enter });
-        }
-
-        blockJumpsHeaderModel->setItem(0, 0, new QStandardItem());
-        blockJumpsHeaderModel->setItem(0, 1, new QStandardItem());
-        blockJumpsHeaderModel->setItem(0, 2, columnAfterText);
-        blockJumpsHeaderModel->setItem(0, 3, columnEmptyText);
-    }
-
-    auto model = new HierarchicalModel(view);
-    model->setSourceModel(blocksJumpsModel);
-    model->setHeaderModel(blockJumpsHeaderModel);
-    view->setShortcutsForStageplayModel(model);
-}
-
 void SettingsManager::Implementation::loadShortcutsForNovelSettings()
 {
     using namespace BusinessLayer;
@@ -974,12 +635,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             &Ui::SettingsView::showComponentsSimpleText);
     connect(d->navigator, &Ui::SettingsNavigator::componentsScreenplayPressed, d->view,
             &Ui::SettingsView::showComponentsScreenplay);
-    connect(d->navigator, &Ui::SettingsNavigator::componentsComicBookPressed, d->view,
-            &Ui::SettingsView::showComponentsComicBook);
-    connect(d->navigator, &Ui::SettingsNavigator::componentsAudioplayPressed, d->view,
-            &Ui::SettingsView::showComponentsAudioplay);
-    connect(d->navigator, &Ui::SettingsNavigator::componentsStageplayPressed, d->view,
-            &Ui::SettingsView::showComponentsStageplay);
     connect(d->navigator, &Ui::SettingsNavigator::componentsNovelPressed, d->view,
             &Ui::SettingsView::showComponentsNovel);
     connect(d->navigator, &Ui::SettingsNavigator::shortcutsPressed, d->view,
@@ -1196,70 +851,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
     connect(d->view, &Ui::SettingsView::screenplayDurationUseEighthsChanged, this,
             &SettingsManager::setScreenplayDurationUseEighths);
     //
-    // ... комиксы
-    //
-    connect(d->view, &Ui::SettingsView::comicBookAvailableChanged, this,
-            &SettingsManager::setComicBookAvailable);
-    //
-    connect(d->view, &Ui::SettingsView::comicBookEditorDefaultTemplateChanged, this,
-            &SettingsManager::setComicBookEditorDefaultTemplate);
-    connect(d->view, &Ui::SettingsView::comicBookEditorShowDialogueNumberChanged, this,
-            &SettingsManager::setComicBookEditorShowDialogueNumber);
-    connect(d->view, &Ui::SettingsView::screenplayEditorSaveItemsFromTextChanged, this,
-            &SettingsManager::setComicBookEditorSaveItemsFromText);
-    connect(d->view, &Ui::SettingsView::screenplayEditorShowHintsChanged, this,
-            &SettingsManager::setComicBookEditorShowHints);
-    connect(d->view, &Ui::SettingsView::comicBookEditorShowCharacterSuggestionsInEmptyBlockChanged,
-            this, &SettingsManager::setComicBookEditorShowCharacterSuggestionsInEmptyBlock);
-    //
-    connect(d->view, &Ui::SettingsView::comicBookNavigatorShowSceneTextChanged, this,
-            &SettingsManager::setComicBookNavigatorShowSceneText);
-    //
-    // ... аудиопостановка
-    //
-    connect(d->view, &Ui::SettingsView::audioplayAvailableChanged, this,
-            &SettingsManager::setAudioplayAvailable);
-    //
-    connect(d->view, &Ui::SettingsView::audioplayEditorDefaultTemplateChanged, this,
-            &SettingsManager::setAudioplayEditorDefaultTemplate);
-    connect(d->view, &Ui::SettingsView::audioplayEditorShowBlockNumberChanged, this,
-            &SettingsManager::setAudioplayEditorShowBlockNumber);
-    connect(d->view, &Ui::SettingsView::screenplayEditorSaveItemsFromTextChanged, this,
-            &SettingsManager::setAudioplayEditorSaveItemsFromText);
-    connect(d->view, &Ui::SettingsView::screenplayEditorShowHintsChanged, this,
-            &SettingsManager::setAudioplayEditorShowHints);
-    connect(d->view, &Ui::SettingsView::audioplayEditorShowCharacterSuggestionsInEmptyBlockChanged,
-            this, &SettingsManager::setAudioplayEditorShowCharacterSuggestionsInEmptyBlock);
-    //
-    connect(d->view, &Ui::SettingsView::audioplayNavigatorShowSceneNumberChanged, this,
-            &SettingsManager::setAudioplayNavigatorShowSceneNumber);
-    connect(d->view, &Ui::SettingsView::audioplayNavigatorShowSceneTextChanged, this,
-            &SettingsManager::setAudioplayNavigatorShowSceneText);
-    //
-    connect(d->view, &Ui::SettingsView::audioplayDurationByWordsWordsChanged, this,
-            &SettingsManager::setAudioplayDurationByWordsWords);
-    connect(d->view, &Ui::SettingsView::audioplayDurationByWordsDurationChanged, this,
-            &SettingsManager::setAudioplayDurationByWordsDuration);
-    //
-    // ... пьеса
-    //
-    connect(d->view, &Ui::SettingsView::stageplayAvailableChanged, this,
-            &SettingsManager::setStageplayAvailable);
-    //
-    connect(d->view, &Ui::SettingsView::stageplayEditorDefaultTemplateChanged, this,
-            &SettingsManager::setStageplayEditorDefaultTemplate);
-    connect(d->view, &Ui::SettingsView::screenplayEditorSaveItemsFromTextChanged, this,
-            &SettingsManager::setStageplayEditorSaveItemsFromText);
-    connect(d->view, &Ui::SettingsView::screenplayEditorShowHintsChanged, this,
-            &SettingsManager::setStageplayEditorShowHints);
-    connect(d->view, &Ui::SettingsView::stageplayEditorShowCharacterSuggestionsInEmptyBlockChanged,
-            this, &SettingsManager::setStageplayEditorShowCharacterSuggestionsInEmptyBlock);
-    //
-    connect(d->view, &Ui::SettingsView::stageplayNavigatorShowSceneNumberChanged, this,
-            &SettingsManager::setStageplayNavigatorShowSceneNumber);
-    connect(d->view, &Ui::SettingsView::stageplayNavigatorShowSceneTextChanged, this,
-            &SettingsManager::setStageplayNavigatorShowSceneText);
-    //
     // ... роман
     //
     connect(d->view, &Ui::SettingsView::novelAvailableChanged, this,
@@ -1393,168 +984,7 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             BusinessLayer::TemplatesFacade::setDefaultScreenplayTemplate(screenplayTemplate.id());
             d->view->setScreenplayEditorDefaultTemplate(screenplayTemplate.id());
         });
-    //
-    // ... комикс
-    //
-    connect(d->view, &Ui::SettingsView::editCurrentComicBookEditorTemplateRequested, this,
-            [this, showTemplateOptionsEditor](const QString& _templateId) {
-                d->templateOptionsManager->setCurrentDocumentType(
-                    Domain::DocumentObjectType::ComicBook);
-                d->templateOptionsManager->editTemplate(_templateId);
-                showTemplateOptionsEditor();
-            });
-    connect(d->view, &Ui::SettingsView::duplicateCurrentComicBookEditorTemplateRequested, this,
-            [this, showTemplateOptionsEditor](const QString& _templateId) {
-                d->templateOptionsManager->setCurrentDocumentType(
-                    Domain::DocumentObjectType::ComicBook);
-                d->templateOptionsManager->duplicateTemplate(_templateId);
-                showTemplateOptionsEditor();
-            });
-    connect(d->view, &Ui::SettingsView::saveToFileCurrentComicBookEditorTemplateRequested, this,
-            [this](const QString& _templateId) {
-                const auto comicBookTemplate
-                    = BusinessLayer::TemplatesFacade::comicBookTemplate(_templateId);
-                auto saveToFilePath = QFileDialog::getSaveFileName(
-                    d->view->topLevelWidget(), tr("Choose the file to save template"),
-                    QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/"
-                        + comicBookTemplate.name(),
-                    DialogHelper::starcTemplateFilter());
-                if (saveToFilePath.isEmpty()) {
-                    return;
-                }
 
-                if (!saveToFilePath.endsWith(ExtensionHelper::starct())) {
-                    saveToFilePath.append(QString(".%1").arg(ExtensionHelper::starct()));
-                }
-                comicBookTemplate.saveToFile(saveToFilePath);
-            });
-    connect(d->view, &Ui::SettingsView::removeCurrentComicBookEditorTemplateRequested, this,
-            [](const QString& _templateId) {
-                BusinessLayer::TemplatesFacade::removeComicBookTemplate(_templateId);
-            });
-    connect(d->view, &Ui::SettingsView::loadFromFileComicBookEditorTemplateRequested, this, [this] {
-        const auto templateFilePath = QFileDialog::getOpenFileName(
-            d->view->topLevelWidget(), tr("Choose the file with template to load"),
-            QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
-            DialogHelper::starcTemplateFilter());
-        if (templateFilePath.isEmpty()) {
-            return;
-        }
-
-        const BusinessLayer::ComicBookTemplate comicBookTemplate(templateFilePath);
-        BusinessLayer::TemplatesFacade::saveComicBookTemplate(comicBookTemplate);
-
-        BusinessLayer::TemplatesFacade::setDefaultComicBookTemplate(comicBookTemplate.id());
-        d->view->setComicBookEditorDefaultTemplate(comicBookTemplate.id());
-    });
-    //
-    // ... аудиопостановка
-    //
-    connect(d->view, &Ui::SettingsView::editCurrentAudioplayEditorTemplateRequested, this,
-            [this, showTemplateOptionsEditor](const QString& _templateId) {
-                d->templateOptionsManager->setCurrentDocumentType(
-                    Domain::DocumentObjectType::Audioplay);
-                d->templateOptionsManager->editTemplate(_templateId);
-                showTemplateOptionsEditor();
-            });
-    connect(d->view, &Ui::SettingsView::duplicateCurrentAudioplayEditorTemplateRequested, this,
-            [this, showTemplateOptionsEditor](const QString& _templateId) {
-                d->templateOptionsManager->setCurrentDocumentType(
-                    Domain::DocumentObjectType::Audioplay);
-                d->templateOptionsManager->duplicateTemplate(_templateId);
-                showTemplateOptionsEditor();
-            });
-    connect(d->view, &Ui::SettingsView::saveToFileCurrentAudioplayEditorTemplateRequested, this,
-            [this](const QString& _templateId) {
-                const auto audioplayTemplate
-                    = BusinessLayer::TemplatesFacade::audioplayTemplate(_templateId);
-                auto saveToFilePath = QFileDialog::getSaveFileName(
-                    d->view->topLevelWidget(), tr("Choose the file to save template"),
-                    QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/"
-                        + audioplayTemplate.name(),
-                    DialogHelper::starcTemplateFilter());
-                if (saveToFilePath.isEmpty()) {
-                    return;
-                }
-
-                if (!saveToFilePath.endsWith(ExtensionHelper::starct())) {
-                    saveToFilePath.append(QString(".%1").arg(ExtensionHelper::starct()));
-                }
-                audioplayTemplate.saveToFile(saveToFilePath);
-            });
-    connect(d->view, &Ui::SettingsView::removeCurrentAudioplayEditorTemplateRequested, this,
-            [](const QString& _templateId) {
-                BusinessLayer::TemplatesFacade::removeAudioplayTemplate(_templateId);
-            });
-    connect(d->view, &Ui::SettingsView::loadFromFileAudioplayEditorTemplateRequested, this, [this] {
-        const auto templateFilePath = QFileDialog::getOpenFileName(
-            d->view->topLevelWidget(), tr("Choose the file with template to load"),
-            QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
-            DialogHelper::starcTemplateFilter());
-        if (templateFilePath.isEmpty()) {
-            return;
-        }
-
-        const BusinessLayer::AudioplayTemplate audioplayTemplate(templateFilePath);
-        BusinessLayer::TemplatesFacade::saveAudioplayTemplate(audioplayTemplate);
-
-        BusinessLayer::TemplatesFacade::setDefaultAudioplayTemplate(audioplayTemplate.id());
-        d->view->setAudioplayEditorDefaultTemplate(audioplayTemplate.id());
-    });
-    //
-    // ... пьеса
-    //
-    connect(d->view, &Ui::SettingsView::editCurrentStageplayEditorTemplateRequested, this,
-            [this, showTemplateOptionsEditor](const QString& _templateId) {
-                d->templateOptionsManager->setCurrentDocumentType(
-                    Domain::DocumentObjectType::Stageplay);
-                d->templateOptionsManager->editTemplate(_templateId);
-                showTemplateOptionsEditor();
-            });
-    connect(d->view, &Ui::SettingsView::duplicateCurrentStageplayEditorTemplateRequested, this,
-            [this, showTemplateOptionsEditor](const QString& _templateId) {
-                d->templateOptionsManager->setCurrentDocumentType(
-                    Domain::DocumentObjectType::Stageplay);
-                d->templateOptionsManager->duplicateTemplate(_templateId);
-                showTemplateOptionsEditor();
-            });
-    connect(d->view, &Ui::SettingsView::saveToFileCurrentStageplayEditorTemplateRequested, this,
-            [this](const QString& _templateId) {
-                const auto stageplayTemplate
-                    = BusinessLayer::TemplatesFacade::stageplayTemplate(_templateId);
-                auto saveToFilePath = QFileDialog::getSaveFileName(
-                    d->view->topLevelWidget(), tr("Choose the file to save template"),
-                    QStandardPaths::writableLocation(QStandardPaths::DownloadLocation) + "/"
-                        + stageplayTemplate.name(),
-                    DialogHelper::starcTemplateFilter());
-                if (saveToFilePath.isEmpty()) {
-                    return;
-                }
-
-                if (!saveToFilePath.endsWith(ExtensionHelper::starct())) {
-                    saveToFilePath.append(QString(".%1").arg(ExtensionHelper::starct()));
-                }
-                stageplayTemplate.saveToFile(saveToFilePath);
-            });
-    connect(d->view, &Ui::SettingsView::removeCurrentStageplayEditorTemplateRequested, this,
-            [](const QString& _templateId) {
-                BusinessLayer::TemplatesFacade::removeStageplayTemplate(_templateId);
-            });
-    connect(d->view, &Ui::SettingsView::loadFromFileStageplayEditorTemplateRequested, this, [this] {
-        const auto templateFilePath = QFileDialog::getOpenFileName(
-            d->view->topLevelWidget(), tr("Choose the file with template to load"),
-            QStandardPaths::writableLocation(QStandardPaths::DownloadLocation),
-            DialogHelper::starcTemplateFilter());
-        if (templateFilePath.isEmpty()) {
-            return;
-        }
-
-        const BusinessLayer::StageplayTemplate stageplayTemplate(templateFilePath);
-        BusinessLayer::TemplatesFacade::saveStageplayTemplate(stageplayTemplate);
-
-        BusinessLayer::TemplatesFacade::setDefaultStageplayTemplate(stageplayTemplate.id());
-        d->view->setStageplayEditorDefaultTemplate(stageplayTemplate.id());
-    });
     //
     // ... роман
     //
@@ -1625,21 +1055,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
                     break;
                 }
 
-                case Domain::DocumentObjectType::ComicBook: {
-                    d->view->setComicBookEditorDefaultTemplate(_templateId);
-                    break;
-                }
-
-                case Domain::DocumentObjectType::Audioplay: {
-                    d->view->setAudioplayEditorDefaultTemplate(_templateId);
-                    break;
-                }
-
-                case Domain::DocumentObjectType::Stageplay: {
-                    d->view->setStageplayEditorDefaultTemplate(_templateId);
-                    break;
-                }
-
                 case Domain::DocumentObjectType::Novel: {
                     d->view->setNovelEditorDefaultTemplate(_templateId);
                     break;
@@ -1673,24 +1088,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             break;
         }
 
-        case Domain::DocumentObjectType::ComicBook: {
-            emit comicBookEditorChanged(
-                { DataStorageLayer::kComponentsComicBookEditorDefaultTemplateKey });
-            break;
-        }
-
-        case Domain::DocumentObjectType::Audioplay: {
-            emit audioplayEditorChanged(
-                { DataStorageLayer::kComponentsAudioplayEditorDefaultTemplateKey });
-            break;
-        }
-
-        case Domain::DocumentObjectType::Stageplay: {
-            emit stageplayEditorChanged(
-                { DataStorageLayer::kComponentsStageplayEditorDefaultTemplateKey });
-            break;
-        }
-
         case Domain::DocumentObjectType::Novel: {
             emit novelEditorChanged({ DataStorageLayer::kComponentsNovelEditorDefaultTemplateKey });
             break;
@@ -1712,12 +1109,6 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             &SettingsManager::setShortcutsForSimpleTextEdit);
     connect(d->view, &Ui::SettingsView::shortcutsForScreenplayEditorChanged, this,
             &SettingsManager::setShortcutsForScreenplayEdit);
-    connect(d->view, &Ui::SettingsView::shortcutsForComicBookEditorChanged, this,
-            &SettingsManager::setShortcutsForComicBookEdit);
-    connect(d->view, &Ui::SettingsView::shortcutsForAudioplayEditorChanged, this,
-            &SettingsManager::setShortcutsForAudioplayEdit);
-    connect(d->view, &Ui::SettingsView::shortcutsForStageplayEditorChanged, this,
-            &SettingsManager::setShortcutsForStageplayEdit);
     connect(d->view, &Ui::SettingsView::shortcutsForNovelEditorChanged, this,
             &SettingsManager::setShortcutsForNovelEdit);
 
@@ -1920,9 +1311,6 @@ void SettingsManager::setApplicationShowDocumentsPages(bool _show)
     setSettingsValue(DataStorageLayer::kApplicationShowDocumentsPagesKey, _show);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationShowDocumentsPagesKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationShowDocumentsPagesKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationShowDocumentsPagesKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationShowDocumentsPagesKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationShowDocumentsPagesKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationShowDocumentsPagesKey });
 }
 
@@ -2156,9 +1544,6 @@ void SettingsManager::setApplicationHighlightCurrentLine(bool _highlight)
     setSettingsValue(DataStorageLayer::kApplicationHighlightCurrentLineKey, _highlight);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationHighlightCurrentLineKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationHighlightCurrentLineKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationHighlightCurrentLineKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationHighlightCurrentLineKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationHighlightCurrentLineKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationHighlightCurrentLineKey });
 }
 
@@ -2167,9 +1552,6 @@ void SettingsManager::setApplicationFocusCurrentParagraph(bool _focus)
     setSettingsValue(DataStorageLayer::kApplicationFocusCurrentParagraphKey, _focus);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationFocusCurrentParagraphKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationFocusCurrentParagraphKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationFocusCurrentParagraphKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationFocusCurrentParagraphKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationFocusCurrentParagraphKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationFocusCurrentParagraphKey });
 }
 
@@ -2178,9 +1560,6 @@ void SettingsManager::setApplicationUseTypewriterScrolling(bool _use)
     setSettingsValue(DataStorageLayer::kApplicationUseTypewriterScrollingKey, _use);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationUseTypewriterScrollingKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationUseTypewriterScrollingKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationUseTypewriterScrollingKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationUseTypewriterScrollingKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationUseTypewriterScrollingKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationUseTypewriterScrollingKey });
 }
 
@@ -2189,9 +1568,6 @@ void SettingsManager::setApplicationCorrectDoubleCapitals(bool _correct)
     setSettingsValue(DataStorageLayer::kApplicationCorrectDoubleCapitalsKey, _correct);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationCorrectDoubleCapitalsKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationCorrectDoubleCapitalsKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationCorrectDoubleCapitalsKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationCorrectDoubleCapitalsKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationCorrectDoubleCapitalsKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationCorrectDoubleCapitalsKey });
 }
 
@@ -2200,9 +1576,6 @@ void SettingsManager::setApplicationCapitalizeSingleILetter(bool _capitalize)
     setSettingsValue(DataStorageLayer::kApplicationCapitalizeSingleILetterKey, _capitalize);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationCapitalizeSingleILetterKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationCapitalizeSingleILetterKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationCapitalizeSingleILetterKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationCapitalizeSingleILetterKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationCapitalizeSingleILetterKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationCapitalizeSingleILetterKey });
 }
 
@@ -2211,9 +1584,6 @@ void SettingsManager::setApplicationReplaceThreeDotsWithEllipsis(bool _replace)
     setSettingsValue(DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey, _replace);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationReplaceThreeDotsWithEllipsisKey });
 }
 
@@ -2222,9 +1592,6 @@ void SettingsManager::setApplicationUseSmartQuotes(bool _use)
     setSettingsValue(DataStorageLayer::kApplicationSmartQuotesKey, _use);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationSmartQuotesKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationSmartQuotesKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationSmartQuotesKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationSmartQuotesKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationSmartQuotesKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationSmartQuotesKey });
 }
 
@@ -2233,9 +1600,6 @@ void SettingsManager::setApplicationReplaceTwoDashesWithEmDash(bool _replace)
     setSettingsValue(DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey, _replace);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationReplaceTwoDashesWithEmDashKey });
 }
 
@@ -2244,9 +1608,6 @@ void SettingsManager::setApplicationAvoidMultipleSpaces(bool _avoid)
     setSettingsValue(DataStorageLayer::kApplicationAvoidMultipleSpacesKey, _avoid);
     emit simpleTextEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
     emit screenplayEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
     emit novelEditorChanged({ DataStorageLayer::kApplicationAvoidMultipleSpacesKey });
 }
 
@@ -2476,206 +1837,6 @@ void SettingsManager::setScreenplayDurationUseEighths(bool _use)
     emit screenplayDurationChanged();
 }
 
-void SettingsManager::setComicBookAvailable(bool _available)
-{
-    setSettingsValue(DataStorageLayer::kComponentsComicBookAvailableKey, _available);
-}
-
-void SettingsManager::setComicBookEditorDefaultTemplate(const QString& _templateId)
-{
-    setSettingsValue(DataStorageLayer::kComponentsComicBookEditorDefaultTemplateKey, _templateId);
-    BusinessLayer::TemplatesFacade::setDefaultComicBookTemplate(_templateId);
-    emit simpleTextEditorChanged(
-        { DataStorageLayer::kComponentsComicBookEditorDefaultTemplateKey });
-    emit comicBookEditorChanged({ DataStorageLayer::kComponentsComicBookEditorDefaultTemplateKey });
-}
-
-void SettingsManager::setComicBookEditorShowDialogueNumber(bool _show)
-{
-    setSettingsValue(DataStorageLayer::kComponentsComicBookEditorShowDialogueNumberKey, _show);
-    emit comicBookEditorChanged(
-        { DataStorageLayer::kComponentsComicBookEditorShowDialogueNumberKey });
-}
-
-void SettingsManager::setComicBookEditorSaveItemsFromText(bool _use)
-{
-    setSettingsValue(DataStorageLayer::kComponentsComicBookEditorSaveItemsFromTextKey, _use);
-    emit screenplayEditorChanged(
-        { DataStorageLayer::kComponentsComicBookEditorSaveItemsFromTextKey });
-}
-
-void SettingsManager::setComicBookEditorShowHints(bool _all, bool _primary, bool _secondary,
-                                                  bool _tertiary)
-{
-    setSettingsValue(DataStorageLayer::kComponentsComicBookEditorShowHintsForAllItemsKey, _all);
-    setSettingsValue(DataStorageLayer::kComponentsComicBookEditorShowHintsForPrimaryItemsKey,
-                     _primary);
-    setSettingsValue(DataStorageLayer::kComponentsComicBookEditorShowHintsForSecondaryItemsKey,
-                     _secondary);
-    setSettingsValue(DataStorageLayer::kComponentsComicBookEditorShowHintsForTertiaryItemsKey,
-                     _tertiary);
-    emit screenplayEditorChanged(
-        { DataStorageLayer::kComponentsComicBookEditorShowHintsForAllItemsKey,
-          DataStorageLayer::kComponentsComicBookEditorShowHintsForPrimaryItemsKey,
-          DataStorageLayer::kComponentsComicBookEditorShowHintsForSecondaryItemsKey,
-          DataStorageLayer::kComponentsComicBookEditorShowHintsForTertiaryItemsKey });
-}
-
-void SettingsManager::setComicBookEditorShowCharacterSuggestionsInEmptyBlock(bool _show)
-{
-    setSettingsValue(
-        DataStorageLayer::kComponentsComicBookEditorShowCharacterSuggestionsInEmptyBlockKey, _show);
-    emit comicBookEditorChanged(
-        { DataStorageLayer::kComponentsComicBookEditorShowCharacterSuggestionsInEmptyBlockKey });
-}
-
-void SettingsManager::setComicBookNavigatorShowSceneText(bool _show, int _lines)
-{
-    setSettingsValue(DataStorageLayer::kComponentsComicBookNavigatorShowSceneTextKey, _show);
-    setSettingsValue(DataStorageLayer::kComponentsComicBookNavigatorSceneTextLinesKey, _lines);
-    emit comicBookNavigatorChanged();
-}
-
-void SettingsManager::setAudioplayAvailable(bool _available)
-{
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayAvailableKey, _available);
-}
-
-void SettingsManager::setAudioplayEditorDefaultTemplate(const QString& _templateId)
-{
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayEditorDefaultTemplateKey, _templateId);
-    BusinessLayer::TemplatesFacade::setDefaultAudioplayTemplate(_templateId);
-    emit simpleTextEditorChanged(
-        { DataStorageLayer::kComponentsAudioplayEditorDefaultTemplateKey });
-    emit audioplayEditorChanged({ DataStorageLayer::kComponentsAudioplayEditorDefaultTemplateKey });
-}
-
-void SettingsManager::setAudioplayEditorShowBlockNumber(bool _show, bool _continued)
-{
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayEditorShowBlockNumbersKey, _show);
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayEditorContinueBlockNumbersKey,
-                     _continued);
-    emit audioplayEditorChanged(
-        { DataStorageLayer::kComponentsAudioplayEditorShowBlockNumbersKey,
-          DataStorageLayer::kComponentsAudioplayEditorContinueBlockNumbersKey });
-}
-
-void SettingsManager::setAudioplayEditorSaveItemsFromText(bool _use)
-{
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayEditorSaveItemsFromTextKey, _use);
-    emit screenplayEditorChanged(
-        { DataStorageLayer::kComponentsAudioplayEditorSaveItemsFromTextKey });
-}
-
-void SettingsManager::setAudioplayEditorShowHints(bool _all, bool _primary, bool _secondary,
-                                                  bool _tertiary)
-{
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayEditorShowHintsForAllItemsKey, _all);
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayEditorShowHintsForPrimaryItemsKey,
-                     _primary);
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayEditorShowHintsForSecondaryItemsKey,
-                     _secondary);
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayEditorShowHintsForTertiaryItemsKey,
-                     _tertiary);
-    emit screenplayEditorChanged(
-        { DataStorageLayer::kComponentsAudioplayEditorShowHintsForAllItemsKey,
-          DataStorageLayer::kComponentsAudioplayEditorShowHintsForPrimaryItemsKey,
-          DataStorageLayer::kComponentsAudioplayEditorShowHintsForSecondaryItemsKey,
-          DataStorageLayer::kComponentsAudioplayEditorShowHintsForTertiaryItemsKey });
-}
-
-void SettingsManager::setAudioplayEditorShowCharacterSuggestionsInEmptyBlock(bool _show)
-{
-    setSettingsValue(
-        DataStorageLayer::kComponentsAudioplayEditorShowCharacterSuggestionsInEmptyBlockKey, _show);
-    emit audioplayEditorChanged(
-        { DataStorageLayer::kComponentsAudioplayEditorShowCharacterSuggestionsInEmptyBlockKey });
-}
-
-void SettingsManager::setAudioplayNavigatorShowSceneNumber(bool _show)
-{
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayNavigatorShowSceneNumberKey, _show);
-    emit audioplayNavigatorChanged();
-}
-
-void SettingsManager::setAudioplayNavigatorShowSceneText(bool _show, int _lines)
-{
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayNavigatorShowSceneTextKey, _show);
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayNavigatorSceneTextLinesKey, _lines);
-    emit audioplayNavigatorChanged();
-}
-
-void SettingsManager::setAudioplayDurationByWordsWords(int _words)
-{
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayDurationByWordsWordsKey, _words);
-    emit audioplayDurationChanged();
-}
-
-void SettingsManager::setAudioplayDurationByWordsDuration(int _duration)
-{
-    setSettingsValue(DataStorageLayer::kComponentsAudioplayDurationByWordsDurationKey, _duration);
-    emit audioplayDurationChanged();
-}
-
-void SettingsManager::setStageplayAvailable(bool _available)
-{
-    setSettingsValue(DataStorageLayer::kComponentsStageplayAvailableKey, _available);
-}
-
-void SettingsManager::setStageplayEditorDefaultTemplate(const QString& _templateId)
-{
-    setSettingsValue(DataStorageLayer::kComponentsStageplayEditorDefaultTemplateKey, _templateId);
-    BusinessLayer::TemplatesFacade::setDefaultStageplayTemplate(_templateId);
-    emit simpleTextEditorChanged(
-        { DataStorageLayer::kComponentsStageplayEditorDefaultTemplateKey });
-    emit stageplayEditorChanged({ DataStorageLayer::kComponentsStageplayEditorDefaultTemplateKey });
-}
-
-void SettingsManager::setStageplayEditorSaveItemsFromText(bool _use)
-{
-    setSettingsValue(DataStorageLayer::kComponentsStageplayEditorSaveItemsFromTextKey, _use);
-    emit screenplayEditorChanged(
-        { DataStorageLayer::kComponentsStageplayEditorSaveItemsFromTextKey });
-}
-
-void SettingsManager::setStageplayEditorShowHints(bool _all, bool _primary, bool _secondary,
-                                                  bool _tertiary)
-{
-    setSettingsValue(DataStorageLayer::kComponentsStageplayEditorShowHintsForAllItemsKey, _all);
-    setSettingsValue(DataStorageLayer::kComponentsStageplayEditorShowHintsForPrimaryItemsKey,
-                     _primary);
-    setSettingsValue(DataStorageLayer::kComponentsStageplayEditorShowHintsForSecondaryItemsKey,
-                     _secondary);
-    setSettingsValue(DataStorageLayer::kComponentsStageplayEditorShowHintsForTertiaryItemsKey,
-                     _tertiary);
-    emit screenplayEditorChanged(
-        { DataStorageLayer::kComponentsStageplayEditorShowHintsForAllItemsKey,
-          DataStorageLayer::kComponentsStageplayEditorShowHintsForPrimaryItemsKey,
-          DataStorageLayer::kComponentsStageplayEditorShowHintsForSecondaryItemsKey,
-          DataStorageLayer::kComponentsStageplayEditorShowHintsForTertiaryItemsKey });
-}
-
-void SettingsManager::setStageplayEditorShowCharacterSuggestionsInEmptyBlock(bool _show)
-{
-    setSettingsValue(
-        DataStorageLayer::kComponentsStageplayEditorShowCharacterSuggestionsInEmptyBlockKey, _show);
-    emit stageplayEditorChanged(
-        { DataStorageLayer::kComponentsStageplayEditorShowCharacterSuggestionsInEmptyBlockKey });
-}
-
-void SettingsManager::setStageplayNavigatorShowSceneNumber(bool _show)
-{
-    setSettingsValue(DataStorageLayer::kComponentsStageplayNavigatorShowSceneNumberKey, _show);
-    emit stageplayNavigatorChanged();
-}
-
-void SettingsManager::setStageplayNavigatorShowSceneText(bool _show, int _lines)
-{
-    setSettingsValue(DataStorageLayer::kComponentsStageplayNavigatorShowSceneTextKey, _show);
-    setSettingsValue(DataStorageLayer::kComponentsStageplayNavigatorSceneTextLinesKey, _lines);
-    emit stageplayNavigatorChanged();
-}
-
 void SettingsManager::setNovelAvailable(bool _available)
 {
     setSettingsValue(DataStorageLayer::kComponentsNovelAvailableKey, _available);
@@ -2740,57 +1901,6 @@ void SettingsManager::setShortcutsForScreenplayEdit(
     ShortcutsHelper::setScreenplayChangeByEnter(
         blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByEnter));
     emit screenplayEditorChanged({ DataStorageLayer::kComponentsScreenplayEditorShortcutsKey });
-}
-
-void SettingsManager::setShortcutsForComicBookEdit(
-    const QString& _blockType, const QString& _shortcut, const QString& _jumpByTab,
-    const QString& _jumpByEnter, const QString& _changeByTab, const QString& _changeByEnter)
-{
-    const auto blockType = BusinessLayer::textParagraphTypeFromDisplayString(_blockType);
-    ShortcutsHelper::setComicBookShortcut(blockType, _shortcut);
-    ShortcutsHelper::setComicBookJumpByTab(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_jumpByTab));
-    ShortcutsHelper::setComicBookJumpByEnter(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_jumpByEnter));
-    ShortcutsHelper::setComicBookChangeByTab(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByTab));
-    ShortcutsHelper::setComicBookChangeByEnter(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByEnter));
-    emit comicBookEditorChanged({ DataStorageLayer::kComponentsComicBookEditorShortcutsKey });
-}
-
-void SettingsManager::setShortcutsForAudioplayEdit(
-    const QString& _blockType, const QString& _shortcut, const QString& _jumpByTab,
-    const QString& _jumpByEnter, const QString& _changeByTab, const QString& _changeByEnter)
-{
-    const auto blockType = BusinessLayer::textParagraphTypeFromDisplayString(_blockType);
-    ShortcutsHelper::setAudioplayShortcut(blockType, _shortcut);
-    ShortcutsHelper::setAudioplayJumpByTab(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_jumpByTab));
-    ShortcutsHelper::setAudioplayJumpByEnter(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_jumpByEnter));
-    ShortcutsHelper::setAudioplayChangeByTab(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByTab));
-    ShortcutsHelper::setAudioplayChangeByEnter(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByEnter));
-    emit audioplayEditorChanged({ DataStorageLayer::kComponentsAudioplayEditorShortcutsKey });
-}
-
-void SettingsManager::setShortcutsForStageplayEdit(
-    const QString& _blockType, const QString& _shortcut, const QString& _jumpByTab,
-    const QString& _jumpByEnter, const QString& _changeByTab, const QString& _changeByEnter)
-{
-    const auto blockType = BusinessLayer::textParagraphTypeFromDisplayString(_blockType);
-    ShortcutsHelper::setStageplayShortcut(blockType, _shortcut);
-    ShortcutsHelper::setStageplayJumpByTab(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_jumpByTab));
-    ShortcutsHelper::setStageplayJumpByEnter(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_jumpByEnter));
-    ShortcutsHelper::setStageplayChangeByTab(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByTab));
-    ShortcutsHelper::setStageplayChangeByEnter(
-        blockType, BusinessLayer::textParagraphTypeFromDisplayString(_changeByEnter));
-    emit stageplayEditorChanged({ DataStorageLayer::kComponentsStageplayEditorShortcutsKey });
 }
 
 void SettingsManager::setShortcutsForNovelEdit(const QString& _blockType, const QString& _shortcut,

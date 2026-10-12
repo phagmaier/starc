@@ -184,33 +184,6 @@ QString DialogHelper::filtersForImportScreenplay()
     return filtersForImport();
 }
 
-QString DialogHelper::filtersForImportComicBook()
-{
-    QString filters = makeFilter(QApplication::translate("DialogHelper", "All supported files"),
-                                 {
-                                     ExtensionHelper::fountain(),
-                                     ExtensionHelper::plainText(),
-                                 });
-    for (const auto& filter : {
-             fountainFilter(),
-             plainTextFilter(),
-         }) {
-        filters.append(";;");
-        filters.append(filter);
-    }
-    return filters;
-}
-
-QString DialogHelper::filtersForImportAudioplay()
-{
-    return filtersForImportComicBook();
-}
-
-QString DialogHelper::filtersForImportStageplay()
-{
-    return filtersForImportComicBook();
-}
-
 QString DialogHelper::filtersForImportNovel()
 {
     QString filters = makeFilter(QApplication::translate("DialogHelper", "All supported files"),

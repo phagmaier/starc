@@ -35,6 +35,9 @@ public:
      */
     void showNotImplementedPage();
 
+    /** @brief Explain why a retired-format document cannot be edited. */
+    void showUnsupportedFormatPage();
+
     /**
      * @brief Текущий редактор
      */

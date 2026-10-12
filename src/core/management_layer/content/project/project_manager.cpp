@@ -4,21 +4,15 @@
 #include "project_models_facade.h"
 
 #include <business_layer/compliance/compliance_checker.h>
-#include <business_layer/model/audioplay/audioplay_information_model.h>
-#include <business_layer/model/audioplay/text/audioplay_text_model.h>
 #include <business_layer/model/base/title_page_model.h>
 #include <business_layer/model/characters/character_model.h>
 #include <business_layer/model/characters/characters_model.h>
-#include <business_layer/model/comic_book/comic_book_information_model.h>
-#include <business_layer/model/comic_book/text/comic_book_text_model.h>
 #include <business_layer/model/locations/location_model.h>
 #include <business_layer/model/locations/locations_model.h>
 #include <business_layer/model/presentation/presentation_model.h>
 #include <business_layer/model/project/project_information_model.h>
 #include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model.h>
-#include <business_layer/model/stageplay/stageplay_information_model.h>
-#include <business_layer/model/stageplay/text/stageplay_text_model.h>
 #include <business_layer/model/structure/structure_model.h>
 #include <business_layer/model/structure/structure_model_item.h>
 #include <business_layer/model/structure/structure_proxy_model.h>
@@ -626,6 +620,18 @@ void ProjectManager::Implementation::updateNavigatorContextMenu(const QModelInde
     const auto currentItemIndex = projectStructureProxyModel->mapToSource(_index);
     const auto currentItem = projectStructureModel->itemForIndex(currentItemIndex);
     const auto selectedIndexes = navigator->selectedIndexes();
+    for (const auto& index : selectedIndexes) {
+        const auto item
+            = projectStructureModel->itemForIndex(projectStructureProxyModel->mapToSource(index));
+        if (Domain::isUnsupportedDocumentType(item->type())) {
+            navigator->setContextMenuActions({});
+            return;
+        }
+    }
+    if (Domain::isUnsupportedDocumentType(currentItem->type())) {
+        navigator->setContextMenuActions({});
+        return;
+    }
 
     //
     // Пользователь может редактировать проект, если
@@ -954,7 +960,8 @@ void ProjectManager::Implementation::openCurrentDocumentInNewWindow()
 DocumentEditingMode ProjectManager::Implementation::documentEditingMode(
     BusinessLayer::StructureModelItem* _documentItem) const
 {
-    if (_documentItem->isReadOnly() || isInsideRecycleBin(_documentItem)) {
+    if (Domain::isUnsupportedDocumentType(_documentItem->type()) || _documentItem->isReadOnly()
+        || isInsideRecycleBin(_documentItem)) {
         return DocumentEditingMode::Read;
     }
 
@@ -1212,6 +1219,10 @@ BusinessLayer::StructureModelItem* ProjectManager::Implementation::aliasedItemFo
 void ProjectManager::Implementation::createNewDraft(const QModelIndex& _itemIndex)
 {
     const auto item = aliasedItemForIndex(_itemIndex);
+    if (Domain::isUnsupportedDocumentType(item->type())) {
+        return;
+    }
+
 
     auto dialog = new Ui::CreateDraftDialog(topLevelWidget);
     dialog->setDrafts(
@@ -1311,8 +1322,12 @@ void ProjectManager::Implementation::createNewDraft(const QModelIndex& _itemInde
 
 void ProjectManager::Implementation::editDraft(const QModelIndex& _itemIndex, int _draftIndex)
 {
-    auto dialog = new Ui::CreateDraftDialog(topLevelWidget);
     const auto item = aliasedItemForIndex(_itemIndex);
+    if (Domain::isUnsupportedDocumentType(item->type())) {
+        return;
+    }
+
+    auto dialog = new Ui::CreateDraftDialog(topLevelWidget);
     //
     // Редактируем основной драфт
     //
@@ -1745,9 +1760,6 @@ void ProjectManager::Implementation::findAllCharacters()
     //
     QSet<QString> charactersFromText;
     auto scriptModels = modelsFacade.modelsFor(Domain::DocumentObjectType::ScreenplayText);
-    scriptModels.append(modelsFacade.modelsFor(Domain::DocumentObjectType::ComicBookText));
-    scriptModels.append(modelsFacade.modelsFor(Domain::DocumentObjectType::AudioplayText));
-    scriptModels.append(modelsFacade.modelsFor(Domain::DocumentObjectType::StageplayText));
     for (auto model : scriptModels) {
         auto audioplay = qobject_cast<BusinessLayer::ScriptTextModel*>(model);
         const auto characters = audioplay->findCharactersFromText();
@@ -1875,9 +1887,6 @@ void ProjectManager::Implementation::findAllLocations()
     //
     QSet<QString> locationsFromText;
     auto scriptModels = modelsFacade.modelsFor(Domain::DocumentObjectType::ScreenplayText);
-    scriptModels.append(modelsFacade.modelsFor(Domain::DocumentObjectType::ComicBookText));
-    scriptModels.append(modelsFacade.modelsFor(Domain::DocumentObjectType::AudioplayText));
-    scriptModels.append(modelsFacade.modelsFor(Domain::DocumentObjectType::StageplayText));
     for (auto model : scriptModels) {
         auto audioplay = qobject_cast<BusinessLayer::ScriptTextModel*>(model);
         const auto characters = audioplay->findLocationsFromText();
@@ -2393,6 +2402,16 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
             //
             auto document
                 = DataStorageLayer::StorageFacade::documentStorage()->createDocument(_uuid, _type);
+            //
+            // A retired format has no model, so its content is stored as is
+            //
+            if (Domain::isUnsupportedDocumentType(_type)) {
+                if (!_content.isNull()) {
+                    document->setContent(_content);
+                    DataStorageLayer::StorageFacade::documentStorage()->saveDocument(document);
+                }
+                return;
+            }
             auto documentModel = d->modelsFacade.modelFor(document);
             documentModel->setDocumentName(_name);
             //
@@ -2990,27 +3009,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                     auto screenplay = qobject_cast<BusinessLayer::ScreenplayTextModel*>(model);
                     screenplay->updateCharacterName(_oldName, _newName);
                 }
-                //
-                const auto comicBookModels
-                    = d->modelsFacade.modelsFor(Domain::DocumentObjectType::ComicBookText);
-                for (auto model : comicBookModels) {
-                    auto comicBook = qobject_cast<BusinessLayer::ComicBookTextModel*>(model);
-                    comicBook->updateCharacterName(_oldName, _newName);
-                }
-                //
-                const auto audioplayModels
-                    = d->modelsFacade.modelsFor(Domain::DocumentObjectType::AudioplayText);
-                for (auto model : audioplayModels) {
-                    auto audioplay = qobject_cast<BusinessLayer::AudioplayTextModel*>(model);
-                    audioplay->updateCharacterName(_oldName, _newName);
-                }
-                //
-                const auto stageplayModels
-                    = d->modelsFacade.modelsFor(Domain::DocumentObjectType::StageplayText);
-                for (auto model : stageplayModels) {
-                    auto stageplay = qobject_cast<BusinessLayer::StageplayTextModel*>(model);
-                    stageplay->updateCharacterName(_oldName, _newName);
-                }
 
                 //
                 // Если персонаж переименовывается в другого существующего, то удалим дубль
@@ -3073,69 +3071,8 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                     documentDialogues.append(
                         { screenplay->document()->uuid(), documentName, dialogues });
                 }
+
                 //
-                const auto comicBookModels
-                    = d->modelsFacade.modelsFor(Domain::DocumentObjectType::ComicBookText);
-                for (auto model : comicBookModels) {
-                    auto comicBook = qobject_cast<BusinessLayer::ComicBookTextModel*>(model);
-                    const auto dialogues = comicBook->characterDialogues(character->name());
-                    if (dialogues.isEmpty()) {
-                        continue;
-                    }
-
-                    QString documentName = comicBook->informationModel()->name();
-                    if (const auto screenplayItem
-                        = d->projectStructureModel->itemForUuid(comicBook->document()->uuid());
-                        screenplayItem->name() != tr("Script")) {
-                        documentName.append(
-                            QString(" [%1 %2]").arg(tr("draft"), screenplayItem->name()));
-                    }
-
-                    documentDialogues.append(
-                        { comicBook->document()->uuid(), documentName, dialogues });
-                }
-                //
-                const auto audioplayModels
-                    = d->modelsFacade.modelsFor(Domain::DocumentObjectType::AudioplayText);
-                for (auto model : audioplayModels) {
-                    auto audioplay = qobject_cast<BusinessLayer::AudioplayTextModel*>(model);
-                    const auto dialogues = audioplay->characterDialogues(character->name());
-                    if (dialogues.isEmpty()) {
-                        continue;
-                    }
-
-                    QString documentName = audioplay->informationModel()->name();
-                    if (const auto screenplayItem
-                        = d->projectStructureModel->itemForUuid(audioplay->document()->uuid());
-                        screenplayItem->name() != tr("Script")) {
-                        documentName.append(
-                            QString(" [%1 %2]").arg(tr("draft"), screenplayItem->name()));
-                    }
-
-                    documentDialogues.append(
-                        { audioplay->document()->uuid(), documentName, dialogues });
-                }
-                //
-                const auto stageplayModels
-                    = d->modelsFacade.modelsFor(Domain::DocumentObjectType::StageplayText);
-                for (auto model : stageplayModels) {
-                    auto stageplay = qobject_cast<BusinessLayer::StageplayTextModel*>(model);
-                    const auto dialogues = stageplay->characterDialogues(character->name());
-                    if (dialogues.isEmpty()) {
-                        continue;
-                    }
-
-                    QString documentName = stageplay->informationModel()->name();
-                    if (const auto screenplayItem
-                        = d->projectStructureModel->itemForUuid(stageplay->document()->uuid());
-                        screenplayItem->name() != tr("Script")) {
-                        documentName.append(
-                            QString(" [%1 %2]").arg(tr("draft"), screenplayItem->name()));
-                    }
-
-                    documentDialogues.append(
-                        { stageplay->document()->uuid(), documentName, dialogues });
-                }
 
                 character->setDialogues(documentDialogues);
             });
@@ -3252,52 +3189,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                 d->addDocumentToContainer(Domain::DocumentObjectType::Worlds,
                                           Domain::DocumentObjectType::World, _name, _content);
             });
-    connect(&d->modelsFacade, &ProjectModelsFacade::titlePageCharactersUpdateRequested, this,
-            [this](BusinessLayer::AbstractModel* _titlePage) {
-                if (_titlePage == nullptr) {
-                    return;
-                }
-
-                using namespace BusinessLayer;
-
-                //
-                // Найти сценарий, к которому относится эта титульная страница
-                //
-                const auto titlePageItem
-                    = d->projectStructureModel->itemForUuid(_titlePage->document()->uuid());
-                const auto scriptItem = titlePageItem->parent();
-                ScriptTextModel* scriptTextModel = nullptr;
-                for (int childIndex = 0; childIndex < scriptItem->childCount(); ++childIndex) {
-                    const auto childItem = scriptItem->childAt(childIndex);
-                    if (childItem->type() == Domain::DocumentObjectType::AudioplayText
-                        || childItem->type() == Domain::DocumentObjectType::StageplayText) {
-                        scriptTextModel = qobject_cast<ScriptTextModel*>(
-                            d->modelsFacade.modelFor(childItem->uuid()));
-                        break;
-                    }
-                }
-                if (scriptTextModel == nullptr) {
-                    return;
-                }
-
-                //
-                // Определить список персонажей сценария
-                //
-                QVector<QPair<QString, QString>> characters;
-                const auto charactersFromText = scriptTextModel->findCharactersFromText();
-                for (const auto& characterName : charactersFromText) {
-                    const auto character = scriptTextModel->character(characterName);
-                    characters.append(
-                        { characterName,
-                          character != nullptr ? character->oneSentenceDescription() : QString() });
-                };
-
-                //
-                // Задать список персонажей в титульную страницу
-                //
-                auto titlePage = qobject_cast<BusinessLayer::TitlePageModel*>(_titlePage);
-                titlePage->setCharacters(characters);
-            });
     //
     connect(&d->modelsFacade, &ProjectModelsFacade::screenplayTitlePageVisibilityChanged, this,
             [this](BusinessLayer::AbstractModel* _model, bool _visible) {
@@ -3348,66 +3239,6 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
             this, [this](BusinessLayer::AbstractModel* _model, bool _visible) {
                 d->setDocumentVisible(
                     _model, Domain::DocumentObjectType::ScreenplaySeriesStatistics, _visible);
-            });
-    //
-    connect(&d->modelsFacade, &ProjectModelsFacade::comicBookTitlePageVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::ComicBookTitlePage,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::comicBookSynopsisVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::ComicBookSynopsis,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::comicBookTextVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::ComicBookText, _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::comicBookStatisticsVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::ComicBookStatistics,
-                                      _visible);
-            });
-    //
-    connect(&d->modelsFacade, &ProjectModelsFacade::audioplayTitlePageVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::AudioplayTitlePage,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::audioplaySynopsisVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::AudioplaySynopsis,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::audioplayTextVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::AudioplayText, _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::audioplayStatisticsVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::AudioplayStatistics,
-                                      _visible);
-            });
-    //
-    connect(&d->modelsFacade, &ProjectModelsFacade::stageplayTitlePageVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::StageplayTitlePage,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::stageplaySynopsisVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::StageplaySynopsis,
-                                      _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::stageplayTextVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::StageplayText, _visible);
-            });
-    connect(&d->modelsFacade, &ProjectModelsFacade::stageplayStatisticsVisibilityChanged, this,
-            [this](BusinessLayer::AbstractModel* _model, bool _visible) {
-                d->setDocumentVisible(_model, Domain::DocumentObjectType::StageplayStatistics,
-                                      _visible);
             });
     //
     connect(&d->modelsFacade, &ProjectModelsFacade::novelTitlePageVisibilityChanged, this,
@@ -3577,48 +3408,6 @@ void ProjectManager::reconfigureScreenplayDuration()
 
         screenplayModel->recalculateCounters();
     }
-}
-
-void ProjectManager::reconfigureComicBookEditor(const QStringList& _changedSettingsKeys)
-{
-    d->pluginsBuilder.reconfigureComicBookEditor(_changedSettingsKeys);
-}
-
-void ProjectManager::reconfigureComicBookNavigator()
-{
-    d->pluginsBuilder.reconfigureComicBookNavigator();
-}
-
-void ProjectManager::reconfigureAudioplayEditor(const QStringList& _changedSettingsKeys)
-{
-    d->pluginsBuilder.reconfigureAudioplayEditor(_changedSettingsKeys);
-}
-
-void ProjectManager::reconfigureAudioplayNavigator()
-{
-    d->pluginsBuilder.reconfigureAudioplayNavigator();
-}
-
-void ProjectManager::reconfigureAudioplayDuration()
-{
-    for (auto model : d->modelsFacade.loadedModels()) {
-        auto audioplayModel = qobject_cast<BusinessLayer::AudioplayTextModel*>(model);
-        if (audioplayModel == nullptr) {
-            continue;
-        }
-
-        audioplayModel->recalculateCounters();
-    }
-}
-
-void ProjectManager::reconfigureStageplayEditor(const QStringList& _changedSettingsKeys)
-{
-    d->pluginsBuilder.reconfigureStageplayEditor(_changedSettingsKeys);
-}
-
-void ProjectManager::reconfigureStageplayNavigator()
-{
-    d->pluginsBuilder.reconfigureStageplayNavigator();
 }
 
 void ProjectManager::reconfigureNovelEditor(const QStringList& _changedSettingsKeys)
@@ -3983,106 +3772,6 @@ void ProjectManager::storeSimpleText(const QString& _name, const QString& _text)
     d->setCurrentItem(simpleTextItem);
 }
 
-void ProjectManager::storeAudioplay(const QString& _name, const QString& _titlePage,
-                                    const QString& _text)
-{
-    //
-    // Если ожидаем драфт, то наполняем контейнер для импорта
-    //
-    if (d->documentImportingContainer.waitForDocument) {
-        d->documentImportingContainer.waitForDocument = false;
-        d->documentImportingContainer.name = _name;
-        d->documentImportingContainer.titlePage = _titlePage;
-        d->documentImportingContainer.text = _text;
-        return;
-    }
-
-    //
-    // ATTENTION: Копипаста из StructureModel::addDocument, быть внимательным при обновлении
-    //
-
-    using namespace Domain;
-
-    auto createItem = [](DocumentObjectType _type, const QString& _name) {
-        auto uuid = QUuid::createUuid();
-        const auto visible = true;
-        const auto readOnly = false;
-        const auto comparison = false;
-        return new BusinessLayer::StructureModelItem(uuid, _type, _name, tr("First draft"), {},
-                                                     visible, readOnly, comparison);
-    };
-
-    auto rootItem = d->projectStructureModel->itemForIndex({});
-    auto audioplayItem = createItem(DocumentObjectType::Audioplay, _name);
-    d->projectStructureModel->appendItem(audioplayItem, rootItem);
-
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::AudioplayTitlePage, tr("Title page")), audioplayItem,
-        _titlePage.toUtf8());
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::AudioplaySynopsis, tr("Synopsis")), audioplayItem, {});
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::AudioplayText, tr("Audioplay")), audioplayItem,
-        _text.toUtf8());
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::AudioplayStatistics, tr("Statistics")), audioplayItem, {});
-
-    //
-    // Фокусируем добавленный документ
-    //
-    d->setCurrentItem(audioplayItem);
-}
-
-void ProjectManager::storeComicBook(const QString& _name, const QString& _titlePage,
-                                    const QString& _text)
-{
-    //
-    // Если ожидаем драфт, то наполняем контейнер для импорта
-    //
-    if (d->documentImportingContainer.waitForDocument) {
-        d->documentImportingContainer.waitForDocument = false;
-        d->documentImportingContainer.name = _name;
-        d->documentImportingContainer.titlePage = _titlePage;
-        d->documentImportingContainer.text = _text;
-        return;
-    }
-
-    //
-    // ATTENTION: Копипаста из StructureModel::addDocument, быть внимательным при обновлении
-    //
-
-    using namespace Domain;
-
-    auto createItem = [](DocumentObjectType _type, const QString& _name) {
-        auto uuid = QUuid::createUuid();
-        const auto visible = true;
-        const auto readOnly = false;
-        const auto comparison = false;
-        return new BusinessLayer::StructureModelItem(uuid, _type, _name, tr("First draft"), {},
-                                                     visible, readOnly, comparison);
-    };
-
-    auto rootItem = d->projectStructureModel->itemForIndex({});
-    auto comicbookItem = createItem(DocumentObjectType::ComicBook, _name);
-    d->projectStructureModel->appendItem(comicbookItem, rootItem);
-
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::ComicBookTitlePage, tr("Title page")), comicbookItem,
-        _titlePage.toUtf8());
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::ComicBookSynopsis, tr("Synopsis")), comicbookItem, {});
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::ComicBookText, tr("Comic book")), comicbookItem,
-        _text.toUtf8());
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::ComicBookStatistics, tr("Statistics")), comicbookItem, {});
-
-    //
-    // Фокусируем добавленный документ
-    //
-    d->setCurrentItem(comicbookItem);
-}
-
 void ProjectManager::storeNovel(const QString& _name, const QString& _text)
 {
     //
@@ -4193,56 +3882,6 @@ void ProjectManager::storeScreenplay(const QString& _name, const QString& _title
     // Фокусируем добавленный документ
     //
     d->setCurrentItem(screenplayItem);
-}
-
-void ProjectManager::storeStageplay(const QString& _name, const QString& _titlePage,
-                                    const QString& _text)
-{
-    //
-    // Если ожидаем драфт, то наполняем контейнер для импорта
-    //
-    if (d->documentImportingContainer.waitForDocument) {
-        d->documentImportingContainer.waitForDocument = false;
-        d->documentImportingContainer.name = _name;
-        d->documentImportingContainer.titlePage = _titlePage;
-        d->documentImportingContainer.text = _text;
-        return;
-    }
-
-    //
-    // ATTENTION: Копипаста из StructureModel::addDocument, быть внимательным при обновлении
-    //
-
-    using namespace Domain;
-
-    auto createItem = [](DocumentObjectType _type, const QString& _name) {
-        auto uuid = QUuid::createUuid();
-        const auto visible = true;
-        const auto readOnly = false;
-        const auto comparison = false;
-        return new BusinessLayer::StructureModelItem(uuid, _type, _name, tr("First draft"), {},
-                                                     visible, readOnly, comparison);
-    };
-
-    auto rootItem = d->projectStructureModel->itemForIndex({});
-    auto stageplayItem = createItem(DocumentObjectType::Stageplay, _name);
-    d->projectStructureModel->appendItem(stageplayItem, rootItem);
-
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::StageplayTitlePage, tr("Title page")), stageplayItem,
-        _titlePage.toUtf8());
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::StageplaySynopsis, tr("Synopsis")), stageplayItem, {});
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::StageplayText, tr("Stageplay")), stageplayItem,
-        _text.toUtf8());
-    d->projectStructureModel->appendItem(
-        createItem(DocumentObjectType::StageplayStatistics, tr("Statistics")), stageplayItem, {});
-
-    //
-    // Фокусируем добавленный документ
-    //
-    d->setCurrentItem(stageplayItem);
 }
 
 void ProjectManager::storePresentation(const QUuid& _documentUuid, const QString& _name,
@@ -4392,10 +4031,7 @@ BusinessLayer::AbstractModel* ProjectManager::firstScriptModel() const
         const auto index = model->index(row, 0);
         const auto item = d->projectStructureModel->itemForIndex(index);
         if (item != nullptr
-            && (item->type() == Domain::DocumentObjectType::Audioplay
-                || item->type() == Domain::DocumentObjectType::ComicBook
-                || item->type() == Domain::DocumentObjectType::Screenplay
-                || item->type() == Domain::DocumentObjectType::Stageplay
+            && (item->type() == Domain::DocumentObjectType::Screenplay
                 || item->type() == Domain::DocumentObjectType::Novel)) {
             constexpr int scriptTextIndex = 2;
             return d->modelsFacade.modelFor(item->childAt(scriptTextIndex)->uuid());
@@ -5259,24 +4895,6 @@ bool ProjectManager::event(QEvent* _event)
             auto screenplay = qobject_cast<BusinessLayer::ScreenplayTextModel*>(model);
             screenplay->updateRuntimeDictionariesIfNeeded();
         }
-        //
-        models = d->modelsFacade.loadedModelsFor(Domain::DocumentObjectType::ComicBookText);
-        for (auto model : std::as_const(models)) {
-            auto comicBook = qobject_cast<BusinessLayer::ComicBookTextModel*>(model);
-            comicBook->updateRuntimeDictionariesIfNeeded();
-        }
-        //
-        models = d->modelsFacade.loadedModelsFor(Domain::DocumentObjectType::AudioplayText);
-        for (auto model : std::as_const(models)) {
-            auto audioplay = qobject_cast<BusinessLayer::AudioplayTextModel*>(model);
-            audioplay->updateRuntimeDictionariesIfNeeded();
-        }
-        //
-        models = d->modelsFacade.loadedModelsFor(Domain::DocumentObjectType::StageplayText);
-        for (auto model : std::as_const(models)) {
-            auto stageplay = qobject_cast<BusinessLayer::StageplayTextModel*>(model);
-            stageplay->updateRuntimeDictionariesIfNeeded();
-        }
         break;
     }
 
@@ -5370,6 +4988,10 @@ void ProjectManager::showView(const QModelIndex& _index)
     //
     const auto mappedIndex = d->projectStructureProxyModel->mapToSource(_index);
     const auto item = d->projectStructureModel->itemForIndex(mappedIndex);
+    if (Domain::isUnsupportedDocumentType(item->type())) {
+        showView(_index, {}, {});
+        return;
+    }
     const auto documentMimeType = Domain::mimeTypeFor(item->type());
     //
     // ... настроим иконки представлений
@@ -5416,6 +5038,15 @@ void ProjectManager::showView(const QModelIndex& _itemIndex, const QString& _vie
     }
 
     const auto sourceItem = d->projectStructureModel->itemForIndex(sourceItemIndex);
+    if (Domain::isUnsupportedDocumentType(sourceItem->type())) {
+        updateCurrentDocument(nullptr, {});
+        d->view.activeIndex = sourceItemIndex;
+        d->toolBar->clearViews();
+        d->view.active->setDraftsVisible(false);
+        d->view.active->showUnsupportedFormatPage();
+        return;
+    }
+
     auto aliasedItem = d->aliasedItemForIndex(sourceItemIndex);
     auto itemForShow = aliasedItem;
     if (const auto versionIndex
@@ -5598,6 +5229,14 @@ void ProjectManager::showView(const QModelIndex& _itemIndex, const QString& _vie
 
 void ProjectManager::showViewForDraft(BusinessLayer::StructureModelItem* _item)
 {
+    if (Domain::isUnsupportedDocumentType(_item->type())) {
+        updateCurrentDocument(nullptr, {});
+        d->toolBar->clearViews();
+        d->view.active->setDraftsVisible(false);
+        d->view.active->showUnsupportedFormatPage();
+        return;
+    }
+
     emit downloadDocumentRequested(_item->uuid());
 
     const auto viewMimeType = d->view.activeViewMimeType;
@@ -5648,6 +5287,10 @@ void ProjectManager::showFirstViewForCurrentIndex()
     // Определим текущий документ и его представления
     //
     const auto item = d->projectStructureModel->itemForIndex(d->view.activeIndex);
+    if (Domain::isUnsupportedDocumentType(item->type())) {
+        showView(d->projectStructureProxyModel->mapFromSource(d->view.activeIndex));
+        return;
+    }
     const auto documentMimeType = Domain::mimeTypeFor(item->type());
     const auto views = d->pluginsBuilder.editorsInfoFor(documentMimeType, d->isProjectRemote);
 
@@ -5680,6 +5323,9 @@ void ProjectManager::activateView(const QModelIndex& _itemIndex, const QString& 
     //
     const auto mappedIndex = d->projectStructureProxyModel->mapToSource(_itemIndex);
     const auto item = d->projectStructureModel->itemForIndex(mappedIndex);
+    if (Domain::isUnsupportedDocumentType(item->type())) {
+        return;
+    }
     const auto documentMimeType = Domain::mimeTypeFor(item->type());
     //
     // ... настроим иконки представлений

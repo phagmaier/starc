@@ -1,7 +1,5 @@
 #include "import_manager.h"
 
-#include <business_layer/import/audioplay/audioplay_fountain_importer.h>
-#include <business_layer/import/comic_book/comic_book_fountain_importer.h>
 #include <business_layer/import/import_options.h>
 #include <business_layer/import/novel/novel_markdown_importer.h>
 #include <business_layer/import/screenplay/screenplay_celtx_importer.h>
@@ -11,7 +9,6 @@
 #include <business_layer/import/screenplay/screenplay_kit_scenarist_importer.h>
 #include <business_layer/import/screenplay/screenplay_pdf_importer.h>
 #include <business_layer/import/screenplay/screenplay_trelby_importer.h>
-#include <business_layer/import/stageplay/stageplay_fountain_importer.h>
 #include <business_layer/import/text/simple_text_docx_importer.h>
 #include <business_layer/import/text/simple_text_markdown_importer.h>
 #include <business_layer/import/text/simple_text_pdf_importer.h>
@@ -44,11 +41,8 @@ public:
      * @brief Импортировать данные документа из заданного файла
      */
     void importSimpleText(const BusinessLayer::ImportOptions& _options);
-    void importAudioplay(const BusinessLayer::ImportOptions& _options);
-    void importComicBook(const BusinessLayer::ImportOptions& _options);
     void importNovel(const BusinessLayer::ImportOptions& _options);
     void importScreenplay(const BusinessLayer::ImportOptions& _options);
-    void importStageplay(const BusinessLayer::ImportOptions& _options);
     void importPresentation(const BusinessLayer::ImportOptions& _options);
 
     //
@@ -151,24 +145,12 @@ void ImportManager::Implementation::showImportDialogFor(const QStringList& _path
                     importSimpleText(importOptions);
                     break;
                 }
-                case Domain::DocumentObjectType::Audioplay: {
-                    importAudioplay(importOptions);
-                    break;
-                }
-                case Domain::DocumentObjectType::ComicBook: {
-                    importComicBook(importOptions);
-                    break;
-                }
                 case Domain::DocumentObjectType::Novel: {
                     importNovel(importOptions);
                     break;
                 }
                 case Domain::DocumentObjectType::Screenplay: {
                     importScreenplay(importOptions);
-                    break;
-                }
-                case Domain::DocumentObjectType::Stageplay: {
-                    importStageplay(importOptions);
                     break;
                 }
                 case Domain::DocumentObjectType::Presentation: {
@@ -287,86 +269,6 @@ void ImportManager::Implementation::importSimpleText(const BusinessLayer::Import
     emit q->simpleTextImported(documentName, document.text);
 }
 
-void ImportManager::Implementation::importAudioplay(const BusinessLayer::ImportOptions& _options)
-{
-    //
-    // Определим нужный импортер
-    //
-    QScopedPointer<BusinessLayer::AbstractAudioplayImporter> importer;
-    {
-        const auto importFilePath = _options.filePath.toLower();
-        if (importFilePath.endsWith(ExtensionHelper::fountain())
-            || importFilePath.endsWith(ExtensionHelper::plainText())) {
-            importer.reset(new BusinessLayer::AudioplayFountainImporter);
-        }
-    }
-
-    //
-    // Если закинули какую-то хрень, то просто игнорируем дальнейшее выполнение
-    //
-    if (importer.isNull()) {
-        Log::warning("Unsupporter file type (%1) for audioplay exporting", _options.filePath);
-        return;
-    }
-
-    //
-    // Импортируем персонажей
-    //
-    const auto documents = importer->importDocuments(_options);
-    for (const auto& character : documents.characters) {
-        emit q->characterImported(character.name, character.content);
-    }
-
-    //
-    // Импортируем текст аудиопьесы
-    //
-    const auto audioplay = importer->importAudioplay(_options);
-    const auto audioplayName = !audioplay.name.isEmpty()
-        ? audioplay.name
-        : QFileInfo(_options.filePath).completeBaseName();
-    emit q->audioplayImported(audioplayName, audioplay.titlePage, audioplay.text);
-}
-
-void ImportManager::Implementation::importComicBook(const BusinessLayer::ImportOptions& _options)
-{
-    //
-    // Определим нужный импортер
-    //
-    QScopedPointer<BusinessLayer::AbstractComicBookImporter> importer;
-    {
-        const auto importFilePath = _options.filePath.toLower();
-        if (importFilePath.endsWith(ExtensionHelper::fountain())
-            || importFilePath.endsWith(ExtensionHelper::plainText())) {
-            importer.reset(new BusinessLayer::ComicBookFountainImporter);
-        }
-    }
-
-    //
-    // Если закинули какую-то хрень, то просто игнорируем дальнейшее выполнение
-    //
-    if (importer.isNull()) {
-        Log::warning("Unsupporter file type (%1) for comic book exporting", _options.filePath);
-        return;
-    }
-
-    //
-    // Импортируем персонажей
-    //
-    const auto documents = importer->importDocuments(_options);
-    for (const auto& character : documents.characters) {
-        emit q->characterImported(character.name, character.content);
-    }
-
-    //
-    // Импортируем текст комикса
-    //
-    const auto comicbook = importer->importComicBook(_options);
-    const auto comicbookName = !comicbook.name.isEmpty()
-        ? comicbook.name
-        : QFileInfo(_options.filePath).completeBaseName();
-    emit q->comicbookImported(comicbookName, comicbook.titlePage, comicbook.text);
-}
-
 void ImportManager::Implementation::importNovel(const BusinessLayer::ImportOptions& _options)
 {
     //
@@ -463,46 +365,6 @@ void ImportManager::Implementation::importScreenplay(const BusinessLayer::Import
     }
 }
 
-void ImportManager::Implementation::importStageplay(const BusinessLayer::ImportOptions& _options)
-{
-    //
-    // Определим нужный импортер
-    //
-    QScopedPointer<BusinessLayer::AbstractStageplayImporter> importer;
-    {
-        const auto importFilePath = _options.filePath.toLower();
-        if (importFilePath.endsWith(ExtensionHelper::fountain())
-            || importFilePath.endsWith(ExtensionHelper::plainText())) {
-            importer.reset(new BusinessLayer::StageplayFountainImporter);
-        }
-    }
-
-    //
-    // Если закинули какую-то хрень, то просто игнорируем дальнейшее выполнение
-    //
-    if (importer.isNull()) {
-        Log::warning("Unsupporter file type (%1) for stageplay exporting", _options.filePath);
-        return;
-    }
-
-    //
-    // Импортируем персонажей
-    //
-    const auto documents = importer->importDocuments(_options);
-    for (const auto& character : documents.characters) {
-        emit q->characterImported(character.name, character.content);
-    }
-
-    //
-    // Импортируем текст пьесы
-    //
-    const auto stageplay = importer->importStageplay(_options);
-    const auto stageplayName = !stageplay.name.isEmpty()
-        ? stageplay.name
-        : QFileInfo(_options.filePath).completeBaseName();
-    emit q->stageplayImported(stageplayName, stageplay.titlePage, stageplay.text);
-}
-
 void ImportManager::Implementation::importPresentation(const BusinessLayer::ImportOptions& _options)
 {
     //
@@ -572,33 +434,6 @@ void ImportManager::importScreenplay(const QString& _filePath, bool _importDocum
     d->importScreenplay(options);
 }
 
-void ImportManager::importComicBook(const QString& _filePath, bool _importDocuments)
-{
-    BusinessLayer::ImportOptions options;
-    options.filePath = _filePath;
-    options.documentType = Domain::DocumentObjectType::Screenplay;
-    options.importCharacters = _importDocuments;
-    d->importComicBook(options);
-}
-
-void ImportManager::importAudioplay(const QString& _filePath, bool _importDocuments)
-{
-    BusinessLayer::ImportOptions options;
-    options.filePath = _filePath;
-    options.documentType = Domain::DocumentObjectType::Screenplay;
-    options.importCharacters = _importDocuments;
-    d->importAudioplay(options);
-}
-
-void ImportManager::importStageplay(const QString& _filePath, bool _importDocuments)
-{
-    BusinessLayer::ImportOptions options;
-    options.filePath = _filePath;
-    options.documentType = Domain::DocumentObjectType::Screenplay;
-    options.importCharacters = _importDocuments;
-    d->importStageplay(options);
-}
-
 void ImportManager::importNovel(const QString& _filePath)
 {
     BusinessLayer::ImportOptions options;
@@ -614,21 +449,6 @@ void ImportManager::importToDocument(const QString& _filePath, const QUuid& _doc
     case Domain::DocumentObjectType::ScreenplayText: {
         const bool importDocuments = false;
         importScreenplay(_filePath, importDocuments);
-        break;
-    }
-    case Domain::DocumentObjectType::ComicBookText: {
-        const bool importDocuments = false;
-        importComicBook(_filePath, importDocuments);
-        break;
-    }
-    case Domain::DocumentObjectType::AudioplayText: {
-        const bool importDocuments = false;
-        importAudioplay(_filePath, importDocuments);
-        break;
-    }
-    case Domain::DocumentObjectType::StageplayText: {
-        const bool importDocuments = false;
-        importStageplay(_filePath, importDocuments);
         break;
     }
     case Domain::DocumentObjectType::NovelText: {

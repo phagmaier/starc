@@ -33,9 +33,6 @@ signals:
     void componentsPressed();
     void componentsSimpleTextPressed();
     void componentsScreenplayPressed();
-    void componentsComicBookPressed();
-    void componentsAudioplayPressed();
-    void componentsStageplayPressed();
     void componentsNovelPressed();
     void shortcutsPressed();
     void advancedPressed();

@@ -19,10 +19,7 @@ constexpr int kApplicationTextEditingIndex = 2;
 constexpr int kComponentsIndex = 1;
 constexpr int kComponentsSimpleTextIndex = 0;
 constexpr int kComponentsScreenplayIndex = 1;
-constexpr int kComponentsComicBookIndex = 2;
-constexpr int kComponentsAudioplayIndex = 3;
-constexpr int kComponentsStageplayIndex = 4;
-constexpr int kComponentsNovelIndex = 5;
+constexpr int kComponentsNovelIndex = 2;
 constexpr int kShortcutsIndex = 2;
 constexpr int kAdvancedIndex = 3;
 } // namespace
@@ -58,9 +55,6 @@ SettingsNavigator::Implementation::Implementation(QWidget* _parent)
     auto componentsItem = createItem(u8"\U000f09ac");
     componentsItem->appendRow(createItem(u8"\U000F021A"));
     componentsItem->appendRow(createItem(u8"\U000F0FCE"));
-    componentsItem->appendRow(createItem(u8"\U000F056E"));
-    componentsItem->appendRow(createItem(u8"\U000F02CB"));
-    componentsItem->appendRow(createItem(u8"\U000F0D02"));
     componentsItem->appendRow(createItem(u8"\U000F05DA"));
     model->appendRow(componentsItem);
     model->appendRow(createItem(u8"\U000f030c"));
@@ -121,18 +115,6 @@ SettingsNavigator::SettingsNavigator(QWidget* _parent)
                 }
                 case kComponentsScreenplayIndex: {
                     emit componentsScreenplayPressed();
-                    break;
-                }
-                case kComponentsComicBookIndex: {
-                    emit componentsComicBookPressed();
-                    break;
-                }
-                case kComponentsAudioplayIndex: {
-                    emit componentsAudioplayPressed();
-                    break;
-                }
-                case kComponentsStageplayIndex: {
-                    emit componentsStageplayPressed();
                     break;
                 }
                 case kComponentsNovelIndex: {
@@ -202,9 +184,6 @@ void SettingsNavigator::updateTranslations()
     model->item(kComponentsIndex)->setText(tr("Components"));
     model->item(kComponentsIndex)->child(kComponentsSimpleTextIndex)->setText(tr("Simple text"));
     model->item(kComponentsIndex)->child(kComponentsScreenplayIndex)->setText(tr("Screenplay"));
-    model->item(kComponentsIndex)->child(kComponentsComicBookIndex)->setText(tr("Comic book"));
-    model->item(kComponentsIndex)->child(kComponentsAudioplayIndex)->setText(tr("Audioplay"));
-    model->item(kComponentsIndex)->child(kComponentsStageplayIndex)->setText(tr("Stageplay"));
     model->item(kComponentsIndex)->child(kComponentsNovelIndex)->setText(tr("Novel"));
     model->item(kShortcutsIndex)->setText(tr("Shortcuts"));
     model->item(kAdvancedIndex)->setText(tr("Advanced"));

@@ -1,6 +1,5 @@
 #include "chronometer.h"
 
-#include <business_layer/templates/audioplay_template.h>
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/templates_facade.h>
 #include <data_layer/storage/settings_storage.h>
@@ -301,15 +300,6 @@ qreal ScreenplayChronometer::eighths(TextParagraphType _type, const QString& _te
 {
     const auto& screenplayTemplate = TemplatesFacade::screenplayTemplate(_templateId);
     return PageEightCalculator().eighths(_type, _text, screenplayTemplate);
-}
-
-std::chrono::milliseconds AudioplayChronometer::duration(TextParagraphType _type,
-                                                         const QString& _text,
-                                                         const QString& _templateId,
-                                                         const ChronometerOptions& _options)
-{
-    const auto& audioplayTemplate = TemplatesFacade::audioplayTemplate(_templateId);
-    return WordsChronometer(_options).duration(_type, _text, audioplayTemplate);
 }
 
 } // namespace BusinessLayer

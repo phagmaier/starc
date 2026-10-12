@@ -1,16 +1,7 @@
 TEMPLATE = subdirs
 
 SUBDIRS = \
-    audioplay_information \
-    audioplay_parameters \
-    audioplay_text \
-    audioplay_text_structure \
-    audioplay_statistics_structure \
     character_information_structure \
-    comic_book_information \
-    comic_book_parameters \
-    comic_book_text \
-    comic_book_text_structure \
     location_information_structure \
     project_information \
     project_parameters \
@@ -26,10 +17,6 @@ SUBDIRS = \
     screenplay_series_statistics_structure \
     simple_text \
     simple_text_structure \
-    stageplay_information \
-    stageplay_parameters \
-    stageplay_text \
-    stageplay_text_structure \
     novel_information \
     novel_parameters \
     novel_outline \
@@ -92,18 +79,6 @@ exists (screenplay_series_plan/screenplay_series_plan.pro) {
 }
 exists (screenplay_series_statistics/screenplay_series_statistics.pro) {
     SUBDIRS += screenplay_series_statistics
-}
-
-exists (comic_book_statistics/comic_book_statistics.pro) {
-    SUBDIRS += comic_book_statistics
-}
-
-exists (audioplay_statistics/audioplay_statistics.pro) {
-    SUBDIRS += audioplay_statistics
-}
-
-exists (stageplay_statistics/stageplay_statistics.pro) {
-    SUBDIRS += stageplay_statistics
 }
 
 exists (novel_cards/novel_cards.pro) {

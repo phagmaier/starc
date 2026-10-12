@@ -148,36 +148,6 @@ signals:
     /** @} */
 
     /**
-     * @brief Сменилась видимость элемента комикса
-     */
-    /** @{ */
-    void comicBookTitlePageVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void comicBookSynopsisVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void comicBookTextVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void comicBookStatisticsVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    /** @} */
-
-    /**
-     * @brief Сменилась видимость элемента аудиопостановки
-     */
-    /** @{ */
-    void audioplayTitlePageVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void audioplaySynopsisVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void audioplayTextVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void audioplayStatisticsVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    /** @} */
-
-    /**
-     * @brief Сменилась видимость элемента аудиопостановки
-     */
-    /** @{ */
-    void stageplayTitlePageVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void stageplaySynopsisVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void stageplayTextVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    void stageplayStatisticsVisibilityChanged(BusinessLayer::AbstractModel* _model, bool _visible);
-    /** @} */
-
-    /**
      * @brief Сменилась видимость элемента сценария
      */
     /** @{ */
@@ -224,11 +194,6 @@ signals:
      * @brief Неоходимо создать мир с заданным именем
      */
     void createWorldRequested(const QString& _name, const QByteArray& _content);
-
-    /**
-     * @brief Запрос на обновление списка действующих лиц титульной страницы
-     */
-    void titlePageCharactersUpdateRequested(BusinessLayer::AbstractModel* _titlePage);
 
     /**
      * @brief Необходимо очистить корзинку

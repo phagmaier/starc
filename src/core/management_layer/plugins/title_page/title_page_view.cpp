@@ -5,11 +5,8 @@
 
 #include <business_layer/document/text/text_block_data.h>
 #include <business_layer/document/text/text_cursor.h>
-#include <business_layer/model/audioplay/audioplay_title_page_model.h>
-#include <business_layer/model/comic_book/comic_book_title_page_model.h>
 #include <business_layer/model/novel/novel_title_page_model.h>
 #include <business_layer/model/screenplay/screenplay_title_page_model.h>
-#include <business_layer/model/stageplay/stageplay_title_page_model.h>
 #include <business_layer/templates/templates_facade.h>
 #include <business_layer/templates/text_template.h>
 #include <data_layer/storage/settings_storage.h>
@@ -128,8 +125,6 @@ TitlePageView::TitlePageView(QWidget* _parent)
         //
         d->scalableWrapper->setFocus();
     });
-    connect(d->toolbar, &TitlePageEditToolbar::addCastListPressed, d->textEdit,
-            &TitlePageEdit::addCastList);
     connect(d->toolbar, &TitlePageEditToolbar::restoreTitlePagePressed, d->textEdit,
             &TitlePageEdit::restoreFromTemplate);
     //
@@ -167,23 +162,8 @@ void TitlePageView::reconfigure(const QStringList& _changedSettingsKeys)
 
     QString defaultTemplateKey;
     switch (d->currentModelType) {
-    case Domain::DocumentObjectType::ComicBookTitlePage: {
-        defaultTemplateKey = DataStorageLayer::kComponentsComicBookEditorDefaultTemplateKey;
-        break;
-    }
-
     case Domain::DocumentObjectType::ScreenplayTitlePage: {
         defaultTemplateKey = DataStorageLayer::kComponentsScreenplayEditorDefaultTemplateKey;
-        break;
-    }
-
-    case Domain::DocumentObjectType::AudioplayTitlePage: {
-        defaultTemplateKey = DataStorageLayer::kComponentsAudioplayEditorDefaultTemplateKey;
-        break;
-    }
-
-    case Domain::DocumentObjectType::StageplayTitlePage: {
-        defaultTemplateKey = DataStorageLayer::kComponentsStageplayEditorDefaultTemplateKey;
         break;
     }
 
@@ -254,24 +234,14 @@ void TitlePageView::saveViewSettings()
 
 void TitlePageView::setModel(BusinessLayer::TitlePageModel* _model)
 {
-    bool isAddCastListVisible = false;
-    if (qobject_cast<BusinessLayer::ComicBookTitlePageModel*>(_model)) {
-        d->currentModelType = Domain::DocumentObjectType::ComicBookTitlePage;
-    } else if (qobject_cast<BusinessLayer::ScreenplayTitlePageModel*>(_model)) {
+    if (qobject_cast<BusinessLayer::ScreenplayTitlePageModel*>(_model)) {
         d->currentModelType = Domain::DocumentObjectType::ScreenplayTitlePage;
-    } else if (qobject_cast<BusinessLayer::AudioplayTitlePageModel*>(_model)) {
-        d->currentModelType = Domain::DocumentObjectType::AudioplayTitlePage;
-        isAddCastListVisible = true;
-    } else if (qobject_cast<BusinessLayer::StageplayTitlePageModel*>(_model)) {
-        d->currentModelType = Domain::DocumentObjectType::StageplayTitlePage;
-        isAddCastListVisible = true;
     } else if (qobject_cast<BusinessLayer::NovelTitlePageModel*>(_model)) {
         d->currentModelType = Domain::DocumentObjectType::NovelTitlePage;
     } else {
         d->currentModelType = Domain::DocumentObjectType::Undefined;
     }
 
-    d->toolbar->setAddCastListVisible(isAddCastListVisible);
     d->textEdit->initWithModel(_model);
 
     d->updateToolBarCurrentParagraphFont();
