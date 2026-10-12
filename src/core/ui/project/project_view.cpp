@@ -32,6 +32,11 @@ public:
     H6Label* notImplementedPageTitleLabel = nullptr;
     Body1Label* notImplementedPageBodyLabel = nullptr;
     bool unsupportedFormat = false;
+    //
+    // ... the texts given for a document that groups other ones, empty for any other document
+    //
+    QString documentsGroupTitle;
+    QString documentsGroupText;
 
     Widget* documentEditorPage = nullptr;
     TabBar* documentDrafts = nullptr;
@@ -193,6 +198,8 @@ void ProjectView::showDocumentLoadingPage()
 void ProjectView::showNotImplementedPage()
 {
     d->unsupportedFormat = false;
+    d->documentsGroupTitle.clear();
+    d->documentsGroupText.clear();
     updateTranslations();
     setCurrentWidget(d->notImplementedPage);
 }
@@ -200,6 +207,17 @@ void ProjectView::showNotImplementedPage()
 void ProjectView::showUnsupportedFormatPage()
 {
     d->unsupportedFormat = true;
+    d->documentsGroupTitle.clear();
+    d->documentsGroupText.clear();
+    updateTranslations();
+    setCurrentWidget(d->notImplementedPage);
+}
+
+void ProjectView::showDocumentsGroupPage(const QString& _title, const QString& _text)
+{
+    d->unsupportedFormat = false;
+    d->documentsGroupTitle = _title;
+    d->documentsGroupText = _text;
     updateTranslations();
     setCurrentWidget(d->notImplementedPage);
 }
@@ -318,6 +336,12 @@ void ProjectView::updateTranslations()
     d->documentLoadingPageTitleLabel->setText(tr("Document content loading..."));
     d->documentLoadingPageBodyLabel->setText(
         tr("Please, wait a while and document editor will be activated."));
+
+    if (!d->documentsGroupTitle.isEmpty()) {
+        d->notImplementedPageTitleLabel->setText(d->documentsGroupTitle);
+        d->notImplementedPageBodyLabel->setText(d->documentsGroupText);
+        return;
+    }
 
     d->notImplementedPageTitleLabel->setText(d->unsupportedFormat
                                                  ? tr("Unsupported document format")

@@ -1117,3 +1117,124 @@ Code that reads `QLocale()` was not pruned: the per-language interface fonts in
 English path. Typographic quote replacement and the DOCX language code follow
 that locale, as they already did with English selected. Upstream CI and packaging
 scripts were not run or changed. Later TODO items remain outside this task.
+
+## Character and location pages
+
+Completed 2026-10-12, limited to the next unchecked Add item. Of the two choices
+the item left open, the pages were built rather than the groups hidden: notes
+stay attached to a character while the script changes, and the data was in the
+project either way.
+
+A character or a location now opens in a page with a name, a description and
+notes. The two pages are local plugins at the paths of upstream's private
+`character_information` and `location_information` submodules, whose links and
+`.gitmodules` entries are removed, as was done for Statistics. Description maps to
+the existing `one_sentence_description` field and notes to `long_description`, so
+nothing new is stored and what an upstream project already holds in those fields
+is shown. All other character and location fields stay in the document untouched.
+With a page to describe them, "Add character" and "Add location" are offered
+again, by the checks that already follow plugin availability.
+
+Description and notes are saved as typed. A name is applied on Enter, or when the
+field is left for another one, never while it is typed: renaming goes through
+upstream's existing route, which replaces the name in every screenplay of the
+project. The page converts the name to capitals, like collected names, and
+refuses an empty one. It also refuses the name of another character or location:
+upstream's route would then permanently remove the renamed document as a
+duplicate, with its description and notes. Focus lost to another window or a
+menu leaves a half-typed name unapplied.
+
+Two changes outside the plugins:
+
+- Upstream renamed "nested" locations by bare prefix, so renaming HOUSE to HOME
+  also turned HOUSEBOAT and its scene heading into HOMEBOAT (observed with the
+  unchanged code), and it removed a nested location whose new name was taken. A nested location is now
+  one with " - " or ". " after the renamed name; a taken name leaves it as it is.
+- "Characters" and "Locations" have no editor of their own. Selecting one shows
+  a short explanation in place of the "No editor for this document" notice.
+
+The trait navigators `character_information_structure` and
+`location_information_structure` are removed: they listed the categories of the
+private editors and had nothing left to navigate. The add-document dialog no
+longer promises relation tracking for a character.
+
+Evidence:
+
+- `./build/dev.sh doctor`, `make qmake_all` in `.build/debug` and
+  `JOBS=4 ./build/dev.sh build debug`: passed, with no warning in the new or
+  changed files. The two obsolete navigator libraries were removed from
+  `_build/plugins/`.
+- `./tools/check-screenplay-scope.sh`: passed, 127 new checks on a project typed
+  through the real screenplay editor. They cover the page of a collected, a
+  hand-added and an upstream-detailed character (age, gender, role, nickname,
+  secrets and dreamcast kept after an edit), typed description and multi-line
+  notes, a name unapplied while typed, renaming on Enter and on leaving the
+  field, the cue, action and dialogue text of the script afterwards, refused
+  taken and empty names with every document still present, read-only mode, the
+  location page, scene headings, nested and look-alike locations, a nested name
+  that is taken, both group explanations, the add dialog, exact bytes of all
+  twelve documents through save/reopen, pages that rewrite nothing when merely
+  opened, and one script Undo taking a rename back out of the script.
+- The checks fail without the guards: upstream's original nested rename fails
+  "location that only begins with the same letters is left alone"; without the
+  taken-name skip, "nested location keeps its name when the new one is taken";
+  without the page's duplicate check, "taken or empty name is refused and
+  removes nothing". Each was rebuilt, run and restored.
+- `check-screenplay-interchange.sh`, `check-backup-retention.sh`,
+  `check-project-sync.sh`, `check-writing-session-storage.sh` and
+  `check-github-credential-storage.sh`: passed on the final build.
+- The actual application on private Xvfb, with no network: in a disposable copy
+  of the regression project and in an imported Fountain script, the pages, the
+  group explanation, the context menu's "Add character", the add dialog, a
+  refused duplicate name with its error, Enter and click-away renames, the
+  renamed script, the split view (an edit in one panel showed in the other) and
+  "Open in new window" were exercised by mouse and keyboard. After Ctrl+S and
+  Ctrl+Q the project passed SQLite's integrity check and held the typed
+  description, the extended notes beside the untouched upstream details, the
+  hand-added character and the renamed cues; a fresh start showed them again.
+  The three Ctrl+Q exits that were recorded were `0`. The first two launches
+  (onboarding and the Fountain import) closed normally by their logs, but their
+  exit codes were not captured.
+- Changed-code formatting (local `{ }` rewrites not applied) and
+  `git diff --check` passed. Graph coverage was checked: `project_manager.cpp`
+  is partly indexed and the graph lists no callers for `updateLocationName` or
+  `showNotImplementedPage`, whose calls sit in lambdas, so the rename and
+  no-editor routes were traced in source with `rg`.
+
+Evidence: `.build/evidence/character-location-pages-2026-10-12/` holds build,
+regression and mutation logs (`logs/`) and the screenshots, application logs,
+exit codes and both disposable stories (`ui/`). Regressions on the final build:
+`.build/evidence/screenplay-scope-BXqxEj/`,
+`.build/evidence/screenplay-interchange-oBQoF6/`,
+`.build/evidence/backup-retention-6K6n5G/`, `.build/evidence/project-sync-sFGfO5/`,
+`.build/evidence/writing-session-storage-wxPg6Q/` and
+`.build/evidence/github-credentials-VAHsKy/`. Failed runs kept:
+`screenplay-scope-crinxQ` (a wrong expectation of the new check: newlines are
+stored as `&#10;`), and the three mutation runs `screenplay-scope-sVhDuF`,
+`-R7m3en` and `-21H7Gu`.
+
+Limits:
+
+- A character rename replaces the name wherever it stands as a whole word in
+  action and dialogue, in any letter case. That is upstream's replacement,
+  unchanged. Renaming a character called WILL, MAY or MARK also rewrites those
+  ordinary words. One Undo in the script restores the script; the character
+  keeps its new name.
+- A story opened directly from a Fountain or FDX file saves only its script.
+  Descriptions and notes typed there were gone after reopening (observed);
+  renames stay, because they are in the script. A `.starc` project keeps all of it.
+- Two characters or locations can no longer be merged by renaming one to the
+  other's name, which upstream's route allowed.
+- A location whose new name is the beginning of its old one (HOUSE OLD to HOUSE)
+  leaves its nested locations with the old name; that upstream check is unchanged.
+- Role, age, gender, photos, relations, routes and the other upstream fields
+  have no controls.
+- The new strings are not in the English catalog and need none (no plurals).
+- Linux debug, offscreen and private Xvfb only, on a private bus without a
+  keyring provider; its expected startup warning was dismissed and no
+  credentials were edited. The last change, shorter helper texts under the name
+  fields, was seen on the location page only. The first split of a view logs an
+  upstream "Plugin isn't found for mime-type" line that predates this work
+  (`ProjectManager::Implementation::switchViews`, present on `master`). Recycle-bin
+  pages, right-to-left layout, other platforms, release packaging and the owner's
+  projects were not exercised.

@@ -37,12 +37,10 @@ const QString kProjectCollaboratorsMime = QStringLiteral("application/x-starc/ed
 
 const QString kCharactersRelationsMime = QStringLiteral("application/x-starc/editor/characters/relations");
 const QString kCharacterEditorMime = QStringLiteral("application/x-starc/editor/character/information");
-const QString kCharacterNavigatorMime = QStringLiteral("application/x-starc/navigator/character/information");
 const QString kCharacterDialoguesMime = QStringLiteral("application/x-starc/editor/character/dialogues");
 //
 const QString kLocationsMapMime = QStringLiteral("application/x-starc/editor/locations/map");
 const QString kLocationEditorMime = QStringLiteral("application/x-starc/editor/location/information");
-const QString kLocationNavigatorMime = QStringLiteral("application/x-starc/navigator/location/information");
 const QString kLocationScenesMime = QStringLiteral("application/x-starc/editor/location/scenes");
 //
 const QString kSimpleTextFolderEditorMime = QStringLiteral("application/x-starc/editor/folder/text");
@@ -70,9 +68,7 @@ const QString kPresentationMime = QStringLiteral("application/x-starc/view/prese
  * @brief Карта соотвествия майм-типов редактора к навигатору
  */
 const QHash<QString, QString> kEditorToNavigator
-    = { { kCharacterEditorMime, kCharacterNavigatorMime },
-        { kLocationEditorMime, kLocationNavigatorMime },
-        { kSimpleTextEditorMime, kSimpleTextNavigatorMime },
+    = { { kSimpleTextEditorMime, kSimpleTextNavigatorMime },
         { kScreenplayTreatmentEditorMime, kScreenplayTreatmentNavigatorMime },
         { kScreenplayTreatmentCardsMime, kScreenplayTreatmentNavigatorMime },
         { kScreenplayTextEditorMime, kScreenplayTextNavigatorMime },
@@ -151,12 +147,10 @@ const QHash<QString, QString> kMimeToPlugin
         //
         { kCharactersRelationsMime, "*charactersrelationsplugin*" },
         { kCharacterEditorMime, "*characterinformationplugin*" },
-        { kCharacterNavigatorMime, "*characterstructureplugin*" },
         { kCharacterDialoguesMime, "*characterdialoguesplugin*" },
         //
         { kLocationsMapMime, "*locationsmapplugin*" },
         { kLocationEditorMime, "*locationinformationplugin*" },
-        { kLocationNavigatorMime, "*locationstructureplugin*" },
         { kLocationScenesMime, "*locationscenesplugin*" },
         //
         //

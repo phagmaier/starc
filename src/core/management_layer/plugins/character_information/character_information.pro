@@ -5,7 +5,7 @@ CONFIG += force_debug_info
 CONFIG += separate_debug_info
 QT += widgets
 
-TARGET = characterstructureplugin
+TARGET = characterinformationplugin
 
 DEFINES += MANAGER_PLUGIN
 DEFINES += QT_DEPRECATED_WARNINGS
@@ -31,12 +31,12 @@ DEPENDPATH += $$PWD/../../../../corelib
 #
 
 HEADERS += \
-    character_information_structure_manager.h \
-    character_information_structure_view.h
+    character_information_manager.h \
+    character_information_view.h
 
 SOURCES += \
-    character_information_structure_manager.cpp \
-    character_information_structure_view.cpp
+    character_information_manager.cpp \
+    character_information_view.cpp
 
 mac {
     load(resolve_target)

@@ -181,8 +181,7 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
         { Domain::DocumentObjectType::SimpleText,
           tr("Create a plain text document to write out ideas and notes.") },
         { Domain::DocumentObjectType::Character,
-          tr("Create a document with full character's description to track his relations and "
-             "follow his journey within the story.") },
+          tr("Create a document to note down the character's description and keep the details.") },
         { Domain::DocumentObjectType::Location,
           tr("Create a document to note down the location's description and keep the details.") },
         { Domain::DocumentObjectType::Screenplay,

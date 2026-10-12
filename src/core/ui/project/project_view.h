@@ -39,6 +39,11 @@ public:
     void showUnsupportedFormatPage();
 
     /**
+     * @brief Show the given explanation for a document that only groups the ones to be opened
+     */
+    void showDocumentsGroupPage(const QString& _title, const QString& _text);
+
+    /**
      * @brief Текущий редактор
      */
     QWidget* currentEditor() const;

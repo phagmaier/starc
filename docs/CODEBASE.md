@@ -139,6 +139,46 @@ filter callbacks in both menu states, and verifies retained stable-release
 selection, duplicates/empty deliveries, malformed metadata and ignored old
 preferences using synthetic feed records, without networking.
 
+## Characters and locations
+
+A character or a location opens in a page with three fields: name, description
+and notes. The two pages are this fork's own plugins. They take the place of
+upstream's private editors, whose submodule links are removed, and are mirror
+images of each other.
+
+| Area | Start here | Notes |
+| --- | --- | --- |
+| Pages | [CharacterInformationManager](../src/core/management_layer/plugins/character_information/character_information_manager.h), [LocationInformationManager](../src/core/management_layer/plugins/location_information/location_information_manager.h) and the view next to each | Description and notes are written to the model as they are typed. The name is applied on Enter, or when the field is left for another one, by `Implementation::rename`. |
+| Stored data | [CharacterModel](../src/corelib/business_layer/model/characters/character_model.h), [LocationModel](../src/corelib/business_layer/model/locations/location_model.h) | Description is `oneSentenceDescription`, notes are `longDescription`. Every other upstream field (age, gender, role, photos, relations and so on) is read and written back unchanged; the pages have no fields for them. |
+| What a rename does | the `characterNameChanged` and `locationNameChanged` connections in the `ProjectManager` constructor | Upstream code: replaces the name in every screenplay of the project and removes the renamed document when another one has the new name. |
+| Names to check against | `ProjectManager::showView` passes the project's `CharactersModel`/`LocationsModel` through `IDocumentManager::configureModelProcessing` | The page refuses an empty name and the name of another character or location, so the removal above cannot be reached from it. Without the collection it renames nothing. |
+| The two groups | `ProjectManager::Implementation::showNoEditorPage`, `ProjectView::showDocumentsGroupPage` | "Characters" and "Locations" have no editor (the relations and map plugins are private). Selecting one shows a short explanation instead of the no-editor notice. |
+
+Names are kept in capitals, like the ones collected from the script, and the
+collections compare names that way. A character rename also rewrites the name
+where it appears as a whole word in action and dialogue, in any letter case; a
+character called WILL or MAY is therefore risky to rename this way. That
+replacement is upstream's. One Undo in the script takes it back out of the
+script; the character keeps the new name.
+
+For a location the same connection renames the locations nested in it
+("HOUSE - KITCHEN" under "HOUSE"). A nested location has a part of its own after
+" - " or ". "; a location that merely begins with the same letters ("HOUSEBOAT")
+is left alone, and a nested location keeps its name when the new one is already
+taken. Upstream matched on the bare prefix and removed the duplicate.
+
+The upstream trait navigators (`character_information_structure`,
+`location_information_structure`) listed the categories of the private editors
+and are removed. A story opened directly from a Fountain or FDX file saves only
+its script, so descriptions and notes written there are not kept; a `.starc`
+project keeps them.
+
+`checkCharacterAndLocationPages` in `tests/screenplay_scope_test.cpp` types a
+script, drives both pages by key events and checks the script, the refused
+names, the nested locations and the stored documents through save and reopen.
+The rename connections are lambdas, which the code graph does not list as
+callers; find them with `rg`.
+
 ## Retired formats
 
 Audioplay, stageplay, comic book, novel, screenplay series, and World/Worlds support was removed from this fork, together with the AI assistant. Screenplay, simple text, and the shared project documents remain. A project that already contains documents of a retired type keeps them untouched:

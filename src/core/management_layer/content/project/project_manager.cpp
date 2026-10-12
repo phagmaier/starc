@@ -250,6 +250,11 @@ public:
     bool hasEditorFor(Domain::DocumentObjectType _type) const;
 
     /**
+     * @brief Show the page of a document of the given type that has no editor to be opened with
+     */
+    void showNoEditorPage(Ui::ProjectView* _view, Domain::DocumentObjectType _type) const;
+
+    /**
      * @brief Добавить документ в проект
      */
     void addDocument(Domain::DocumentObjectType _type = Domain::DocumentObjectType::Undefined);
@@ -1039,6 +1044,32 @@ DocumentEditingMode ProjectManager::Implementation::documentEditingMode(
 bool ProjectManager::Implementation::hasEditorFor(Domain::DocumentObjectType _type) const
 {
     return !pluginsBuilder.editorsInfoFor(Domain::mimeTypeFor(_type), isProjectRemote).isEmpty();
+}
+
+void ProjectManager::Implementation::showNoEditorPage(Ui::ProjectView* _view,
+                                                      Domain::DocumentObjectType _type) const
+{
+    //
+    // The characters and the locations are opened one by one, their group has nothing to edit
+    //
+    if (_type == Domain::DocumentObjectType::Characters
+        && hasEditorFor(Domain::DocumentObjectType::Character)) {
+        _view->showDocumentsGroupPage(
+            tr("Characters"),
+            tr("The characters named in the screenplay are collected here. Choose one in the "
+               "list to add a description and notes."));
+        return;
+    }
+    if (_type == Domain::DocumentObjectType::Locations
+        && hasEditorFor(Domain::DocumentObjectType::Location)) {
+        _view->showDocumentsGroupPage(
+            tr("Locations"),
+            tr("The locations named in the scene headings are collected here. Choose one in "
+               "the list to add a description and notes."));
+        return;
+    }
+
+    _view->showNotImplementedPage();
 }
 
 void ProjectManager::Implementation::addDocument(Domain::DocumentObjectType _type)
@@ -3039,17 +3070,29 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                         continue;
                     }
 
+                    //
+                    // ... a nested location has a part of its own after the name of the renamed
+                    //     one, a location that merely begins with the same letters isn't nested
+                    //
                     auto oldNameDots = _oldName;
                     oldNameDots.replace(" - ", ". ");
-                    if (location->name().startsWith(_oldName)) {
-                        auto newLocationName = location->name();
-                        newLocationName.replace(_oldName, _newName);
-                        location->setName(newLocationName);
-                    } else if (location->name().startsWith(oldNameDots)) {
-                        auto newLocationName = location->name();
-                        newLocationName.replace(oldNameDots, _newName);
-                        location->setName(newLocationName);
+                    QString newLocationName;
+                    for (const auto& oldName : { _oldName, oldNameDots }) {
+                        const auto ownPart = location->name().mid(oldName.length());
+                        if (location->name().startsWith(oldName)
+                            && (ownPart.startsWith(" - ") || ownPart.startsWith(". "))) {
+                            newLocationName = _newName + ownPart;
+                            break;
+                        }
                     }
+                    //
+                    // ... and it keeps its name, if the new one is taken: a location renamed
+                    //     to the name of another one is removed with all it describes
+                    //
+                    if (newLocationName.isEmpty() || locationsModel->exists(newLocationName)) {
+                        continue;
+                    }
+                    location->setName(newLocationName);
                 }
             });
     connect(&d->modelsFacade, &ProjectModelsFacade::locationScenesUpdateRequested, this,
@@ -4911,13 +4954,27 @@ void ProjectManager::showView(const QModelIndex& _itemIndex, const QString& _vie
     if (viewMimeType.isEmpty()) {
         d->view.activeIndex = sourceItemIndex;
         d->view.active->setDraftsVisible(false);
-        d->view.active->showNotImplementedPage();
+        d->showNoEditorPage(d->view.active, sourceItem->type());
         return;
     }
     if (d->view.activeModel == nullptr) {
         d->view.active->showDocumentLoadingPage();
         d->view.active->setDraftsVisible(false);
         return;
+    }
+
+    //
+    // The page of a character or of a location checks a new name against the other ones
+    //
+    if (sourceItem->type() == Domain::DocumentObjectType::Character
+        || sourceItem->type() == Domain::DocumentObjectType::Location) {
+        d->pluginsBuilder.initPlugin(viewMimeType);
+        if (auto plugin = d->pluginsBuilder.plugin(viewMimeType); plugin != nullptr) {
+            plugin->configureModelProcessing(
+                d->modelsFacade.modelFor(sourceItem->type() == Domain::DocumentObjectType::Character
+                                             ? Domain::DocumentObjectType::Characters
+                                             : Domain::DocumentObjectType::Locations));
+        }
     }
 
     //
@@ -5122,7 +5179,7 @@ void ProjectManager::showFirstViewForCurrentIndex()
     // Откроем документ на редактирование в первом из представлений
     //
     if (views.isEmpty()) {
-        d->view.active->showNotImplementedPage();
+        d->showNoEditorPage(d->view.active, item->type());
         return;
     }
     showView(d->projectStructureProxyModel->mapFromSource(d->view.activeIndex),

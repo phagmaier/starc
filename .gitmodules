@@ -7,12 +7,6 @@
 [submodule "src/cloud"]
     path = src/cloud
     url = git@github.com:story-apps/starcloud
-[submodule "src/core/management_layer/plugins/character_information"]
-	path = src/core/management_layer/plugins/character_information
-	url = git@github.com:story-apps/starc-character-information-plugin.git
-[submodule "src/core/management_layer/plugins/location_information"]
-	path = src/core/management_layer/plugins/location_information
-	url = git@github.com:story-apps/starc-location-information-plugin.git
 [submodule "src/core/management_layer/plugins/characters_relations"]
 	path = src/core/management_layer/plugins/characters_relations
 	url = git@github.com:story-apps/starc-characters-relations-plugin.git

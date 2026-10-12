@@ -5,7 +5,7 @@ CONFIG += force_debug_info
 CONFIG += separate_debug_info
 QT += widgets
 
-TARGET = locationstructureplugin
+TARGET = locationinformationplugin
 
 DEFINES += MANAGER_PLUGIN
 DEFINES += QT_DEPRECATED_WARNINGS
@@ -31,12 +31,12 @@ DEPENDPATH += $$PWD/../../../../corelib
 #
 
 HEADERS += \
-    location_information_structure_manager.h \
-    location_information_structure_view.h
+    location_information_manager.h \
+    location_information_view.h
 
 SOURCES += \
-    location_information_structure_manager.cpp \
-    location_information_structure_view.cpp
+    location_information_manager.cpp \
+    location_information_view.cpp
 
 mac {
     load(resolve_target)

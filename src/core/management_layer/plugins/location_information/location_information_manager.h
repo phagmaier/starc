@@ -10,43 +10,35 @@
 namespace ManagementLayer {
 
 /**
- * @brief Менеджер структуры сценария
+ * @brief The manager of the location page
  */
-class MANAGER_PLUGIN_EXPORT CharacterInformationStructureManager : public QObject,
-                                                                   public IDocumentManager
+class MANAGER_PLUGIN_EXPORT LocationInformationManager : public QObject, public IDocumentManager
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "app.starc.ManagementLayer.IDocumentManager")
     Q_INTERFACES(ManagementLayer::IDocumentManager)
 
 public:
-    explicit CharacterInformationStructureManager(QObject* _parent = nullptr);
-    ~CharacterInformationStructureManager() override;
+    explicit LocationInformationManager(QObject* _parent = nullptr);
+    ~LocationInformationManager() override;
 
     /**
      * @brief Реализуем интерфейс менеджера документа
      */
     /** @{ */
     QObject* asQObject() override;
+    /**
+     * @brief Takes the locations of the project to check a new name of a location against
+     */
+    void configureModelProcessing(BusinessLayer::AbstractModel* _model) override;
     Ui::IDocumentView* view() override;
     Ui::IDocumentView* view(BusinessLayer::AbstractModel* _model) override;
     Ui::IDocumentView* secondaryView() override;
     Ui::IDocumentView* secondaryView(BusinessLayer::AbstractModel* _model) override;
     Ui::IDocumentView* createView(BusinessLayer::AbstractModel* _model) override;
     void resetModels() override;
+    void setEditingMode(DocumentEditingMode _mode) override;
     /** @} */
-
-signals:
-    /**
-     * @brief Пользователь выбрал категорию параметров с заданным индексом
-     */
-    void traitsCategoryIndexChanged(const QModelIndex& _index);
-
-private:
-    /**
-     * @brief Установить модель
-     */
-    void setModel(BusinessLayer::AbstractModel* _model);
 
 private:
     class Implementation;

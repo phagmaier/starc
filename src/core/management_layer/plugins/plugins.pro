@@ -1,8 +1,8 @@
 TEMPLATE = subdirs
 
 SUBDIRS = \
-    character_information_structure \
-    location_information_structure \
+    character_information \
+    location_information \
     project_information \
     project_parameters \
     screenplay_information \
@@ -24,18 +24,12 @@ exists (project_collaborators/project_collaborators.pro) {
 exists (characters_relations/characters_relations.pro) {
     SUBDIRS += characters_relations
 }
-exists (character_information/character_information.pro) {
-    SUBDIRS += character_information
-}
 exists (character_dialogues/character_dialogues.pro) {
     SUBDIRS += character_dialogues
 }
 
 exists (locations_map/locations_map.pro) {
     SUBDIRS += locations_map
-}
-exists (location_information/location_information.pro) {
-    SUBDIRS += location_information
 }
 exists (location_scenes/location_scenes.pro) {
     SUBDIRS += location_scenes

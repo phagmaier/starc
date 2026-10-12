@@ -141,9 +141,27 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
 
 ## Add
 
-- [ ] **Characters and Locations.** Either a minimal page (name, description,
+- [x] **Characters and Locations.** Either a minimal page (name, description,
   notes) or hide the two groups. Characters are collected from the script, so
   the data stays in both cases.
+  - Done 2026-10-12: the page, as two plugins of our own. Description and notes
+    are saved as typed, in the fields upstream already had; everything else a
+    character or location holds stays untouched. A name is applied on Enter or
+    on moving to another field and is replaced in the screenplay too. An empty
+    name and the name of another character or location are refused, because
+    upstream's rename would delete the renamed one as a duplicate. "Add
+    character" and "Add location" are back. The two groups show a short
+    explanation; the category navigators of the private editors are removed.
+  - Fixed on the way: renaming HOUSE no longer renames HOUSEBOAT, and a nested
+    location ("HOUSE - KITCHEN") keeps its name when the new one is taken.
+  - Debug build, all six regressions (127 new checks, each guard shown to fail
+    without its fix) and private Xvfb create/edit/rename/save/reopen/split-view
+    checks passed; the recorded Ctrl+Q exits were 0.
+  - Limits: a rename also replaces the name as a whole word in action and
+    dialogue (upstream's behaviour), so a character called WILL or MAY is risky
+    to rename; one Undo in the script puts the script back. A story opened
+    straight from a Fountain or FDX file keeps the renames but not the
+    descriptions and notes; a `.starc` story keeps both. See `docs/PROJECT.md`.
 - [x] **Scene and character report** to stand in for the missing Statistics
   view. Done 2026-10-11: our own plugin shows the six public reports as tables
   and the two public plots. Reports are recomputed when Statistics is selected;

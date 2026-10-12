@@ -5,6 +5,8 @@
 #include <business_layer/export/screenplay/screenplay_fountain_exporter.h>
 #include <business_layer/export/screenplay/screenplay_pdf_exporter.h>
 #include <business_layer/import/import_options.h>
+#include <business_layer/model/characters/character_model.h>
+#include <business_layer/model/locations/location_model.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model.h>
 #include <business_layer/model/structure/structure_model.h>
 #include <business_layer/model/structure/structure_model_item.h>
@@ -46,6 +48,7 @@
 #include <ui/widgets/drawer/drawer.h>
 #include <ui/widgets/image/image_card.h>
 #include <ui/widgets/label/label.h>
+#include <ui/widgets/text_field/text_field.h>
 #include <ui/widgets/tree/tree.h>
 
 #include <QAction>
@@ -54,6 +57,7 @@
 #include <QComboBox>
 #include <QDir>
 #include <QFile>
+#include <QFocusEvent>
 #include <QFontDatabase>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -649,6 +653,463 @@ void checkStatistics(const QString& _evidence, const QString& _slice)
         require(table("sceneReport")->model()->rowCount() == 3,
                 "returning to statistics recomputes after a script edit");
     }
+    manager.closeCurrentProject(path);
+    storage->clear();
+    DatabaseLayer::Database::closeCurrentFile();
+}
+// The pages of characters and locations: what they show and store, renaming through the
+// screenplay, the names they refuse, and the documents they leave as they are.
+void checkCharacterAndLocationPages(const QString& _evidence)
+{
+    using Type = Domain::DocumentObjectType;
+    const QString path = _evidence + "/pages-project.starc";
+    DatabaseLayer::Database::setCurrentFile(path);
+    ManagementLayer::PluginsBuilder plugins;
+    require(hasEditor(plugins, Type::Character) && hasEditor(plugins, Type::Location),
+            "this build opens characters and locations");
+    for (const auto type : { Type::Character, Type::Location }) {
+        const auto pages = plugins.editorsInfoFor(Domain::mimeTypeFor(type), false);
+        require(plugins.navigatorMimeTypeFor(pages.first().mimeType).isEmpty(),
+                "a character or location page has no navigator of its own");
+    }
+    // Plugins keep their views for as long as the process runs, so the widget that comes to
+    // own them is never deleted.
+    auto host = new QWidget;
+    host->resize(1280, 800);
+    ManagementLayer::ProjectManager manager(nullptr, host, plugins);
+    BusinessLayer::StructureModel* structure = nullptr;
+    QObject::connect(&manager, &ManagementLayer::ProjectManager::structureModelChanged,
+                     [&](BusinessLayer::AbstractModel* _model) {
+                         structure = qobject_cast<BusinessLayer::StructureModel*>(_model);
+                     });
+    BusinessLayer::AbstractModel* current = nullptr;
+    QObject::connect(&manager, &ManagementLayer::ProjectManager::currentModelChanged,
+                     [&](BusinessLayer::AbstractModel* _model) { current = _model; });
+    BusinessLayer::ProjectsModelProjectItem project;
+    project.setProjectType(BusinessLayer::ProjectType::Local);
+    project.setPath(path);
+    project.setName("Pages regression");
+    auto storage = DataStorageLayer::StorageFacade::documentStorage();
+    const auto reopen = [&] {
+        manager.closeCurrentProject(path);
+        storage->clear();
+        DatabaseLayer::Database::closeCurrentFile();
+        DatabaseLayer::Database::setCurrentFile(path);
+        manager.loadCurrentProject(&project);
+    };
+    const auto save = [&] {
+        pause(1000);
+        manager.saveChanges();
+        DatabaseLayer::Database::commit();
+    };
+    manager.loadCurrentProject(&project);
+    manager.saveChanges();
+    DatabaseLayer::Database::commit();
+    reopen(); // Finish the retained upstream version upgrade before comparing document bytes.
+    auto story = structure->itemForIndex(structure->addDocument(Type::Screenplay, "Pages script"));
+    require(story, "pages fixture screenplay");
+    const auto scriptUuid = childOfType(story, Type::ScreenplayText)->uuid();
+    auto navigator = qobject_cast<Ui::ProjectNavigator*>(manager.navigator());
+    auto proxy = qobject_cast<QSortFilterProxyModel*>(navigator->findChild<Tree*>()->model());
+    const auto select = [&](const QUuid& _uuid) {
+        navigator->setCurrentIndex(proxy->mapFromSource(
+            structure->indexForItem(structure->itemForUuid(_uuid))));
+        QApplication::processEvents();
+    };
+    Ui::ProjectView* panel = nullptr;
+    for (auto view : manager.view()->findChildren<Ui::ProjectView*>()) {
+        if (!view->isHidden()) {
+            panel = view;
+        }
+    }
+    require(panel, "pages fixture document panel");
+
+    // The characters and locations of the project come from the script, as a writer types it.
+    select(scriptUuid);
+    auto edit = screenplayEdit(scriptUuid);
+    require(edit, "pages fixture uses real screenplay editor");
+    const auto paragraph = [&](BusinessLayer::TextParagraphType _type, const QString& _text) {
+        edit->setCurrentParagraphType(_type);
+        type(edit, _text);
+        key(edit, Qt::Key_Return, "\r");
+    };
+    paragraph(BusinessLayer::TextParagraphType::SceneHeading, "INT. HOUSE - DAY");
+    paragraph(BusinessLayer::TextParagraphType::Action, "Alice greets Bob.");
+    paragraph(BusinessLayer::TextParagraphType::Character, "ALICE");
+    paragraph(BusinessLayer::TextParagraphType::Dialogue, "Hello Bob.");
+    paragraph(BusinessLayer::TextParagraphType::Character, "BOB");
+    paragraph(BusinessLayer::TextParagraphType::Dialogue, "Hello Alice.");
+    paragraph(BusinessLayer::TextParagraphType::SceneHeading, "INT. HOUSE - KITCHEN - NIGHT");
+    paragraph(BusinessLayer::TextParagraphType::Character, "ALICE");
+    paragraph(BusinessLayer::TextParagraphType::Dialogue, "Still here.");
+    paragraph(BusinessLayer::TextParagraphType::SceneHeading, "INT. HOUSEBOAT - DAY");
+    paragraph(BusinessLayer::TextParagraphType::Character, "BOB");
+    paragraph(BusinessLayer::TextParagraphType::Dialogue, "On the water.");
+    save();
+    const auto member = [&](Type _group, const QString& _name) {
+        const auto group = structure->itemForType(_group);
+        for (int i = 0; group != nullptr && i < group->childCount(); ++i) {
+            if (group->childAt(i)->name() == _name) {
+                return group->childAt(i)->uuid();
+            }
+        }
+        return QUuid();
+    };
+    const auto members = [&](Type _group) {
+        QStringList names;
+        const auto group = structure->itemForType(_group);
+        for (int i = 0; group != nullptr && i < group->childCount(); ++i) {
+            names.append(group->childAt(i)->name());
+        }
+        names.sort();
+        return names;
+    };
+    const auto script = [&] { return QString::fromUtf8(storage->document(scriptUuid)->content()); };
+    const auto text = [&](const QUuid& _uuid) {
+        return QString::fromUtf8(storage->document(_uuid)->content());
+    };
+    require(members(Type::Characters) == QStringList({ "ALICE", "BOB" }),
+            "characters of the typed script are collected");
+    require(members(Type::Locations) == QStringList({ "HOUSE", "HOUSE - KITCHEN", "HOUSEBOAT" }),
+            "locations of the typed script are collected");
+    const auto aliceUuid = member(Type::Characters, "ALICE");
+    const auto bobUuid = member(Type::Characters, "BOB");
+    const auto houseUuid = member(Type::Locations, "HOUSE");
+    const auto kitchenUuid = member(Type::Locations, "HOUSE - KITCHEN");
+    const auto houseboatUuid = member(Type::Locations, "HOUSEBOAT");
+
+    // A character an existing project describes in more detail than the page shows.
+    const QString danaXml
+        = "<?xml version=\"1.0\"?>\n"
+          "<document mime-type=\"application/x-starc/document/character\" version=\"1.0\">\n"
+          "<name><![CDATA[DANA]]></name>\n"
+          "<story_role><![CDATA[1]]></story_role>\n"
+          "<age><![CDATA[52]]></age>\n"
+          "<gender><![CDATA[1]]></gender>\n"
+          "<one_sentence_description><![CDATA[Kept description]]></one_sentence_description>\n"
+          "<long_description><![CDATA[Kept notes]]></long_description>\n"
+          "<dreamcast><![CDATA[Kept dreamcast]]></dreamcast>\n"
+          "<nickname><![CDATA[Dee]]></nickname>\n"
+          "<secrets><![CDATA[Kept secret]]></secrets>\n"
+          "</document>";
+    manager.storeCharacter("DANA", danaXml);
+    const auto danaUuid = member(Type::Characters, "DANA");
+    require(!danaUuid.isNull(), "seed a character with upstream details");
+
+    // The page of a document shown in the panel, with its name, description and notes fields.
+    const auto fieldsOf = [&](const QUuid& _uuid, const char* _page) {
+        select(_uuid);
+        auto page = panel->currentEditor();
+        require(page && QString(page->metaObject()->className()) == _page
+                    && !noEditorNoticeShown(manager.view()) && manager.currentDocument()
+                    && manager.currentDocument()->uuid() == _uuid,
+                "character or location opens in its page");
+        require(manager.toolBar()->actions().size()
+                    == 1 + plugins.editorsInfoFor(Domain::mimeTypeFor(
+                                                      structure->itemForUuid(_uuid)->type()),
+                                                  false)
+                              .size(),
+                "page is listed in the view switcher");
+        const auto fields = page->findChildren<TextField*>();
+        require(fields.size() == 3, "page has name, description and notes");
+        return fields;
+    };
+    const auto enter = [&](TextField* _field, const QString& _text) {
+        _field->selectAll();
+        if (_text.isEmpty()) {
+            key(_field, Qt::Key_Backspace);
+        } else {
+            type(_field, _text);
+        }
+    };
+    const auto leave = [&](TextField* _field, Qt::FocusReason _reason) {
+        QFocusEvent focusOut(QEvent::FocusOut, _reason);
+        QApplication::sendEvent(_field, &focusOut);
+        QApplication::processEvents();
+    };
+
+    // What an existing project holds is shown, and the details the page has no fields for
+    // stay in the document when the page changes it.
+    auto fields = fieldsOf(danaUuid, "Ui::CharacterInformationView");
+    require(fields[0]->text() == "DANA" && fields[1]->text() == "Kept description"
+                && fields[2]->text() == "Kept notes",
+            "page shows the stored name, description and notes");
+    fields[2]->moveCursor(QTextCursor::End);
+    type(fields[2], " Added.");
+    save();
+    for (const auto kept :
+         { "<name><![CDATA[DANA]]></name>", "<story_role><![CDATA[1]]></story_role>",
+           "<age><![CDATA[52]]></age>", "<gender><![CDATA[1]]></gender>",
+           "<one_sentence_description><![CDATA[Kept description]]></one_sentence_description>",
+           "<long_description><![CDATA[Kept notes Added.]]></long_description>",
+           "<dreamcast><![CDATA[Kept dreamcast]]></dreamcast>",
+           "<nickname><![CDATA[Dee]]></nickname>", "<secrets><![CDATA[Kept secret]]></secrets>" }) {
+        if (!text(danaUuid).contains(kept)) {
+            std::fprintf(stderr, "missing %s in %s\n", kept, qPrintable(text(danaUuid)));
+        }
+        require(text(danaUuid).contains(kept), "editing notes keeps the other character details");
+    }
+
+    // Description and notes are stored as they are typed.
+    fields = fieldsOf(aliceUuid, "Ui::CharacterInformationView");
+    auto alice = qobject_cast<BusinessLayer::CharacterModel*>(current);
+    require(alice && fields[0]->text() == "ALICE" && fields[1]->text().isEmpty()
+                && fields[2]->text().isEmpty(),
+            "page of a collected character starts with its name only");
+    type(fields[1], "A retired pilot.");
+    type(fields[2], "Afraid of heights.");
+    key(fields[2], Qt::Key_Return, "\r");
+    type(fields[2], "Keeps a logbook.");
+    require(alice->oneSentenceDescription() == "A retired pilot."
+                && alice->longDescription() == "Afraid of heights.\nKeeps a logbook.",
+            "typed description and notes reach the character");
+
+    // A name is applied when it is confirmed, not while it is typed: renaming changes the
+    // screenplay.
+    const auto scriptBefore = script();
+    require(scriptBefore.count("ALICE") == 2 && scriptBefore.contains("Alice greets Bob.")
+                && scriptBefore.contains("Hello Alice."),
+            "script names the character before renaming");
+    enter(fields[0], "alicia");
+    save();
+    require(alice->name() == "ALICE" && structure->itemForUuid(aliceUuid)->name() == "ALICE"
+                && script() == scriptBefore,
+            "typing a name renames nothing yet");
+    key(fields[0], Qt::Key_Return, "\r");
+    save();
+    require(alice->name() == "ALICIA" && fields[0]->text() == "ALICIA"
+                && fields[0]->error().isEmpty()
+                && structure->itemForUuid(aliceUuid)->name() == "ALICIA",
+            "Enter renames the character, in capitals");
+    require(script().count("ALICIA") == 2 && !script().contains("ALICE")
+                && script().contains("Alicia greets Bob.") && script().contains("Hello Alicia.")
+                && !script().contains("Alice") && script().count("BOB") == 2
+                && script().contains("Hello Bob."),
+            "renaming a character renames it in the screenplay");
+    require(members(Type::Characters) == QStringList({ "ALICIA", "BOB", "DANA" })
+                && alice->oneSentenceDescription() == "A retired pilot.",
+            "renamed character stays one document with its description");
+
+    // The name of another character is refused: the renamed one would be removed as its
+    // duplicate. So is an empty name.
+    const auto scriptRenamed = script();
+    for (const QString& refused : { QString("bob"), QString("  Dana "), QString() }) {
+        enter(fields[0], refused);
+        key(fields[0], Qt::Key_Return, "\r");
+        save();
+        require(!fields[0]->error().isEmpty() && alice->name() == "ALICIA"
+                    && members(Type::Characters) == QStringList({ "ALICIA", "BOB", "DANA" })
+                    && storage->document(aliceUuid) && storage->document(bobUuid)
+                    && storage->document(danaUuid) && script() == scriptRenamed
+                    && alice->longDescription() == "Afraid of heights.\nKeeps a logbook.",
+                "taken or empty name is refused and removes nothing");
+        leave(fields[0], Qt::TabFocusReason);
+        require(!fields[0]->error().isEmpty() && alice->name() == "ALICIA",
+                "refused name stays refused when the field is left");
+    }
+    enter(fields[0], "Alicia");
+    require(fields[0]->error().isEmpty(), "typing again clears the name error");
+    key(fields[0], Qt::Key_Return, "\r");
+    require(fields[0]->text() == "ALICIA" && fields[0]->error().isEmpty()
+                && script() == scriptRenamed,
+            "confirming the current name changes nothing");
+
+    // Moving on to another field applies the name; switching to another window or opening a
+    // menu leaves it as typed.
+    enter(fields[0], "Alicia Grey");
+    leave(fields[0], Qt::ActiveWindowFocusReason);
+    leave(fields[0], Qt::PopupFocusReason);
+    require(alice->name() == "ALICIA" && fields[0]->text() == "Alicia Grey",
+            "name being typed survives a window switch unapplied");
+    leave(fields[0], Qt::TabFocusReason);
+    save();
+    require(alice->name() == "ALICIA GREY" && fields[0]->text() == "ALICIA GREY"
+                && script().count("ALICIA GREY") == 2
+                && script().contains("Alicia Grey greets Bob."),
+            "leaving the name field for another one renames the character");
+
+    // A page that may not be changed locks its fields and applies no name.
+    auto characterPage = dynamic_cast<Ui::IDocumentView*>(panel->currentEditor());
+    require(characterPage, "page is a document view");
+    characterPage->setEditingMode(ManagementLayer::DocumentEditingMode::Read);
+    require(fields[0]->isReadOnly() && fields[1]->isReadOnly() && fields[2]->isReadOnly(),
+            "read-only page locks name, description and notes");
+    leave(fields[0], Qt::TabFocusReason);
+    require(alice->name() == "ALICIA GREY", "read-only page applies no name");
+    characterPage->setEditingMode(ManagementLayer::DocumentEditingMode::Edit);
+    require(!fields[0]->isReadOnly() && !fields[1]->isReadOnly() && !fields[2]->isReadOnly(),
+            "editable page unlocks its fields");
+
+    // A character added by hand gets the same page.
+    const auto eveUuid
+        = structure->itemForIndex(structure->addDocument(Type::Character, "Eve"))->uuid();
+    fields = fieldsOf(eveUuid, "Ui::CharacterInformationView");
+    require(fields[0]->text() == "EVE" && fields[1]->text().isEmpty(),
+            "page of a character added by hand");
+    type(fields[1], "The new neighbour.");
+
+    // Locations: the page, and what renaming does to scene headings and nested locations.
+    fields = fieldsOf(houseUuid, "Ui::LocationInformationView");
+    auto house = qobject_cast<BusinessLayer::LocationModel*>(current);
+    require(house && fields[0]->text() == "HOUSE", "page of a collected location");
+    type(fields[1], "A narrow terraced house.");
+    type(fields[2], "The stairs creak.");
+    require(house->oneSentenceDescription() == "A narrow terraced house."
+                && house->longDescription() == "The stairs creak.",
+            "typed description and notes reach the location");
+    require(script().contains("INT. HOUSE - DAY") && script().contains("INT. HOUSE - KITCHEN - NIGHT")
+                && script().contains("INT. HOUSEBOAT - DAY"),
+            "script names the locations before renaming");
+    enter(fields[0], "home");
+    key(fields[0], Qt::Key_Return, "\r");
+    save();
+    require(house->name() == "HOME" && fields[0]->text() == "HOME"
+                && structure->itemForUuid(houseUuid)->name() == "HOME",
+            "Enter renames the location, in capitals");
+    require(script().contains("INT. HOME - DAY") && !script().contains("INT. HOUSE - DAY"),
+            "renaming a location renames it in the scene headings");
+    require(structure->itemForUuid(kitchenUuid)->name() == "HOME - KITCHEN"
+                && script().contains("INT. HOME - KITCHEN - NIGHT")
+                && !script().contains("INT. HOUSE - KITCHEN"),
+            "location nested in the renamed one follows it");
+    require(structure->itemForUuid(houseboatUuid)->name() == "HOUSEBOAT"
+                && script().contains("INT. HOUSEBOAT - DAY"),
+            "location that only begins with the same letters is left alone");
+    require(members(Type::Locations) == QStringList({ "HOME", "HOME - KITCHEN", "HOUSEBOAT" }),
+            "renaming keeps every location");
+
+    // A nested location is not renamed onto a location that already exists: it would be
+    // removed as a duplicate, with the description it has.
+    manager.storeLocation("HOME - GARDEN", {});
+    manager.storeLocation("FLAT - GARDEN", {});
+    const auto homeGardenUuid = member(Type::Locations, "HOME - GARDEN");
+    const auto flatGardenUuid = member(Type::Locations, "FLAT - GARDEN");
+    require(!homeGardenUuid.isNull() && !flatGardenUuid.isNull(), "seed two garden locations");
+    fields = fieldsOf(homeGardenUuid, "Ui::LocationInformationView");
+    type(fields[1], "Overgrown.");
+    fields = fieldsOf(flatGardenUuid, "Ui::LocationInformationView");
+    type(fields[1], "Paved.");
+    fields = fieldsOf(houseUuid, "Ui::LocationInformationView");
+    enter(fields[0], "Flat");
+    key(fields[0], Qt::Key_Return, "\r");
+    save();
+    require(members(Type::Locations)
+                    == QStringList({ "FLAT", "FLAT - GARDEN", "FLAT - KITCHEN", "HOME - GARDEN",
+                                     "HOUSEBOAT" })
+                && structure->itemForUuid(kitchenUuid)->name() == "FLAT - KITCHEN"
+                && structure->itemForUuid(homeGardenUuid)->name() == "HOME - GARDEN"
+                && structure->itemForUuid(flatGardenUuid)->name() == "FLAT - GARDEN",
+            "nested location keeps its name when the new one is taken");
+    require(text(homeGardenUuid).contains("Overgrown.") && text(flatGardenUuid).contains("Paved.")
+                && script().contains("INT. FLAT - DAY")
+                && script().contains("INT. FLAT - KITCHEN - NIGHT"),
+            "both garden locations keep their descriptions");
+    for (const QString& refused : { QString("houseboat"), QString("flat - garden"), QString() }) {
+        enter(fields[0], refused);
+        key(fields[0], Qt::Key_Return, "\r");
+        require(!fields[0]->error().isEmpty() && house->name() == "FLAT"
+                    && members(Type::Locations).size() == 5,
+                "taken or empty location name is refused and removes nothing");
+    }
+    enter(fields[0], "FLAT");
+    key(fields[0], Qt::Key_Return, "\r");
+    require(fields[0]->error().isEmpty(), "location page accepts its current name again");
+
+    // The two groups explain themselves instead of reporting a missing editor.
+    for (const auto group : { Type::Characters, Type::Locations }) {
+        select(structure->itemForType(group)->uuid());
+        require(noticeShown(manager.view(), group == Type::Characters ? "Characters" : "Locations")
+                    && !noEditorNoticeShown(manager.view())
+                    && hasEditor(plugins, group) == (panel->currentEditor() != nullptr),
+                "group of characters or locations explains what it lists");
+    }
+
+    // Both can be added by hand again, now that there is a page to describe them with.
+    emit navigator->addDocumentClicked();
+    QApplication::processEvents();
+    auto addDocument = host->findChild<Ui::CreateDocumentDialog*>();
+    require(addDocument, "add-document dialog of the pages project");
+    bool characterOffered = false;
+    bool locationOffered = false;
+    for (auto option : addDocument->findChildren<Ui::CreateDocumentDialogOption*>()) {
+        characterOffered = characterOffered || option->documentType() == Type::Character;
+        locationOffered = locationOffered || option->documentType() == Type::Location;
+    }
+    require(characterOffered && locationOffered, "character and location are offered to add");
+    delete addDocument;
+
+    // Everything written through the pages survives a reopen, and opening a page afterwards
+    // changes nothing.
+    save();
+    QHash<QUuid, QByteArray> saved;
+    for (const auto documentType : { Type::Character, Type::Location, Type::Characters,
+                                     Type::Locations, Type::ScreenplayText }) {
+        for (const auto document : storage->documents(documentType)) {
+            saved.insert(document->uuid(), document->content());
+        }
+    }
+    require(saved.size() == 4 + 5 + 3, "characters, locations, their groups and the script");
+    require(text(aliceUuid).contains("<name><![CDATA[ALICIA GREY]]></name>")
+                && text(aliceUuid).contains("A retired pilot.")
+                && text(aliceUuid).contains("Afraid of heights.&#10;Keeps a logbook.")
+                && text(eveUuid).contains("The new neighbour.")
+                && text(houseUuid).contains("<name><![CDATA[FLAT]]></name>")
+                && text(houseUuid).contains("A narrow terraced house.")
+                && text(houseUuid).contains("The stairs creak."),
+            "pages are stored in the character and location documents");
+    reopen();
+    const auto unchanged = [&](const char* _label) {
+        for (auto it = saved.cbegin(); it != saved.cend(); ++it) {
+            const auto document = storage->document(it.key());
+            if (document == nullptr || document->content() != it.value()) {
+                std::fprintf(stderr, "document %s: expected [%s] found [%s]\n",
+                             qPrintable(it.key().toString()), it.value().constData(),
+                             document ? document->content().constData() : "nothing");
+            }
+            require(document && document->content() == it.value(), _label);
+        }
+    };
+    unchanged("characters, locations and script survive save/reopen exactly");
+    fields = fieldsOf(aliceUuid, "Ui::CharacterInformationView");
+    require(fields[0]->text() == "ALICIA GREY" && fields[1]->text() == "A retired pilot."
+                && fields[2]->text() == "Afraid of heights.\nKeeps a logbook.",
+            "reopened character page shows what was written");
+    fields = fieldsOf(danaUuid, "Ui::CharacterInformationView");
+    require(fields[1]->text() == "Kept description" && fields[2]->text() == "Kept notes Added.",
+            "reopened page of the detailed character");
+    fields = fieldsOf(houseUuid, "Ui::LocationInformationView");
+    require(fields[0]->text() == "FLAT" && fields[1]->text() == "A narrow terraced house."
+                && fields[2]->text() == "The stairs creak.",
+            "reopened location page shows what was written");
+    for (const auto& uuid : { eveUuid, bobUuid, kitchenUuid, homeGardenUuid, flatGardenUuid,
+                              houseboatUuid, scriptUuid }) {
+        select(uuid);
+    }
+    save();
+    unchanged("opening pages does not rewrite project documents");
+
+    // What a rename did to the screenplay is one Undo step of the script. The character
+    // itself keeps the new name.
+    fields = fieldsOf(bobUuid, "Ui::CharacterInformationView");
+    const auto scriptWithBob = script();
+    enter(fields[0], "Rob");
+    key(fields[0], Qt::Key_Return, "\r");
+    save();
+    require(script().count("ROB") == 2 && !script().contains("BOB")
+                && script().contains("greets Rob."),
+            "second rename reaches the screenplay");
+    select(scriptUuid);
+    edit = screenplayEdit(scriptUuid);
+    require(edit, "screenplay editor after renaming");
+    require(edit->toPlainText().count("ROB") == 2 && !edit->toPlainText().contains("BOB"),
+            "open screenplay editor shows the renamed character");
+    edit->undo();
+    save();
+    require(script() == scriptWithBob && edit->toPlainText().count("BOB") == 2
+                && !edit->toPlainText().contains("ROB"),
+            "script Undo takes the rename back out of the screenplay");
+    require(structure->itemForUuid(bobUuid)->name() == "ROB",
+            "character keeps its new name after the script Undo");
     manager.closeCurrentProject(path);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
@@ -1557,11 +2018,13 @@ int main(int argc, char** argv)
     }
     // Keep the original hosts alive: several existing plugins retain their primary view as a
     // raw pointer, and QPluginLoader shares a plugin instance between builders in this process.
+    checkCharacterAndLocationPages(evidence);
     checkStatistics(evidence, {});
     std::puts("PASS: screenplay scope, keyboard editing, Undo/Redo, "
               "pagination, exports, "
               "mixed-project preservation, editors limited to what this build "
               "contains, "
               "notifications UI absent with retained update metadata, "
-              "cover UI retired with exact legacy image preservation");
+              "cover UI retired with exact legacy image preservation, "
+              "character and location pages with guarded renaming");
 }
