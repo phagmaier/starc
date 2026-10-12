@@ -12,6 +12,7 @@
 #include <business_layer/templates/text_template.h>
 #include <data_layer/database.h>
 #include <data_layer/storage/document_storage.h>
+#include <data_layer/storage/settings_storage.h>
 #include <data_layer/storage/storage_facade.h>
 #include <domain/document_object.h>
 #include <interfaces/management_layer/i_document_manager.h>
@@ -19,13 +20,14 @@
 #include <management_layer/content/import/import_manager.h>
 #include <management_layer/content/project/project_manager.h>
 #include <management_layer/content/project/project_models_facade.h>
+#include <management_layer/content/projects/projects_manager.h>
 #include <management_layer/content/projects/projects_model_project_item.h>
 #include <management_layer/content/settings/settings_manager.h>
 #include <management_layer/content/shortcuts/shortcuts_manager.h>
 #include <management_layer/plugins/screenplay_text/text/screenplay_text_edit.h>
 #include <management_layer/plugins_builder.h>
-#include <ui/account/account_navigator.h>
 #include <ui/import/import_dialog.h>
+#include <ui/menu_view.h>
 #include <ui/onboarding/onboarding_navigator.h>
 #include <ui/project/create_document_dialog.h>
 #include <ui/project/create_document_dialog_option.h>
@@ -35,8 +37,10 @@
 #include <ui/settings/settings_navigator.h>
 #include <ui/settings/settings_view.h>
 #include <ui/widgets/app_bar/app_bar.h>
+#include <ui/widgets/button/button.h>
 #include <ui/widgets/check_box/check_box.h>
 #include <ui/widgets/combo_box/combo_box.h>
+#include <ui/widgets/drawer/drawer.h>
 #include <ui/widgets/label/label.h>
 #include <ui/widgets/tree/tree.h>
 
@@ -47,6 +51,9 @@
 #include <QFile>
 #include <QFontDatabase>
 #include <QKeyEvent>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSettings>
 #include <QSortFilterProxyModel>
 #include <QTextDocument>
@@ -76,6 +83,33 @@ void noAi(QWidget* _widget)
         }
     }
 }
+void noAccountUi(QWidget* _widget)
+{
+    const QStringList retiredClasses = { "AccountNavigator", "AccountView", "AccountToolBar",
+                                        "LoginDialog", "PurchaseDialog", "TeamDialog",
+                                        "SubscriptionWidget", "SubscriptionView", "SessionWidget" };
+    for (auto object : _widget->findChildren<QObject*>()) {
+        const QString name = object->metaObject()->className();
+        for (const auto& retired : retiredClasses) {
+            require(!name.contains(retired), "no retired upstream account widget");
+        }
+    }
+    auto checkText = [](const QString& text) {
+        for (const auto& retired : { "Sign in", "Subscribe to", "Upgrade to", "CREATOR",
+                                    "subscription", "Choose the team", "Save story in the cloud" }) {
+            require(!text.contains(retired, Qt::CaseInsensitive), "no account or purchase offer");
+        }
+    };
+    for (auto label : _widget->findChildren<AbstractLabel*>()) {
+        checkText(label->text());
+    }
+    for (auto drawer : _widget->findChildren<Drawer*>()) {
+        for (auto action : drawer->actions()) {
+            checkText(action->text());
+        }
+    }
+}
+
 // Names of the retired formats and of the removed assistant must not be offered anywhere.
 void requireRetained(const QString& _text)
 {
@@ -476,11 +510,41 @@ int main(int argc, char** argv)
     ManagementLayer::ShortcutsManager shortcuts;
     ManagementLayer::SettingsManager settings(nullptr, &host, plugins, &shortcuts);
     auto onboarding = new Ui::OnboardingNavigator(&host);
-    auto account = new Ui::AccountNavigator(&host);
+    auto menu = new Ui::MenuView(&host);
+    QApplication::processEvents();
+    require(menu->metaObject()->indexOfSignal("signInPressed()") < 0
+                && menu->metaObject()->indexOfSignal("accountPressed()") < 0
+                && menu->metaObject()->indexOfSignal("renewProPressed()") < 0,
+            "menu has no account/sign-in/purchase callbacks");
+    require(createProject->metaObject()->indexOfSignal("loginPressed()") < 0
+                && createProject->metaObject()->indexOfSignal("renewSubscriptionPressed()") < 0,
+            "new story has no sign-in/subscription callbacks");
+    require(createDocument->metaObject()->indexOfSignal("upgradeToProPressed()") < 0,
+            "new document has no purchase callback");
+    bool statisticsRequested = false;
+    QObject::connect(menu, &Ui::MenuView::writingStatisticsPressed,
+                     [&] { statisticsRequested = true; });
+    bool sprintRequested = false;
+    QObject::connect(menu, &Ui::MenuView::writingSprintPressed,
+                     [&] { sprintRequested = true; });
+    auto drawer = menu->findChild<Drawer*>();
+    require(drawer, "retained local menu");
+    for (auto action : drawer->actions()) {
+        if (action->text() == "Writing statistics") {
+            require(action->isVisible() && action->isEnabled(), "local statistics action available");
+            action->trigger();
+        } else if (action->text() == "Writing sprint") {
+            require(action->isVisible() && action->isEnabled(), "local sprint action available");
+            action->trigger();
+        }
+    }
+    require(statisticsRequested && sprintRequested, "local writing tools work without account");
     QApplication::processEvents();
     for (QWidget* widget :
-         QVector<QWidget*>{ settings.view(), settings.navigator(), onboarding, account }) {
+         QVector<QWidget*>{ settings.view(), settings.navigator(), onboarding, menu,
+                            createProject, createDocument }) {
         noAi(widget);
+        noAccountUi(widget);
         for (auto label : widget->findChildren<AbstractLabel*>()) {
             requireRetained(label->text());
         }
@@ -493,6 +557,58 @@ int main(int argc, char** argv)
         const auto navigation = settings.navigator()->findChild<Tree*>()->model();
         require(navigation->rowCount(navigation->index(1, 0)) == 2,
                 "settings list simple text and screenplay components");
+    }
+
+    createDocument->setBlockedDocumentTypes({ Type::Screenplay });
+    createDocument->setDocumentType(Type::Screenplay);
+    noAccountUi(createDocument);
+    bool disabledCreation = false;
+    for (auto button : createDocument->findChildren<Button*>()) {
+        disabledCreation = disabledCreation || !button->isEnabled();
+    }
+    require(disabledCreation, "unavailable document remains guarded without purchase prompt");
+    createDocument->setBlockedDocumentTypes({});
+
+    // Keep the persisted team/project records and historical account label through the UI cut.
+    const QJsonObject cachedProject = {
+        { "is_team", false }, { "id", 73 }, { "team_id", 42 },
+        { "type", static_cast<int>(BusinessLayer::ProjectType::Cloud) },
+        { "uuid", "{12cf11aa-e03d-4d50-a09a-429e9b57c427}" },
+        { "name", "Historical shared story" }, { "logline", "Retained logline" },
+        { "path", evidence + "/cached-cloud.starc" }, { "poster_path", "" },
+        { "last_edit_time", "2026-10-01T12:00:00.000" }, { "can_ask", true },
+        { "is_review_enabled", true }, { "is_owner", false }, { "role", 0 },
+        { "permissions", QJsonArray{} }
+    };
+    const QJsonArray cachedProjects = { QJsonObject{
+        { "is_team", true }, { "id", 42 }, { "name", "Historical team label" },
+        { "description", "Retained description" }, { "is_opened", true },
+        { "projects", QJsonArray{ cachedProject } }
+    } };
+    setSettingsValue(DataStorageLayer::kApplicationProjectsKey,
+                     QJsonDocument(cachedProjects).toJson(QJsonDocument::Compact).toHex());
+    setSettingsValue(DataStorageLayer::kAccountEmailKey, "historical@example.invalid");
+    {
+        ManagementLayer::ProjectsManager projects(nullptr, &host);
+        projects.loadProjects();
+        require(projects.project(73) && projects.project(73)->teamId() == 42,
+                "cached team project still loads");
+        projects.saveProjects();
+        const auto saved = QJsonDocument::fromJson(QByteArray::fromHex(
+            settingsValue(DataStorageLayer::kApplicationProjectsKey).toByteArray())).array();
+        require(saved == cachedProjects, "cached team and project records survive exactly");
+        require(settingsValue(DataStorageLayer::kAccountEmailKey).toString()
+                    == "historical@example.invalid", "historical account label retained");
+        projects.createProject();
+        auto localDialog = host.findChildren<Ui::CreateProjectDialog*>().constLast();
+        noAccountUi(localDialog);
+        localDialog->hideDialog();
+    }
+    {
+        ManagementLayer::ProjectsManager reopenedProjects(nullptr, &host);
+        reopenedProjects.loadProjects();
+        require(reopenedProjects.project(73) && reopenedProjects.project(73)->teamId() == 42,
+                "cached team project reopens after UI construction");
     }
 
     const QString path = evidence + "/mixed-project.starc";

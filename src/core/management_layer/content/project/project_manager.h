@@ -221,16 +221,6 @@ signals:
     void menuRequested();
 
     /**
-     * @brief Запрос на апгрейд аккаунта из одного из плагинов
-     */
-    void upgradeToProRequested();
-    void upgradeToCreatorRequested();
-
-    /**
-     * @brief Запрос на покупку кредитов из одного из плагинов
-     */
-
-    /**
      * @brief Запрос на экспорт документа
      */
     void exportCurrentDocumentRequested();

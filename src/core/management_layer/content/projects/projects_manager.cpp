@@ -53,11 +53,6 @@ public:
     QString newProjectPath(const QString& _projectName);
 
 
-    bool isConnected = false;
-    bool isUserAuthorized = false;
-    bool canCreateCloudProject = false;
-    QVector<Domain::TeamInfo> teamsForProjects;
-
     BusinessLayer::ProjectsModel* projects = nullptr;
     BusinessLayer::ProjectsModelProjectItem* currentProject = nullptr;
 
@@ -263,64 +258,6 @@ ProjectsManager::ProjectsManager(QObject* _parent, QWidget* _parentWidget)
                 });
                 actions.append(removeProjectAction);
                 //
-#ifdef CLOUD_SERVICE_MANAGER
-                auto moveToCloudAction = new QAction;
-                moveToCloudAction->setSeparator(true);
-                moveToCloudAction->setIconText(u8"\U000F0167");
-                moveToCloudAction->setText(tr("Move to the cloud"));
-                connect(moveToCloudAction, &QAction::triggered, this, [this, _project] {
-                    //
-                    // Если пользователь не авторизован, предлагаем авторизоваться
-                    //
-                    if (!d->isUserAuthorized) {
-                        auto dialog = new Dialog(d->view->topLevelWidget());
-                        dialog->setContentMaximumWidth(Ui::DesignSystem::dialog().normalWidth());
-                        dialog->showDialog(
-                            {}, tr("To move a project to the cloud, you should be authorized."),
-                            { { 0, tr("Maybe later"), Dialog::RejectButton },
-                              { 1, tr("Sign in"), Dialog::AcceptButton } });
-                        QObject::connect(dialog, &Dialog::finished, this,
-                                         [this, dialog](const Dialog::ButtonInfo& _presedButton) {
-                                             dialog->hideDialog();
-                                             if (_presedButton.type == Dialog::AcceptButton) {
-                                                 emit signInRequested();
-                                             }
-                                         });
-                        QObject::connect(dialog, &Dialog::disappeared, dialog,
-                                         &Dialog::deleteLater);
-                    }
-                    //
-                    // Если у пользователя нет активной подписки на версию с облаком,
-                    // покажем соответствующее уведомление с предложением обновиться
-                    //
-                    else if (!d->canCreateCloudProject) {
-                        auto dialog = new Dialog(d->view->topLevelWidget());
-                        dialog->setContentMaximumWidth(Ui::DesignSystem::dialog().normalWidth());
-                        dialog->showDialog({},
-                                           tr("To move a project to the cloud, you need to upgrade "
-                                              "to the CREATOR version."),
-                                           { { 0, tr("Maybe later"), Dialog::RejectButton },
-                                             { 1, tr("Upgrade"), Dialog::AcceptButton } });
-                        QObject::connect(dialog, &Dialog::finished, this,
-                                         [this, dialog](const Dialog::ButtonInfo& _presedButton) {
-                                             dialog->hideDialog();
-                                             if (_presedButton.type == Dialog::AcceptButton) {
-                                                 emit renewTeamSubscriptionRequested();
-                                             }
-                                         });
-                        QObject::connect(dialog, &Dialog::disappeared, dialog,
-                                         &Dialog::deleteLater);
-                    }
-                    //
-                    // Если проект может быть создан в облаке, то делаем это
-                    //
-                    else {
-                        emit createCloudProjectRequested(_project->name(), _project->path(),
-                                                         Domain::kInvalidId);
-                    }
-                });
-                actions.append(moveToCloudAction);
-#endif
                 //
                 if (d->projectActionsProvider) {
                     const auto additionalActions = d->projectActionsProvider(_project);
@@ -673,50 +610,8 @@ void ProjectsManager::saveChanges()
     d->projects->updateItem(d->currentProject);
 }
 
-void ProjectsManager::setConnected(bool _connected)
-{
-    d->isConnected = _connected;
-
-    if (!d->createProjectDialog.isNull()) {
-        d->createProjectDialog->configureCloudProjectCreationAbility(
-            d->isConnected, d->isUserAuthorized, d->canCreateCloudProject, d->teamsForProjects);
-    }
-}
-
-void ProjectsManager::setProjectsInCloudCanBeCreated(bool _authorized,
-                                                     Domain::SubscriptionType _subscritionType)
-{
-    d->isUserAuthorized = _authorized;
-    d->canCreateCloudProject = _subscritionType == Domain::SubscriptionType::CreatorMonthly
-        || _subscritionType == Domain::SubscriptionType::CreatorLifetime
-        || _subscritionType == Domain::SubscriptionType::Studio
-        || _subscritionType == Domain::SubscriptionType::Campus;
-
-    if (!d->createProjectDialog.isNull()) {
-        d->createProjectDialog->configureCloudProjectCreationAbility(
-            d->isConnected, d->isUserAuthorized, d->canCreateCloudProject, d->teamsForProjects);
-    }
-}
-
 void ProjectsManager::setTeams(const QVector<Domain::TeamInfo>& _teams)
 {
-    //
-    // Формируем список команд, в которых пользователь может размещать проекты
-    //
-    d->teamsForProjects.clear();
-    for (const auto& team : _teams) {
-        if (team.isOwner()) {
-            d->teamsForProjects.append(team);
-        }
-    }
-    //
-    // ... и конфигурируем диалог создания проектов
-    //
-    if (!d->createProjectDialog.isNull()) {
-        d->createProjectDialog->configureCloudProjectCreationAbility(
-            d->isConnected, d->isUserAuthorized, d->canCreateCloudProject, d->teamsForProjects);
-    }
-
     //
     // Убираем из закешированного списка команды, которых более нет для текущего аккаунта
     //
@@ -783,26 +678,6 @@ void ProjectsManager::addOrUpdateTeam(const Domain::TeamInfo& _teamInfo)
             d->projects->prependItem(projectTeam);
         }
     }
-
-    //
-    // Обновим список команд для диалога создания проектов
-    //
-    {
-        bool hasTeam = false;
-        for (int index = 0; index < d->teamsForProjects.size(); ++index) {
-            if (d->teamsForProjects[index].id == _teamInfo.id) {
-                d->teamsForProjects[index] = _teamInfo;
-                hasTeam = true;
-                break;
-            }
-        }
-        //
-        // ... если команды не нашлось, то нужно создать
-        //
-        if (!hasTeam && _teamInfo.isOwner()) {
-            d->teamsForProjects.append(_teamInfo);
-        }
-    }
 }
 
 void ProjectsManager::hideTeam(int _id)
@@ -818,13 +693,6 @@ void ProjectsManager::hideTeam(int _id)
         if (projectTeam->id() == _id) {
             d->projects->removeItem(projectTeam);
             return;
-        }
-    }
-
-    for (int index = 0; index < d->teamsForProjects.size(); ++index) {
-        if (d->teamsForProjects[index].id == _id) {
-            d->teamsForProjects.removeAt(index);
-            break;
         }
     }
 }
@@ -850,16 +718,9 @@ void ProjectsManager::createProject()
         settingsValue(DataStorageLayer::kProjectSaveFolderKey).toString());
     d->createProjectDialog->setImportFolder(
         settingsValue(DataStorageLayer::kProjectImportFolderKey).toString());
-    d->createProjectDialog->configureCloudProjectCreationAbility(
-        d->isConnected, d->isUserAuthorized, d->canCreateCloudProject, d->teamsForProjects);
-
     //
     // Настраиваем соединения диалога
     //
-    connect(d->createProjectDialog, &Ui::CreateProjectDialog::loginPressed, this,
-            &ProjectsManager::signInRequested);
-    connect(d->createProjectDialog, &Ui::CreateProjectDialog::renewSubscriptionPressed, this,
-            &ProjectsManager::renewTeamSubscriptionRequested);
     connect(d->createProjectDialog, &Ui::CreateProjectDialog::createProjectPressed, this, [this] {
         setSettingsValue(DataStorageLayer::kProjectTypeKey, d->createProjectDialog->projectType());
         setSettingsValue(DataStorageLayer::kProjectSaveFolderKey,
@@ -867,48 +728,41 @@ void ProjectsManager::createProject()
         setSettingsValue(DataStorageLayer::kProjectImportFolderKey,
                          d->createProjectDialog->importFilePath());
 
-        if (d->createProjectDialog->isLocal()) {
+        //
+        // ... если папки, в которую пользователь хочет сохранить проект не существует
+        //
+        if (!QDir(d->createProjectDialog->projectFolder()).exists()) {
             //
-            // ... если папки, в которую пользователь хочет сохранить проект не существует
+            // ... пробуем создать её, а если не удалось создать, то покажем проблему в диалоге
             //
-            if (!QDir(d->createProjectDialog->projectFolder()).exists()) {
-                //
-                // ... пробуем создать её, а если не удалось создать, то покажем проблему в диалоге
-                //
-                const auto isDirCreated
-                    = QDir::root().mkpath(d->createProjectDialog->projectFolder());
-                if (!isDirCreated) {
-                    d->createProjectDialog->showProjectFolderError();
-                    return;
-                }
-            }
-
-            //
-            // ... далее проверим, можно ли создавать проекты в заданной папке
-            //
-            const auto projectPath = d->newProjectPath(d->createProjectDialog->projectName(),
-                                                       d->createProjectDialog->projectFolder());
-            QFile file(projectPath);
-            const bool canWrite = file.open(QIODevice::WriteOnly);
-            file.close();
-            file.remove();
-            //
-            // ... если нет, то покажем эту проблему прямо в диалоге
-            //
-            if (!canWrite) {
+            const auto isDirCreated = QDir::root().mkpath(d->createProjectDialog->projectFolder());
+            if (!isDirCreated) {
                 d->createProjectDialog->showProjectFolderError();
                 return;
             }
-            //
-            // ... а если может, то создаём проект
-            //
-            emit createLocalProjectRequested(d->createProjectDialog->projectName(), projectPath,
-                                             d->createProjectDialog->importFilePath());
-        } else {
-            emit createCloudProjectRequested(d->createProjectDialog->projectName(),
-                                             d->createProjectDialog->importFilePath(),
-                                             d->createProjectDialog->teamId());
         }
+
+        //
+        // ... далее проверим, можно ли создавать проекты в заданной папке
+        //
+        const auto projectPath = d->newProjectPath(d->createProjectDialog->projectName(),
+                                                   d->createProjectDialog->projectFolder());
+        QFile file(projectPath);
+        const bool canWrite = file.open(QIODevice::WriteOnly);
+        file.close();
+        file.remove();
+        //
+        // ... если нет, то покажем эту проблему прямо в диалоге
+        //
+        if (!canWrite) {
+            d->createProjectDialog->showProjectFolderError();
+            return;
+        }
+        //
+        // ... а если может, то создаём проект
+        //
+        emit createLocalProjectRequested(d->createProjectDialog->projectName(), projectPath,
+                                         d->createProjectDialog->importFilePath());
         d->createProjectDialog->hideDialog();
     });
     connect(d->createProjectDialog, &Ui::CreateProjectDialog::disappeared, d->createProjectDialog,

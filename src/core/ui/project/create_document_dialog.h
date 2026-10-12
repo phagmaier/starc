@@ -34,7 +34,7 @@ public:
 
     /**
      * @brief Leave only the options of the documents accepted by the given filter
-     * @note Unlike a blocked option, which stays in place and proposes an upgrade, an option
+     * @note Unlike a blocked option, which stays in place but cannot be created, an option
      *       of a rejected document is removed from the dialog
      */
     void setDocumentTypesFilter(const std::function<bool(Domain::DocumentObjectType)>& _filter);
@@ -70,11 +70,6 @@ public:
     bool needInsertIntoParent() const;
 
 signals:
-    /**
-     * @brief Пользователь нажал кнопку обновить до ПРО
-     */
-    void upgradeToProPressed();
-
     /**
      * @brief Пользователь хочет создать документ заданного типа с заданным именем
      *        (опционально: из заданного файла)

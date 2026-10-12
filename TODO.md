@@ -58,10 +58,16 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
 
 ## Cut
 
-- [ ] **Account, subscription, purchase and team UI** (`src/core/ui/account/`,
-  `AccountManager`). Sign-in is hidden without the cloud module, so none of it
-  can be reached. This also removes the upstream API token embedded in
-  `session_widget.cpp`.
+- [x] **Account, subscription, purchase and team UI**.
+  - Done 2026-10-12: removed `AccountManager`, upstream sign-in/account,
+    subscription, purchase/gift, session and team-management UI, its integration
+    and the embedded upstream API token. Retained project transport widgets were
+    moved out of `ui/account`; cached team/project records and historical account
+    labels stay intact. Local writing tools need no account; GitHub remains separate.
+  - Debug build, all six requested regressions and private Xvfb startup/menu/
+    settings/local-create/save/reopen/Statistics/onboarding checks passed. All
+    three Ctrl+Q exits were 0. Private cloud/desktop/release limits and retained
+    evidence are in `docs/PROJECT.md`.
 - [ ] **Notifications page** in the menu. Its only feed is the absent cloud
   client.
 - [ ] **Tweet-sharing buttons** in the logline generator and the writing sprint

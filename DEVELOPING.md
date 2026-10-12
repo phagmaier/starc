@@ -142,6 +142,9 @@ plugin loads are offered (view switcher, add-document dialog, the view remembere
 for a document, its drafts, the split view, the Statistics option of the
 information pages, the document types of the import dialog), and that statistics,
 mind map and character documents of an existing project survive save and reopen.
+It also checks that upstream account, sign-in, subscription, purchase and team
+creation controls are absent, local writing tools need no account, and cached
+team/project records and historical account labels survive load/save/reload.
 It builds
 `tests/screenplay_scope_test.cpp`
 against the debug build and runs it offscreen with a disposable project and

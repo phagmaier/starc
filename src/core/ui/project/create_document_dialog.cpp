@@ -60,7 +60,6 @@ public:
 
     Body1Label* blockedFeatureContainer = nullptr;
     Body1Label* blockedFeatureLabel = nullptr;
-    Button* upgradeToProButton = nullptr;
 
     QHBoxLayout* buttonsLayout = nullptr;
     Button* cancelButton = nullptr;
@@ -82,7 +81,6 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
     , insertIntoParent(new CheckBox(_parent))
     , blockedFeatureContainer(new Body1Label(_parent))
     , blockedFeatureLabel(new Body1Label(_parent))
-    , upgradeToProButton(new Button(_parent))
     , buttonsLayout(new QHBoxLayout)
     , cancelButton(new Button(_parent))
     , createButton(new Button(_parent))
@@ -157,7 +155,6 @@ CreateDocumentDialog::Implementation::Implementation(QWidget* _parent)
     blockedFeaturesLayout->setContentsMargins({});
     blockedFeaturesLayout->setSpacing(0);
     blockedFeaturesLayout->addWidget(blockedFeatureLabel);
-    blockedFeaturesLayout->addWidget(upgradeToProButton, 0, Qt::AlignRight);
     blockedFeatureContainer->setLayout(blockedFeaturesLayout);
 
     buttonsLayout->setContentsMargins({});
@@ -233,7 +230,6 @@ void CreateDocumentDialog::Implementation::updateDocumentInfo(Domain::DocumentOb
         insertIntoParent->hide();
         blockedFeatureContainer->show();
         createButton->setEnabled(false);
-        upgradeToProButton->setFocus();
     } else {
         documentName->show();
         blockedFeatureContainer->hide();
@@ -297,8 +293,6 @@ CreateDocumentDialog::CreateDocumentDialog(QWidget* _parent)
             setSettingsValue(DataStorageLayer::kProjectImportFolderKey, filePath);
         }
     });
-    connect(d->upgradeToProButton, &Button::clicked, this,
-            &CreateDocumentDialog::upgradeToProPressed);
     connect(d->createButton, &Button::clicked, this, [this] {
         Domain::DocumentObjectType documentType = Domain::DocumentObjectType::Undefined;
         for (auto option : std::as_const(d->options)) {
@@ -525,9 +519,7 @@ void CreateDocumentDialog::updateTranslations()
     d->documentName->setLabel(tr("Name"));
     d->importFilePath->setLabel(tr("Choose file for importing"));
     d->importFilePath->setTrailingIconToolTip(tr("Choose file for importing"));
-    d->blockedFeatureLabel->setText(
-        tr("Document can be created only with a PRO or CREATOR version of the app."));
-    d->upgradeToProButton->setText(tr("Upgrade to PRO"));
+    d->blockedFeatureLabel->setText(tr("This document is unavailable."));
     d->cancelButton->setText(tr("Cancel"));
     d->createButton->setText(tr("Create"));
 }
@@ -599,14 +591,12 @@ void CreateDocumentDialog::designSystemChangeEvent(DesignSystemChangeEvent* _eve
     d->blockedFeatureLabel->setTextColor(DesignSystem::color().onBackground());
 
     for (auto button : {
-             d->upgradeToProButton,
              d->cancelButton,
              d->createButton,
          }) {
         button->setBackgroundColor(DesignSystem::color().accent());
         button->setTextColor(DesignSystem::color().accent());
     }
-    UiHelper::initColorsFor(d->upgradeToProButton, UiHelper::DialogAccept);
     UiHelper::initColorsFor(d->createButton, UiHelper::DialogAccept);
     UiHelper::initColorsFor(d->cancelButton, UiHelper::DialogDefault);
 

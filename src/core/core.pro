@@ -56,7 +56,6 @@ DEPENDPATH += $$PWD/../3rd_party/webloader
 
 SOURCES += \
     management_layer/application_manager.cpp \
-    management_layer/content/account/account_manager.cpp \
     management_layer/content/export/export_manager.cpp \
     management_layer/content/github_sync/github_sync_manager.cpp \
     management_layer/content/import/import_manager.cpp \
@@ -76,21 +75,8 @@ SOURCES += \
     management_layer/content/writing_session/writing_session_storage.cpp \
     management_layer/plugins_builder.cpp \
     ui/about_application_dialog.cpp \
-    ui/account/account_navigator.cpp \
-    ui/account/account_tool_bar.cpp \
-    ui/account/account_view.cpp \
-    ui/account/account_view_teams.cpp \
-    ui/account/account_view_teams_sidebar.cpp \
-    ui/account/collaborators_tool_bar.cpp \
-    ui/account/compare_subscriptions_dialog.cpp \
-    ui/account/connection_status_tool_bar.cpp \
-    ui/account/login_dialog.cpp \
-    ui/account/purchase_dialog.cpp \
-    ui/account/purchase_dialog_option_widget.cpp \
-    ui/account/purchase_gift_dialog.cpp \
-    ui/account/session_widget.cpp \
-    ui/account/subscription_widget.cpp \
-    ui/account/team_dialog.cpp \
+    ui/project/collaborators_tool_bar.cpp \
+    ui/connection_status_tool_bar.cpp \
     ui/application_style.cpp \
     ui/application_view.cpp \
     ui/export/abstract_export_dialog.cpp \
@@ -110,7 +96,6 @@ SOURCES += \
     ui/menu_view.cpp \
     ui/notifications/credits_view.cpp \
     ui/notifications/release_view.cpp \
-    ui/notifications/subscription_view.cpp \
     ui/onboarding/onboarding_navigator.cpp \
     ui/onboarding/onboarding_tool_bar.cpp \
     ui/onboarding/onboarding_view.cpp \
@@ -151,7 +136,6 @@ SOURCES += \
 HEADERS += \
     core_global.h \
     management_layer/application_manager.h \
-    management_layer/content/account/account_manager.h \
     management_layer/content/export/export_manager.h \
     management_layer/content/github_sync/github_sync_manager.h \
     management_layer/content/import/import_manager.h \
@@ -171,21 +155,8 @@ HEADERS += \
     management_layer/content/writing_session/writing_session_storage.h \
     management_layer/plugins_builder.h \
     ui/about_application_dialog.h \
-    ui/account/account_navigator.h \
-    ui/account/account_tool_bar.h \
-    ui/account/account_view.h \
-    ui/account/account_view_teams.h \
-    ui/account/account_view_teams_sidebar.h \
-    ui/account/collaborators_tool_bar.h \
-    ui/account/compare_subscriptions_dialog.h \
-    ui/account/connection_status_tool_bar.h \
-    ui/account/login_dialog.h \
-    ui/account/purchase_dialog.h \
-    ui/account/purchase_dialog_option_widget.h \
-    ui/account/purchase_gift_dialog.h \
-    ui/account/session_widget.h \
-    ui/account/subscription_widget.h \
-    ui/account/team_dialog.h \
+    ui/project/collaborators_tool_bar.h \
+    ui/connection_status_tool_bar.h \
     ui/application_style.h \
     ui/application_view.h \
     ui/export/abstract_export_dialog.h \
@@ -205,7 +176,6 @@ HEADERS += \
     ui/menu_view.h \
     ui/notifications/credits_view.h \
     ui/notifications/release_view.h \
-    ui/notifications/subscription_view.h \
     ui/onboarding/onboarding_navigator.h \
     ui/onboarding/onboarding_tool_bar.h \
     ui/onboarding/onboarding_view.h \

@@ -2,10 +2,6 @@
 
 #include <ui/widgets/dialog/abstract_dialog.h>
 
-namespace Domain {
-struct TeamInfo;
-}
-
 namespace Ui {
 
 /**
@@ -44,38 +40,11 @@ public:
     void setImportFolder(const QString& _path);
 
     /**
-     * @brief Настроить возможность создавать проекты в облаке
-     */
-    void configureCloudProjectCreationAbility(bool _isConnected, bool _isLogged,
-                                              bool _isSubscriptionActive,
-                                              const QVector<Domain::TeamInfo>& _teams);
-
-    /**
-     * @brief Где пользователь хочет разместить проект true - локально, false - в облаке
-     */
-    bool isLocal() const;
-
-    /**
-     * @brief Айди команды в которую пользователь хочет поместить проект
-     */
-    int teamId() const;
-
-    /**
      * @brief Показать проблему создания проекта в заданной папке
      */
     void showProjectFolderError();
 
 signals:
-    /**
-     * @brief Пользователь нажал ссылку для авторизации
-     */
-    void loginPressed();
-
-    /**
-     * @brief Пользователь нажал ссылку для продления подписки
-     */
-    void renewSubscriptionPressed();
-
     /**
      * @brief Пользователь нажал на кнопку создания проекта
      */

@@ -1,6 +1,5 @@
 #include "application_manager.h"
 
-#include "content/account/account_manager.h"
 #include "content/export/export_manager.h"
 #include "content/github_sync/github_sync_manager.h"
 #include "content/import/import_manager.h"
@@ -38,9 +37,9 @@
 #include <domain/starcloud_api.h>
 #include <include/custom_events.h>
 #include <interfaces/management_layer/i_document_manager.h>
-#include <ui/account/connection_status_tool_bar.h>
 #include <ui/application_style.h>
 #include <ui/application_view.h>
+#include <ui/connection_status_tool_bar.h>
 #include <ui/design_system/design_system.h>
 #include <ui/menu_view.h>
 #include <ui/modules/avatar_generator/avatar_generator.h>
@@ -173,7 +172,6 @@ public:
     /**
      * @brief Показать личный кабинет
      */
-    void showAccount();
 
     /**
      * @brief Показать онбординг
@@ -267,8 +265,6 @@ public:
     void createProject();
     void createLocalProject(const QString& _projectName, const QString& _projectPath,
                             const QString& _importFilePath);
-    void createRemoteProject(const QString& _projectName, const QString& _importFilePath,
-                             int _teamId);
 
     /**
      * @brief Открыть проект по заданному пути
@@ -366,7 +362,6 @@ public:
     /**
      * @brief Менеджеры управляющие конкретными частями приложения
      */
-    QScopedPointer<AccountManager> accountManager;
     QScopedPointer<ShortcutsManager> shortcutsManager;
     QScopedPointer<OnboardingManager> onboardingManager;
     QScopedPointer<ProjectsManager> projectsManager;
@@ -379,6 +374,7 @@ public:
     QScopedPointer<GitHubSyncManager> gitHubSyncManager;
 #ifdef CLOUD_SERVICE_MANAGER
     QScopedPointer<CloudServiceManager> cloudServiceManager;
+    bool isCloudAccountAuthorized = false;
 #endif
 
     /**
@@ -409,7 +405,6 @@ ApplicationManager::Implementation::Implementation(ApplicationManager* _q)
     , applicationView(new Ui::ApplicationView)
     , menuView(new Ui::MenuView(applicationView))
     , connectionStatus(new Ui::ConnectionStatusToolBar(applicationView))
-    , accountManager(new AccountManager(nullptr, applicationView))
     , shortcutsManager(new ShortcutsManager(nullptr))
     , onboardingManager(new OnboardingManager(nullptr, applicationView))
     , projectsManager(new ProjectsManager(nullptr, applicationView))
@@ -450,7 +445,6 @@ ApplicationManager::Implementation::~Implementation()
              applicationView,
              menuView,
              connectionStatus,
-             accountManager.data(),
              onboardingManager.data(),
              projectsManager.data(),
              projectManager.data(),
@@ -825,12 +819,6 @@ void ApplicationManager::Implementation::showMenu()
     menuView->setFixedWidth(std::max(menuView->sizeHint().width(),
                                      static_cast<int>(Ui::DesignSystem::drawer().width())));
     menuView->openMenu();
-}
-
-void ApplicationManager::Implementation::showAccount()
-{
-    Log::info("Show account screen");
-    showContent(accountManager.data());
 }
 
 void ApplicationManager::Implementation::showOnboarding()
@@ -1675,74 +1663,6 @@ void ApplicationManager::Implementation::createLocalProject(const QString& _proj
     constexpr auto afterProjectCreation = true;
     goToEditCurrentProject(afterProjectCreation, _importFilePath);
 }
-
-#ifdef CLOUD_SERVICE_MANAGER
-void ApplicationManager::Implementation::createRemoteProject(const QString& _projectName,
-                                                             const QString& _importFilePath,
-                                                             int _teamId)
-{
-    //
-    // Закроем текущий проект
-    //
-    closeCurrentProject();
-
-    //
-    // Т.к. взаимодействие с сервисом асинхронное, ожидаем ответа с информацией о созданном проекте
-    // и переключаемся на работу с ним уже только тогда
-    //
-    Once::connect(cloudServiceManager.data(), &CloudServiceManager::projectCreated, q,
-                  [this, _projectName, _importFilePath](const Domain::ProjectInfo& _projectInfo) {
-                      if (_projectInfo.name != _projectName) {
-                          return;
-                      }
-
-                      //
-                      // Добавляем проект в список недавних
-                      //
-                      projectsManager->addOrUpdateCloudProject(_projectInfo);
-
-                      //
-                      // Если в новый проект должны быть импортированы данные другого проекта,
-                      // то просто создаём новый, как копию импортируемого файла
-                      //
-                      if (_importFilePath.endsWith(ExtensionHelper::starc())) {
-                          const auto project = projectsManager->project(_projectInfo.id);
-                          QFile::copy(QDir::toNativeSeparators(_importFilePath),
-                                      QDir::toNativeSeparators(project->realPath()));
-                      }
-
-                      //
-                      // Переключаемся на работу с новым проектом
-                      //
-                      projectsManager->setCurrentProject(_projectInfo.id);
-                      projectsManager->setCurrentProjectName(_projectInfo.name);
-                      //
-                      // ... заблокируем открытие файла в другом приложении
-                      //
-                      if (!tryLockProject(projectsManager->currentProject()->path())) {
-                          return;
-                      }
-                      //
-                      // ... сохраняем новый проект в списке недавних
-                      //
-                      projectsManager->saveProjects();
-                      //
-                      // ... перейдём к редактированию
-                      //
-                      constexpr auto afterProjectCreation = true;
-                      goToEditCurrentProject(afterProjectCreation, _importFilePath);
-                      //
-                      // ... подписываться на документы структуры и параметров проекта нет
-                      //     необходимости, т.к. это будет осуществлено на этапе их создания
-                      //
-                  });
-
-    //
-    // Создаём новый проект в облаке
-    //
-    cloudServiceManager->createProject(_projectName, _teamId);
-}
-#endif
 
 void ApplicationManager::Implementation::openProject()
 {
@@ -2726,9 +2646,6 @@ void ApplicationManager::initConnections()
     //
     // Представление меню
     //
-    connect(d->menuView, &Ui::MenuView::signInPressed, d->accountManager.data(),
-            &AccountManager::signIn);
-    connect(d->menuView, &Ui::MenuView::accountPressed, this, [this] { d->showAccount(); });
     connect(d->menuView, &Ui::MenuView::projectsPressed, this, [this] { d->showProjects(); });
     connect(d->menuView, &Ui::MenuView::createProjectPressed, this, [this] { d->createProject(); });
     connect(d->menuView, &Ui::MenuView::openProjectPressed, this, [this] { d->openProject(); });
@@ -2754,12 +2671,6 @@ void ApplicationManager::initConnections()
     });
     connect(d->menuView, &Ui::MenuView::writingSprintPressed, this,
             [this] { d->writingSessionManager->showSprintPanel(); });
-    //
-    connect(d->menuView, &Ui::MenuView::renewProPressed, d->accountManager.data(),
-            &AccountManager::renewPro);
-    connect(d->menuView, &Ui::MenuView::renewCreatorPressed, d->accountManager.data(),
-            &AccountManager::renewCreator);
-
     //
     // Менеджер посадки
     //
@@ -2805,20 +2716,6 @@ void ApplicationManager::initConnections()
     });
 
     //
-    // Менеджер аккаунта
-    //
-    connect(d->accountManager.data(), &AccountManager::showAccountRequested, this, [this] {
-        //
-        // Переходим в аккаунт только если это не первая авторизация
-        //
-        if (!d->onboardingManager->navigator()->isVisible()) {
-            d->showAccount();
-        }
-    });
-    connect(d->accountManager.data(), &AccountManager::closeAccountRequested, this,
-            [this] { d->showLastContent(); });
-
-    //
     // Менеджер горячих клавиш
     //
     connect(d->shortcutsManager.data(), &ShortcutsManager::importShortcutChanged,
@@ -2837,10 +2734,6 @@ void ApplicationManager::initConnections()
     //
     connect(d->projectsManager.data(), &ProjectsManager::menuRequested, this,
             [this] { d->showMenu(); });
-    connect(d->projectsManager.data(), &ProjectsManager::signInRequested, d->accountManager.data(),
-            &AccountManager::signIn);
-    connect(d->projectsManager.data(), &ProjectsManager::renewTeamSubscriptionRequested,
-            d->accountManager.data(), &AccountManager::renewCreator);
     connect(d->projectsManager.data(), &ProjectsManager::createProjectRequested, this,
             [this] { d->createProject(); });
     connect(d->projectsManager.data(), &ProjectsManager::createLocalProjectRequested, this,
@@ -2893,11 +2786,6 @@ void ApplicationManager::initConnections()
     //
     connect(d->projectManager.data(), &ProjectManager::menuRequested, this,
             [this] { d->showMenu(); });
-    connect(d->projectManager.data(), &ProjectManager::upgradeToProRequested,
-            d->accountManager.data(), &AccountManager::upgradeAccountToPro);
-    connect(d->projectManager.data(), &ProjectManager::upgradeToCreatorRequested,
-            d->accountManager.data(), &AccountManager::upgradeAccountToCreator);
-
     connect(d->projectManager.data(), &ProjectManager::contentsChanged, this,
             [this] { d->markChangesSaved(false); });
     connect(d->projectManager.data(), &ProjectManager::projectUuidChanged,
@@ -3097,9 +2985,7 @@ void ApplicationManager::initConnections()
     auto configureConnectionStatus = [this](bool _connected) {
         Log::trace("[ApplicationManager] Connection status changed. %1.",
                    _connected ? "Connected" : "Disconnected");
-        d->accountManager->setConnected(_connected);
         d->connectionStatus->setConnectionAvailable(_connected);
-        d->projectsManager->setConnected(_connected);
 
         //
         // Сбросим список курсоров соавторов при смене состояния соединения
@@ -3141,21 +3027,9 @@ void ApplicationManager::initConnections()
     //
     // Проверка регистрация или вход
     //
-    connect(d->accountManager.data(), &AccountManager::askConfirmationCodeRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::askConfirmationCode);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::confirmationCodeInfoRecieved,
-            d->accountManager.data(), [this](int _codeLength) {
-                d->accountManager->setConfirmationCodeInfo(_codeLength);
-            });
-    connect(d->accountManager.data(), &AccountManager::checkConfirmationCodeRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::checkConfirmationCode);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::loginCompleted,
-            d->accountManager.data(), [this](bool _isNewAccount) {
+    connect(d->cloudServiceManager.data(), &CloudServiceManager::loginCompleted, this,
+            [this] {
                 d->cloudServiceManager->askAccountInfo();
-                d->accountManager->completeSignIn(_isNewAccount);
-                if (_isNewAccount) {
-                    d->menuView->closeMenu();
-                }
                 d->cloudServiceManager->askNotifications();
                 d->cloudServiceManager->askTeams();
                 d->cloudServiceManager->askProjects();
@@ -3196,44 +3070,12 @@ void ApplicationManager::initConnections()
     //
     connect(d->cloudServiceManager.data(), &CloudServiceManager::accountInfoReceived, this,
             [this](const Domain::AccountInfo& _accountInfo) {
-                d->accountManager->setAccountInfo(_accountInfo);
-
-                d->menuView->setSignInVisible(false);
-                d->menuView->setAccountVisible(true);
-                d->menuView->setAvatar(ImageHelper::imageFromBytes(_accountInfo.avatar));
-                d->menuView->setAccountName(_accountInfo.name);
-                d->menuView->setAccountEmail(_accountInfo.email);
-                d->projectsManager->setProjectsInCloudCanBeCreated(
-                    true,
-                    (_accountInfo.subscriptions.isEmpty()
-                         ? Domain::SubscriptionType::Undefined
-                         : _accountInfo.subscriptions.constLast().type));
+                d->isCloudAccountAuthorized = _accountInfo.isValid();
                 d->projectManager->checkAvailabilityToEdit();
                 d->projectManager->setBlockedDocumentTypes(
                     d->cloudServiceManager->blockedDocumentTypes());
             });
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::giftSent, d->accountManager.data(),
-            &AccountManager::showGiftSentMessage);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::promocodeActivated,
-            d->accountManager.data(), &AccountManager::showPromocodeActivationMessage);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::promocodeErrorRecieved,
-            d->accountManager.data(), &AccountManager::setPromocodeError);
-    connect(d->cloudServiceManager.data(), &CloudServiceManager::logoutRequired,
-            d->accountManager.data(), &AccountManager::logoutRequested);
-    connect(d->accountManager.data(), &AccountManager::askAccountInfoRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::askAccountInfo);
-    connect(d->accountManager.data(), &AccountManager::updateAccountInfoRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::setAccountInfo);
-    connect(d->accountManager.data(), &AccountManager::activatePaymentOptionRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::activatePaymentOption);
-    connect(d->accountManager.data(), &AccountManager::activatePaymentOptionAsGiftRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::activatePaymentOptionAsGift);
-    connect(d->accountManager.data(), &AccountManager::activatePromocodeRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::activatePromocode);
-
-    connect(d->accountManager.data(), &AccountManager::terminateSessionRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::terminateSession);
-    connect(d->accountManager.data(), &AccountManager::logoutRequested, this, [this] {
+    connect(d->cloudServiceManager.data(), &CloudServiceManager::logoutRequired, this, [this] {
         const auto currentProject = d->projectsManager->currentProject();
         if (currentProject != nullptr && currentProject->isRemote()) {
             d->saveChanges();
@@ -3243,15 +3085,9 @@ void ApplicationManager::initConnections()
             d->showLastContent();
         }
 
+        d->isCloudAccountAuthorized = false;
         d->cloudServiceManager->logout();
-        d->accountManager->clearAccountInfo();
-        d->menuView->setSignInVisible(true);
-        d->menuView->setAccountVisible(false);
         d->projectManager->checkAvailabilityToEdit();
-        d->projectsManager->setTeams({});
-        d->projectsManager->setCloudProjects({});
-        d->projectsManager->setProjectsInCloudCanBeCreated(false, Domain::SubscriptionType::Free);
-        d->projectsManager->saveProjects();
     });
     //
     connect(Ui::AvatarGenerator::instance(), &Ui::AvatarGenerator::avatarRequested,
@@ -3264,39 +3100,20 @@ void ApplicationManager::initConnections()
     //
     connect(d->cloudServiceManager.data(), &CloudServiceManager::teamsReceived, this,
             [this](const QVector<Domain::TeamInfo>& _teams) {
-                d->accountManager->setAccountTeams(_teams);
                 d->projectsManager->setTeams(_teams);
             });
     connect(d->cloudServiceManager.data(), &CloudServiceManager::teamCreated, this,
             [this](const Domain::TeamInfo& _team) {
-                d->accountManager->addAccountTeam(_team);
                 d->projectsManager->addOrUpdateTeam(_team);
             });
     connect(d->cloudServiceManager.data(), &CloudServiceManager::teamUpdated, this,
             [this](const Domain::TeamInfo& _team) {
-                d->accountManager->updateAccountTeam(_team);
                 d->projectsManager->addOrUpdateTeam(_team);
             });
     connect(d->cloudServiceManager.data(), &CloudServiceManager::teamRemoved, this,
             [this](int _id) {
-                d->accountManager->removeAccountTeam(_id);
                 d->projectsManager->hideTeam(_id);
             });
-    connect(d->accountManager.data(), &AccountManager::createTeamRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::createTeam);
-    connect(d->accountManager.data(), &AccountManager::updateTeamRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::updateTeam);
-    connect(d->accountManager.data(), &AccountManager::removeTeamRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::removeTeam);
-    connect(d->accountManager.data(), &AccountManager::exitFromTeamRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::exitFormTeam);
-    connect(d->accountManager.data(), &AccountManager::addMemberRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::addTeamMember);
-    connect(d->accountManager.data(), &AccountManager::changeMemberRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::updateTeamMember);
-    connect(d->accountManager.data(), &AccountManager::removeMemberRequested,
-            d->cloudServiceManager.data(), &CloudServiceManager::removeTeamMember);
-
     //
     // Проекты
     //
@@ -3326,10 +3143,6 @@ void ApplicationManager::initConnections()
                     d->showProjects();
                 }
                 d->projectsManager->removeProject(_projectId);
-            });
-    connect(d->projectsManager.data(), &ProjectsManager::createCloudProjectRequested, this,
-            [this](const QString& _projectName, const QString& _importFilePath, int _teamId) {
-                d->createRemoteProject(_projectName, _importFilePath, _teamId);
             });
     connect(d->projectsManager.data(), &ProjectsManager::openCloudProjectRequested, this,
             [this](int _id, const QString& _path) {
@@ -3411,39 +3224,11 @@ void ApplicationManager::initConnections()
 
         d->projectsManager->setCurrentProjectCanBeSynced(false);
 
-        if (currentProject->isOwner()) {
-            auto dialog = new Dialog(d->applicationView);
-            const int kCancelButtonId = 0;
-            const int kAcceptButtonId = 1;
-            dialog->showDialog(
-                {},
-                tr("Your cloud service subscription is expired. Activate subscription to continue "
-                   "working with the project."),
-                { { kCancelButtonId, tr("Continue offline"), Dialog::RejectButton },
-                  { kAcceptButtonId, tr("Renew subscription"), Dialog::AcceptButton } });
-            QObject::connect(
-                dialog, &Dialog::finished, dialog,
-                [this, dialog, kCancelButtonId](const Dialog::ButtonInfo& _pressedButton) {
-                    dialog->hideDialog();
-
-                    if (_pressedButton.id == kCancelButtonId) {
-                        return;
-                    }
-
-                    d->accountManager->renewCreator();
-                });
-            QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
-        } else {
-            auto dialog = new Dialog(d->applicationView);
-            const int kCancelButtonId = 0;
-            dialog->showDialog(
-                {},
-                tr("Cloud service subscription of the project owners is expired. You can continue "
-                   "working with the project as soon as they renew the subscription."),
-                { { kCancelButtonId, tr("Continue offline"), Dialog::RejectButton } });
-            QObject::connect(dialog, &Dialog::finished, dialog, &Dialog::hideDialog);
-            QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
-        }
+        auto dialog = new Dialog(d->applicationView);
+        dialog->showDialog({}, tr("Cloud sync is unavailable. You can continue working offline."),
+                           { { 0, tr("Continue offline"), Dialog::RejectButton } });
+        QObject::connect(dialog, &Dialog::finished, dialog, &Dialog::hideDialog);
+        QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
     });
 
     //
@@ -3647,7 +3432,7 @@ void ApplicationManager::initConnections()
                 //
                 // ... если пользователь авторизован, то отправляем статистику в сервис
                 //
-                if (d->accountManager->accountInfo().isValid()) {
+                if (d->isCloudAccountAuthorized) {
                     d->cloudServiceManager->pushSessionStatistics(_sessionStatistics);
                 }
             });

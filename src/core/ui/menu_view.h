@@ -21,23 +21,6 @@ public:
     ~MenuView() override;
 
     /**
-     * @brief Установить необходимость использования панели аккаунта
-     */
-    void setAccountVisible(bool _use);
-
-    /**
-     * @brief Параметры панели аккаунта
-     */
-    void setAvatar(const QPixmap& _avatar);
-    void setAccountName(const QString& _name);
-    void setAccountEmail(const QString& _email);
-
-    /**
-     * @brief Задать видимость пункта меню "Авторизоваться"
-     */
-    void setSignInVisible(bool _visible);
-
-    /**
      * @brief Пометить пункт меню проектов выделенным
      */
     void checkProjects();
@@ -119,16 +102,6 @@ public:
 
 signals:
     /**
-     * @brief Пользователь кликнул на аккаунте
-     */
-    void accountPressed();
-
-    /**
-     * @brief Нажат пункт меню "Авторизоваться"
-     */
-    void signInPressed();
-
-    /**
      * @brief Нажат пункт меню "Проекты"
      */
     void projectsPressed();
@@ -203,16 +176,6 @@ signals:
      * @brief Пользователь включил/отключил отображение дев-версий
      */
     void showDevVersionsChanged(bool _show);
-
-    /**
-     * @brief Пользователь нажал кнопку продления PRO версии
-     */
-    void renewProPressed();
-
-    /**
-     * @brief Пользователь нажал кнопку продления CREATOR версии
-     */
-    void renewCreatorPressed();
 
 protected:
     /**

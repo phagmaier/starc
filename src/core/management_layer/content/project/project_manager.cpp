@@ -37,8 +37,8 @@
 #include <management_layer/content/projects/projects_model_team_item.h>
 #include <management_layer/plugins_builder.h>
 #include <ui/abstract_navigator.h>
-#include <ui/account/collaborators_tool_bar.h>
 #include <ui/design_system/design_system.h>
+#include <ui/project/collaborators_tool_bar.h>
 #include <ui/project/compare_draft_dialog.h>
 #include <ui/project/create_document_dialog.h>
 #include <ui/project/create_draft_dialog.h>
@@ -1075,8 +1075,6 @@ void ProjectManager::Implementation::addDocument(Domain::DocumentObjectType _typ
         createDocumentDialog->setDocumentType(createDocumentDialog->lastSelectedType());
     }
 
-    connect(createDocumentDialog, &Ui::CreateDocumentDialog::upgradeToProPressed, q,
-            &ProjectManager::upgradeToProRequested);
     connect(createDocumentDialog, &Ui::CreateDocumentDialog::createPressed, navigator,
             [this, sourceType = _type, currentItemIndex](Domain::DocumentObjectType _type,
                                                          const QString& _name,
@@ -5179,17 +5177,6 @@ void ProjectManager::showView(const QModelIndex& _itemIndex, const QString& _vie
             connect(documentManager, SIGNAL(goBackRequested()), this,
                     SLOT(showFirstViewForCurrentIndex()), Qt::UniqueConnection);
         }
-        if (documentManager->metaObject()->indexOfSignal("upgradeToProRequested()")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(upgradeToProRequested()), this,
-                    SIGNAL(upgradeToProRequested()), Qt::UniqueConnection);
-        }
-        if (documentManager->metaObject()->indexOfSignal("upgradeToCreatorRequested()")
-            != invalidSignalIndex) {
-            connect(documentManager, SIGNAL(upgradeToCreatorRequested()), this,
-                    SIGNAL(upgradeToCreatorRequested()), Qt::UniqueConnection);
-        }
-
         if (documentManager->metaObject()->indexOfSignal("linkActivated(QUuid,QModelIndex,QString)")
             != invalidSignalIndex) {
             connect(documentManager, SIGNAL(linkActivated(QUuid, QModelIndex, QString)), this,

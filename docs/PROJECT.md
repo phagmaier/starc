@@ -581,3 +581,97 @@ every Fountain escape or damaged-markup case, and large scripts remain outside
 the tested subset. FDX sequential dialogue and comment loss, Fountain physical-line
 splitting/whitespace normalization, and number visibility are documented explicitly;
 this is not a claim of byte-identical or universally lossless interchange.
+
+## Upstream account interface removal
+
+Completed 2026-10-12. `AccountManager` and the upstream account, sign-in,
+subscription, purchase/gift, login-session and team-management pages/dialogs were
+removed, including the embedded upstream API token in `session_widget.cpp`.
+Application construction/content switching, menu and macOS actions, project
+creation and move-to-cloud offers, document-upgrade forwarding, subscription
+notifications and guarded cloud callbacks no longer refer to those controls.
+New stories are local; unavailable documents still have a creation guard without
+an upgrade offer. Local writing statistics and the sprint timer are ordinary
+menu actions. The Notifications page remains for the next separate TODO item.
+
+The connection-status toolbar and collaborator cursor strip had project
+consumers, so their exact source was moved out of `ui/account` and retained.
+Existing cloud/team project records and historical account labels remain; no
+persisted type IDs, database schema/migration, writing-session storage, installed
+plugin discovery, GitHub credentials, onboarding, settings or sync implementation
+was changed. Guarded cloud reconnection/data paths retain their transport logic
+without account UI references; the unavailable private module was not fetched or
+built. [CODEBASE.md](CODEBASE.md) describes the revised routes.
+
+Validation:
+
+- `./build/dev.sh doctor`: passed with Qt 6.12.0 and the automatically selected
+  ignored development QtKeychain prefix. Optional translation utilities remain
+  absent. `make qmake_all` in `.build/debug`, then
+  `JOBS=4 ./build/dev.sh build debug`: passed, including the final style build.
+- `./tools/check-github-credential-storage.sh`, `./tools/check-project-sync.sh`,
+  `./tools/check-screenplay-scope.sh`, `./tools/check-screenplay-interchange.sh`,
+  `./tools/check-writing-session-storage.sh` and
+  `./tools/check-backup-retention.sh`: all passed. Credential/sync checks use
+  injected storage, an absent private bus and the local mock GitHub server;
+  other checks use disposable projects/profiles and an absent private bus.
+  The sync, writing-session and backup wrappers inherit the absent bus from the
+  evidence runner; they were repeated with that isolation explicit, retaining
+  their earlier logs.
+- The scope test retains its editor availability, Statistics, keyboard,
+  Undo/Redo, pagination, export, retired-format byte preservation and project
+  save/reopen assertions. It replaces `AccountNavigator` construction with
+  retained menu/dialog checks: no account/sign-in/purchase callback or offer,
+  working local writing tools, unavailable-document guarding, and exact cached
+  team/project records plus a historical account label through load/save/reload.
+- Source/build-entry and rebuilt-plugin symbol audits found no retired account
+  classes or integration references. The former embedded token was checked in
+  memory against the rebuilt core plugin and debug symbols and was absent;
+  its value was never emitted. Frozen upstream and existing history were not rewritten.
+- Graph coverage was checked for relied-on sources. Qt macro/parser gaps and
+  inaccurate caller edges were verified directly against source; the retained
+  evidence driver is ignored/unindexed and was read directly. `git diff --check`
+  and Python driver syntax passed. No dependency was added.
+
+Real application evidence on private Xvfb, using a disposable native Secret
+Service and a network-isolated `unshare -Urn` application:
+
+- Configured startup and both empty/local-project menus offered no upstream
+  account or purchase controls. Application settings retained the separate
+  GitHub fields and Save/Clear/Retry controls with an empty ready credential.
+- The local-only new-story dialog created a screenplay in a disposable folder.
+  Typing a heading and `ACCOUNT CUT UI SURVIVAL`, then ordinary Ctrl+S, persisted
+  both lines in the actual SQLite document. Statistics showed one heading, one
+  action and nine words. A fresh application reopen retained all 13 document
+  UUIDs, type IDs and serialized UTF-8 content hashes; the marker was visible in
+  the editor. SQLite integrity passed. The writing-statistics menu page opened
+  without an account and retained the prior session's eleven written words.
+- Fresh onboarding offered GitHub sync and its separate credential controls;
+  “Set up later” reached the local story list. All three launches quit normally
+  with Ctrl+Q, actual exit `0`. Only the private Xvfb/provider/bus children were
+  then stopped. No file dialog, file manager, external link, real credential or
+  ordinary desktop keyring was used.
+
+Evidence is retained in `.build/evidence/account-removal-3ypzjgfg/`, including
+all build logs, regression summaries, coverage/source gaps, the newly adapted
+copy of the retained interchange UI driver, provider logs, command transcript,
+screenshots, exits and serialized document hashes. Successful scope evidence is
+`.build/evidence/screenplay-scope-c68G30/`; the other scripts print their unique
+evidence directories in the retained summaries. All earlier backup, credential,
+interchange and other evidence remains untouched.
+
+Retained failures include the first build's stale account-action label, a test
+compile using a getter this project's Button does not expose, and a menu fixture
+checking labels before their queued initialization was dispatched. The fixture
+now dispatches normal queued events; input remains zero-delay. The driver's
+initial syntax error and a SQLite TEXT/BLOB hashing assumption are retained too.
+Early animation captures and an unbound Ctrl+N probe are not credited as passing
+workflow evidence. Qt shutdown timer warnings remain in the logs; actual exits
+were zero, with no forced application teardown.
+
+Limits: Linux debug/offscreen and private Xvfb only. The absent private cloud
+build, the owner's desktop/profile/keyring, other platforms (including native
+macOS menus), release packaging, and real remote GitHub operations were not
+exercised. Native credential mutation was not repeated for this UI cut; the
+requested injected credential and mock-sync regressions passed. Notifications
+and every subsequent Cut/Add item remain outside this task.

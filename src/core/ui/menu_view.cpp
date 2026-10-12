@@ -3,7 +3,6 @@
 #include "about_application_dialog.h"
 #include "notifications/credits_view.h"
 #include "notifications/release_view.h"
-#include "notifications/subscription_view.h"
 
 #include <domain/starcloud_api.h>
 #include <ui/design_system/design_system.h>
@@ -45,7 +44,6 @@ public:
     QScrollArea* menuPage = nullptr;
 
     Drawer* drawer = nullptr;
-    QAction* signIn = nullptr;
     QAction* projects = nullptr;
     QAction* createProject = nullptr;
     QAction* openProject = nullptr;
@@ -60,7 +58,6 @@ public:
 
     QAction* writingStatistics = nullptr;
     QAction* writingSprint = nullptr;
-    QAction* chat = nullptr;
     QAction* notifications = nullptr;
 
     Subtitle2LinkLabel* appName = nullptr;
@@ -87,7 +84,6 @@ MenuView::Implementation::Implementation(MenuView* _parent)
     : q(_parent)
     , menuPage(UiHelper::createScrollArea(_parent))
     , drawer(new Drawer(_parent))
-    , signIn(new QAction)
     , projects(new QAction)
     , createProject(new QAction)
     , openProject(new QAction)
@@ -101,7 +97,6 @@ MenuView::Implementation::Implementation(MenuView* _parent)
     , aboutApplicationAction(new QAction)
     , writingStatistics(new QAction)
     , writingSprint(new QAction)
-    , chat(new QAction)
     , notifications(new QAction)
     , appName(new Subtitle2LinkLabel(_parent))
     , appVersion(new Body2LinkLabel(_parent))
@@ -120,7 +115,6 @@ MenuView::Implementation::Implementation(MenuView* _parent)
     // Настроим страницу меню
     //
     {
-        drawer->addAction(signIn);
         drawer->addAction(projects);
         drawer->addAction(createProject);
         drawer->addAction(openProject);
@@ -131,18 +125,10 @@ MenuView::Implementation::Implementation(MenuView* _parent)
         drawer->addAction(exportCurrentDocument);
         drawer->addAction(fullScreen);
         drawer->addAction(settings);
+        drawer->addAction(writingStatistics);
+        drawer->addAction(writingSprint);
+        drawer->addAction(notifications);
 
-        drawer->setAccountActions({
-            writingStatistics,
-            writingSprint,
-            chat,
-            notifications,
-        });
-
-        signIn->setIconText(u8"\U000F0004");
-        signIn->setCheckable(false);
-        signIn->setVisible(false);
-        //
         projects->setIconText(u8"\U000f024b");
         projects->setCheckable(true);
         projects->setChecked(true);
@@ -194,9 +180,6 @@ MenuView::Implementation::Implementation(MenuView* _parent)
         writingStatistics->setIconText(u8"\U000F085D");
         //
         writingSprint->setIconText(u8"\U000F13AB");
-        //
-        chat->setIconText(u8"\U000F0368");
-        chat->setVisible(false);
         //
         notifications->setIconText(u8"\U000F009A");
 
@@ -255,16 +238,10 @@ MenuView::MenuView(QWidget* _parent)
     : StackWidget(_parent)
     , d(new Implementation(this))
 {
-#ifdef CLOUD_SERVICE_MANAGER
-    d->signIn->setVisible(true);
-    d->projects->setSeparator(true);
-#endif
     setAnimationType(StackWidget::AnimationType::Slide);
     setCurrentWidget(d->menuPage);
     addWidget(d->notificationsPage);
 
-    connect(d->drawer, &Drawer::accountPressed, this, &MenuView::accountPressed);
-    connect(d->signIn, &QAction::triggered, this, &MenuView::signInPressed);
     connect(d->projects, &QAction::triggered, this, &MenuView::projectsPressed);
     connect(d->createProject, &QAction::triggered, this, &MenuView::createProjectPressed);
     connect(d->openProject, &QAction::triggered, this, &MenuView::openProjectPressed);
@@ -293,7 +270,6 @@ MenuView::MenuView(QWidget* _parent)
     });
     connect(d->aboutApp, &Body2LinkLabel::clicked, d->aboutApplicationAction, &QAction::trigger);
 
-    connect(this, &MenuView::accountPressed, this, &MenuView::closeMenu);
     connect(this, &MenuView::projectsPressed, this, &MenuView::closeMenu);
     connect(this, &MenuView::createProjectPressed, this, &MenuView::closeMenu);
     connect(this, &MenuView::openProjectPressed, this, &MenuView::closeMenu);
@@ -342,35 +318,6 @@ MenuView::MenuView(QWidget* _parent)
 }
 
 MenuView::~MenuView() = default;
-
-void MenuView::setAccountVisible(bool _visible)
-{
-    d->drawer->setAccountVisible(_visible);
-}
-
-void MenuView::setAvatar(const QPixmap& _avatar)
-{
-    d->drawer->setAvatar(_avatar);
-}
-
-void MenuView::setAccountName(const QString& _name)
-{
-    d->drawer->setAccountName(_name);
-}
-
-void MenuView::setAccountEmail(const QString& _email)
-{
-    d->drawer->setAccountEmail(_email);
-}
-
-void MenuView::setSignInVisible(bool _visible)
-{
-#ifdef CLOUD_SERVICE_MANAGER
-    d->signIn->setVisible(_visible);
-#else
-    Q_UNUSED(_visible)
-#endif
-}
 
 void MenuView::checkProjects()
 {
@@ -435,7 +382,7 @@ void MenuView::setCurrentDocumentExportAvailable(bool _available)
 
 void MenuView::setHasUnreadNotifications(bool _hasUnreadNotifications)
 {
-    d->drawer->setAccountActionBadgeVisible(d->notifications, _hasUnreadNotifications);
+    d->notifications->setIconText(_hasUnreadNotifications ? u8"\U000F116B" : u8"\U000F009A");
 }
 
 void MenuView::setShowDevVersions(bool _show)
@@ -474,16 +421,6 @@ void MenuView::setNotifications(const QVector<Domain::Notification>& _notificati
         case Domain::NotificationType::UpdateStableQt6Mac:
         case Domain::NotificationType::UpdateStableQt6Windows: {
             notificationView = new ReleaseView(this, notification);
-            break;
-        }
-
-        case Domain::NotificationType::ProSubscriptionEnds:
-        case Domain::NotificationType::TeamSubscriptionEnds: {
-            auto view = new SubscriptionView(this, notification);
-            connect(view, &SubscriptionView::renewProPressed, this, &MenuView::renewProPressed);
-            connect(view, &SubscriptionView::renewCreatorPressed, this,
-                    &MenuView::renewCreatorPressed);
-            notificationView = view;
             break;
         }
 
@@ -540,7 +477,6 @@ void MenuView::keyPressEvent(QKeyEvent* _event)
 
 void MenuView::updateTranslations()
 {
-    d->signIn->setText(tr("Sign in"));
     d->projects->setText(tr("Stories"));
     d->createProject->setText(tr("Create story"));
     d->openProject->setText(tr("Open story"));
@@ -571,7 +507,6 @@ void MenuView::updateTranslations()
     d->showDevVersions->setText(d->showDevVersions->isChecked() ? tr("Hide developers version")
                                                                 : tr("Show developers version"));
 
-    d->chat->setText(tr("Account"));
     d->notifications->setText(tr("Notifications"));
     d->writingStatistics->setText(tr("Writing statistics"));
     d->writingSprint->setText(tr("Writing sprint"));
@@ -640,12 +575,6 @@ void MenuView::Implementation::createMenuBar()
     appMenu->addAction(settingsAction);
 
 #ifdef CLOUD_SERVICE_MANAGER
-    signIn->setMenuRole(QAction::ApplicationSpecificRole);
-    appMenu->addAction(signIn);
-
-    chat->setMenuRole(QAction::ApplicationSpecificRole);
-    appMenu->addAction(chat);
-
     notifications->setMenuRole(QAction::ApplicationSpecificRole);
     appMenu->addAction(notifications);
 

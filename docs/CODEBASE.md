@@ -71,6 +71,34 @@ destinations retain Fountain. The focused [interchange check](INTERCHANGE.md)
 exercises these format boundaries and actual project persistence; it records
 FDX's sequential dual-dialogue export and the bounded support policy explicitly.
 
+## Local application UI and retired upstream accounts
+
+`ApplicationManager` constructs the local project, editor, settings and GitHub
+managers; it no longer constructs `AccountManager` or switches to account content.
+`MenuView` has no upstream sign-in/account/purchase actions. Writing statistics
+and the sprint timer are ordinary drawer actions without an account header.
+The Notifications page remains for its separate TODO item; subscription notices
+and renewal callbacks have been removed with the purchase UI.
+
+`ProjectsManager::createProject` -> `CreateProjectDialog` ->
+`createLocalProjectRequested` -> `ApplicationManager::createLocalProject` is the
+new-story route. It has no cloud/team selector or sign-in/subscription prompt.
+`CreateDocumentDialog` still follows installed editor availability and retains
+its unavailable-document guard, without an upgrade button. `ProjectManager`
+no longer forwards plugin purchase signals.
+
+The former `ui/account` connection-status toolbar and collaborator cursor strip
+serve existing project transports, so they are retained at `ui/` and `ui/project/`
+respectively. Cached team/project models, historical account labels, persisted
+type IDs and database migrations remain. Guarded cloud reconnection/data paths
+have no account UI callbacks; the absent private module has not been built.
+GitHub onboarding, settings, sync and `GitHubCredentialStore` remain separate.
+
+`tests/screenplay_scope_test.cpp` checks the retained menu/dialogs/settings and
+GitHub onboarding for retired account offers, local writing-tool actions,
+unavailable-document guarding, and exact cached team/project records through
+load/save/reload, alongside its existing editor and project-data assertions.
+
 ## Retired formats
 
 Audioplay, stageplay, comic book, novel, and screenplay series editing was removed from this fork, together with the AI assistant. Screenplay, simple text, and the shared project documents remain. A project that already contains documents of a retired format keeps them untouched:

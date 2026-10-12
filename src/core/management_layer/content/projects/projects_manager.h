@@ -7,7 +7,6 @@
 class QAction;
 
 namespace Domain {
-enum class SubscriptionType;
 struct ProjectInfo;
 struct TeamInfo;
 } // namespace Domain
@@ -53,17 +52,6 @@ public:
      * @brief Обновить дату последнего изменения проекта
      */
     void saveChanges();
-
-    /**
-     * @brief Скорректировать интерфейс в зависимости от того есть ли подключение к серверу
-     */
-    void setConnected(bool _connected);
-
-    /**
-     * @brief Можно ли создавать проекты в облаке
-     */
-    void setProjectsInCloudCanBeCreated(bool _authorized,
-                                        Domain::SubscriptionType _subscritionType);
 
     /**
      * @brief Список команд пользователя
@@ -208,16 +196,6 @@ signals:
     void menuRequested();
 
     /**
-     * @brief Пользователь хочет авторизоваться
-     */
-    void signInRequested();
-
-    /**
-     * @brief Пользователь хочет оформить ТИМ подписку
-     */
-    void renewTeamSubscriptionRequested();
-
-    /**
      * @brief Пользователь хочет создать проект
      */
     void createProjectRequested();
@@ -227,12 +205,6 @@ signals:
      */
     void createLocalProjectRequested(const QString& _projectName, const QString& _projectFilePath,
                                      const QString& _importFilePath);
-
-    /**
-     * @brief Пользователь хочет создать проект в облаке
-     */
-    void createCloudProjectRequested(const QString& _projectName, const QString& _importFilePath,
-                                     int _teamId);
 
     /**
      * @brief Пользователь хочет открыть проект
