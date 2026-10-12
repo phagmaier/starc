@@ -77,8 +77,14 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Debug build, all six required regressions and private Xvfb startup/menu/
     settings/local-create/edit/save/reopen/writing-tools/GitHub-onboarding checks
     passed; all three Ctrl+Q exits were 0. Evidence and limits: `docs/PROJECT.md`.
-- [ ] **Tweet-sharing buttons** in the logline generator and the writing sprint
+- [x] **Tweet-sharing buttons** in the logline generator and the writing sprint
   panel.
+  - Done 2026-10-12: removed both tweet handlers and the sprint share widget.
+    The logline result has no title action; Back retains the help toggle. Local
+    logline generation/Done and sprint results/Restart remain available.
+  - Debug build, screenplay regression and private Xvfb logline/sprint checks
+    passed, including a real one-minute countdown and exact document content
+    across save/reopen. Both ordinary Ctrl+Q exits were 0. See `docs/PROJECT.md`.
 - [ ] **"User guide" link** on the story list. It opens upstream's help site,
   which documents features this fork removed.
 - [ ] **Cover image search through upstream.** Queries go to `starc.app` and to

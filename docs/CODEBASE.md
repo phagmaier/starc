@@ -77,6 +77,10 @@ FDX's sequential dual-dialogue export and the bounded support policy explicitly.
 managers; it no longer constructs `AccountManager` or switches to account content.
 `MenuView` has no upstream sign-in/account/purchase actions. Writing statistics
 and the sprint timer are ordinary drawer actions without an account header.
+`LoglineGeneratorDialog` keeps its help toggle on the question pages and hides
+the title action on the result page; Back restores help and Done applies the
+logline. `WritingSprintPanel` keeps duration/start, word results and Restart.
+Tweet-sharing controls and their browser handlers are removed from both tools.
 The Notifications action/page, developer-release filter, release/credits widgets
 and unread badges on the menu and project toolbars are removed. Generic shared
 badge widgets and document comments/review controls remain.

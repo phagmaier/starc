@@ -765,3 +765,48 @@ build, native macOS menu, other platforms, release packaging, owner's desktop/
 profile/keyring, real remote GitHub, updater network/download/installation and
 sprint countdown were not exercised. Native credential mutation was not repeated
 for this UI cut; the required credential and mock-sync regressions passed.
+
+## Tweet-sharing buttons removed
+
+Completed 2026-10-12, limited to the next unchecked Cut item. The logline
+generator no longer converts its help icon into a tweet action: it hides the
+icon on the result page and retains the help connection/state when going Back.
+The writing sprint panel's share widget, layout/styling/visibility code and tweet
+handler are removed. Logline generation/Done, sprint timing, results and Restart
+remain. No dependency, persisted setting or document format changed.
+
+Validation:
+
+- `./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug` and
+  `./tools/check-screenplay-scope.sh`: passed. The existing scope regression
+  covers editor availability, account/notifications cuts, keyboard editing,
+  Undo/Redo, pagination, exports and mixed-project preservation. Source and
+  rebuilt library/debug-symbol audits found no retired tweet handler/control.
+- In the actual application on private Xvfb, a disposable story's logline wizard
+  generated "A determined writer must finish a screenplay." Its result page had
+  no share action. Back retained the enabled hints and their working toggle;
+  Continue/Done applied the exact text to the screenplay information page.
+- A normal one-minute sprint completed after zero-delay screenplay typing and
+  ordinary Ctrl+S. The result showed nine written words without a share button;
+  Restart restored duration/start/sound controls. Sound playback was not tested.
+- Normal close and a fresh application reopen retained the exact logline and
+  screenplay markers. All 14 document UUIDs, type IDs and serialized UTF-8
+  content hashes were unchanged; SQLite integrity passed. Both actual Ctrl+Q
+  exits were `0`, followed by teardown of only the private display/provider/bus.
+- The UI runner used a private native Secret Service, separate profile and
+  network-isolated `unshare -Urn` application. No real credentials, user projects,
+  desktop keyring or external browser were used. Graph coverage was checked;
+  reported parser gaps and the ignored driver were read directly. Driver syntax
+  and `git diff --check` passed.
+
+Evidence is retained in `.build/evidence/tweet-removal-tnap3yv6/`, including the
+build/doctor logs, scope summary, reused existing driver, command transcript,
+screenshots, exits and saved/reopened document hashes. Full scope evidence is
+`.build/evidence/screenplay-scope-3Vp9b9/`. The first private-bus launch was blocked
+by the sandbox's socket restriction; its failure remains in `native/bus.log`.
+The permitted isolated run passed. Initial navigation probes and animation
+captures remain in the transcript and are not credited as settled UI checks.
+
+Limits: Linux debug/offscreen and private Xvfb only; the owner's desktop,
+other platforms, private cloud builds and release packaging were not exercised.
+Later TODO items and existing translation catalogs remain outside this task.

@@ -4,7 +4,6 @@
 #include <ui/widgets/button/button.h>
 #include <ui/widgets/card/card_popup.h>
 #include <ui/widgets/check_box/check_box.h>
-#include <ui/widgets/icon_button/icon_button.h>
 #include <ui/widgets/label/label.h>
 #include <ui/widgets/text_field/text_field.h>
 #include <utils/3rd_party/WAF/Animation/Animation.h>
@@ -12,7 +11,6 @@
 #include <utils/helpers/time_helper.h>
 
 #include <QBoxLayout>
-#include <QDesktopServices>
 #include <QPainter>
 #include <QResizeEvent>
 #include <QSettings>
@@ -93,7 +91,6 @@ public:
      * @brief Поздравительная часть
      */
     QVBoxLayout* sprintResultsLayout = nullptr;
-    IconButton* shareResults = nullptr;
     H6Label* sprintResultTitle = nullptr;
     H4Label* sprintResultWords = nullptr;
     Subtitle2Label* sprintResultSubtitle = nullptr;
@@ -108,7 +105,6 @@ WritingSprintPanel::Implementation::Implementation(WritingSprintPanel* _q)
     , sprintAction(new Button(sprintOptions))
     , playSound(new CheckBox(sprintOptions))
     , sprintResultsLayout(new QVBoxLayout)
-    , shareResults(new IconButton(sprintOptions))
     , sprintResultTitle(new H6Label(sprintOptions))
     , sprintResultWords(new H4Label(sprintOptions))
     , sprintResultSubtitle(new Subtitle2Label(sprintOptions))
@@ -128,7 +124,6 @@ WritingSprintPanel::Implementation::Implementation(WritingSprintPanel* _q)
     sprintAction->setIcon(u8"\U000F040A");
     sprintAction->setFlat(true);
 
-    shareResults->setIcon(u8"\U000F0544");
     restartSprint->setIcon(u8"\U000F0450");
     restartSprint->setFlat(true);
 
@@ -147,7 +142,6 @@ WritingSprintPanel::Implementation::Implementation(WritingSprintPanel* _q)
     sprintResultsLayout->setContentsMargins({});
     sprintResultsLayout->setSpacing(0);
     sprintResultsLayout->addLayout(sprintOptionsLayout);
-    sprintResultsLayout->addWidget(shareResults, 0, Qt::AlignRight);
     sprintResultsLayout->addWidget(sprintResultTitle, 0, Qt::AlignHCenter);
     sprintResultsLayout->addWidget(sprintResultWords, 0, Qt::AlignHCenter);
     sprintResultsLayout->addWidget(sprintResultSubtitle, 0, Qt::AlignHCenter);
@@ -300,19 +294,10 @@ WritingSprintPanel::WritingSprintPanel(QWidget* _parent)
             });
         }
     });
-    connect(d->shareResults, &IconButton::clicked, this, [this] {
-        const auto message = QString("%1 %2").arg(
-            tr("Done! I've just written %n word(s)", 0, d->sprintResultWords->text().toInt()),
-            tr("in %n minute(s)", 0, d->sprintTime->text().toInt()));
-        QDesktopServices::openUrl(QUrl(
-            QString("https://twitter.com/intent/tweet?text=%1&hashtags=writesprint&via=starcapp_")
-                .arg(message)));
-    });
     connect(d->restartSprint, &Button::clicked, this, [this] {
         d->sprintTime->show();
         d->sprintAction->show();
         d->playSound->show();
-        d->shareResults->hide();
         d->sprintResultTitle->hide();
         d->sprintResultWords->hide();
         d->sprintResultSubtitle->hide();
@@ -339,7 +324,6 @@ void WritingSprintPanel::showPanel()
     d->sprintTime->show();
     d->sprintAction->show();
     d->playSound->show();
-    d->shareResults->hide();
     d->sprintResultTitle->hide();
     d->sprintResultWords->hide();
     d->sprintResultSubtitle->hide();
@@ -365,7 +349,6 @@ void WritingSprintPanel::setResult(int _words)
     d->sprintTime->hide();
     d->sprintAction->hide();
     d->playSound->hide();
-    d->shareResults->show();
     d->sprintResultTitle->show();
     d->sprintResultWords->show();
     d->sprintResultSubtitle->show();
@@ -526,8 +509,6 @@ void WritingSprintPanel::designSystemChangeEvent(DesignSystemChangeEvent* _event
         DesignSystem::layout().px4(), DesignSystem::layout().px16(), DesignSystem::layout().px16(),
         DesignSystem::layout().px4());
 
-    d->shareResults->setBackgroundColor(DesignSystem::color().background());
-    d->shareResults->setTextColor(DesignSystem::color().onBackground());
     d->sprintResultTitle->setBackgroundColor(DesignSystem::color().background());
     d->sprintResultTitle->setTextColor(DesignSystem::color().onBackground());
     d->sprintResultTitle->setContentsMargins(0, DesignSystem::layout().px12(), 0, 0);

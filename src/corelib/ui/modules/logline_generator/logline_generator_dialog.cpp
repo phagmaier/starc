@@ -16,7 +16,6 @@
 #include <utils/helpers/ui_helper.h>
 
 #include <QBoxLayout>
-#include <QDesktopServices>
 #include <QStringListModel>
 #include <QTimer>
 
@@ -746,25 +745,10 @@ LoglineGeneratorDialog::LoglineGeneratorDialog(QWidget* _parent)
         d->doneButton->setVisible(isOnLastPage);
         d->continueButton->setVisible(!isOnLastPage);
         d->backButton->setVisible(true);
+        titleIcon()->setVisible(!isOnLastPage);
 
         if (isOnLastPage) {
             d->logline->setText(d->buildLogline());
-
-            //
-            // Перенастроим кнопку диалога на шеринг
-            //
-            titleIcon()->disconnect(this);
-            titleIcon()->setChecked(false);
-            titleIcon()->setCheckable(false);
-            titleIcon()->setIcon(u8"\U000F0544");
-            titleIcon()->setToolTip(tr("Share your logline"));
-            connect(titleIcon(), &IconButton::clicked, this, [this] {
-                const auto message
-                    = QString("%1 '%2'").arg(tr("Check out my new logline"), d->logline->text());
-                QDesktopServices::openUrl(
-                    QUrl(QString("https://twitter.com/intent/tweet?text=%1&via=starcapp_")
-                             .arg(message)));
-            });
         }
 
         d->progressBar->setProgress(std::min(1.0, d->progressBar->progress() + 1 / 7.0));
@@ -772,22 +756,10 @@ LoglineGeneratorDialog::LoglineGeneratorDialog(QWidget* _parent)
         d->content->setCurrentWidget(d->page(d->currentPage));
         QTimer::singleShot(300, this, [this] { d->pageFocus(d->currentPage)->setFocus(); });
     });
-    connect(d->backButton, &Button::clicked, this, [this, setHintsVisibile] {
+    connect(d->backButton, &Button::clicked, this, [this] {
         if (d->currentPage == Character) {
             d->closeButton->click();
             return;
-        }
-
-        if (d->currentPage == Logline) {
-            //
-            // Перенастроим кнопку диалога на отображение справки
-            //
-            titleIcon()->disconnect(this);
-            titleIcon()->setCheckable(true);
-            titleIcon()->setChecked(d->stakesHint->width() > 1);
-            titleIcon()->setIcon(u8"\U000F02D7");
-            titleIcon()->setToolTip(tr("Show help"));
-            connect(titleIcon(), &IconButton::checkedChanged, this, setHintsVisibile);
         }
 
         d->currentPage = static_cast<Page>(d->currentPage - 1);
@@ -796,6 +768,7 @@ LoglineGeneratorDialog::LoglineGeneratorDialog(QWidget* _parent)
         d->continueButton->setVisible(true);
         d->doneButton->setVisible(false);
         d->backButton->setVisible(!isOnFirstPage);
+        titleIcon()->show();
 
         d->progressBar->setProgress(std::max(0.0, d->progressBar->progress() - 1 / 7.0));
         d->progressBar->setFocus();
