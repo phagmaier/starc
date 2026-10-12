@@ -24,11 +24,18 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
     "Presentation" is gone for PDF files, and a type remembered for a file
     falls back to the first one offered.
   - "Split to episodes" went away with the series (see Cut).
-- [ ] **Keep backups for longer than one writing session.** Every save writes a
+- [x] **Keep backups for longer than one writing session.** Every save writes a
   full copy and only the newest 7 are kept, while autosave runs every 3 minutes.
   Keep a few recent copies plus one per day. Start at
   `src/corelib/utils/tools/backup_builder.cpp` and its caller in
   `application_manager.cpp`.
+  - Done 2026-10-11: keep seven recent successful copies (more if configured),
+    plus the newest snapshot for each of the last 30 local calendar days,
+    including today. Overlapping selections share one file. Prune only after
+    a complete new backup is published. Source-path identities isolate stories
+    with the same filename; legacy and unclassified copies remain untouched.
+    Deterministic retention/failure checks and disposable-project restoration
+    passed, including an ordinary save and recovery in the real Xvfb application.
 - [ ] **Store the GitHub token in the system keyring.** It is plain text in the
   settings file (`kGitHubSyncTokenKey`). No keychain library is in the build
   yet. An existing token has to keep working after the change.

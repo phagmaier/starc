@@ -1123,8 +1123,8 @@ SettingsView::SettingsView(QWidget* _parent)
         bool isValidInt = false;
         auto backupsQty = d->backupsQty->text().toInt(&isValidInt);
         if (isValidInt) {
-            if (backupsQty <= 2) {
-                backupsQty = 2;
+            if (backupsQty < 7) {
+                backupsQty = 7;
             } else if (backupsQty > 50) {
                 backupsQty = 50;
             }
@@ -2355,7 +2355,9 @@ void SettingsView::updateTranslations()
            "If you work with no interruptions it saves the project every 3 minutes."));
     d->saveBackups->setText(tr("Save backups"));
     d->backupsFolderPath->setLabel(tr("Backups folder path"));
-    d->backupsQty->setLabel(tr("Qty"));
+    d->backupsQty->setLabel(tr("Recent copies (at least 7)"));
+    d->saveBackups->setToolTip(tr("Keep at least seven recent copies and the newest copy from each "
+                                "of the last 30 calendar days."));
     d->applicationGitHubSyncTitle->setText(tr("Sync with GitHub"));
     d->gitHubSyncRepository->setLabel(tr("Private repository"));
     d->gitHubSyncRepository->setHelper(tr("In the form owner/name"));

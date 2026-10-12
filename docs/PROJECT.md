@@ -291,6 +291,96 @@ tested; the displayed gender counts used unspecified genders. No report
 PDF/XLSX export, performance measurement, release build or desktop-session test
 was done. Xvfb is real-window evidence, not proof on the owner's desktop.
 
+## Backup retention across writing sessions
+
+Implemented on 2026-10-11 in `BackupBuilder`, keeping the existing configured
+backup folder and recovery workflow: copy a `.starc` snapshot to a working file
+and open it. The application's existing asynchronous save caller and its
+log/task-bar error reporting remain in use. No dependencies were added.
+
+Retention runs independently for each source path and backup-name family, only
+after successful publication of a complete new snapshot:
+
+- Keep the seven newest successful snapshots. An existing quantity preference
+  greater than seven retains that many recent copies; lower values now mean
+  seven. The settings label explains the minimum and the checkbox tooltip
+  describes daily history. The shared builder also applies this minimum and
+  daily history to the separate “before GitHub download” backup family.
+- Also keep the newest snapshot from each of the last 30 **local calendar
+  days**, including the day of the save (today through today minus 29 days).
+  Recent and daily selections form one union, so a snapshot is never duplicated.
+  Recent copies can survive beyond the daily horizon when a story is saved
+  infrequently. Pruning happens on successful saves, not on a background timer.
+- New names contain the readable story name, a SHA-256 digest of its cleaned
+  absolute source path, a `yyyy_MM_dd_hh_mm_ss` timestamp and, when necessary,
+  a numeric collision ordinal. Numeric ordering resolves same-second saves
+  without replacing an existing copy. Different source folders with the same
+  story filename have separate histories. Moving or renaming a story starts a
+  new family and leaves its old history intact.
+- Old basename-only names cannot identify which same-named source they belonged
+  to, so they remain untouched, including iCloud placeholders and abandoned old
+  temporary copies. Malformed timestamps/ordinals, unrelated files, directories
+  and symlinks are also left alone. These unclassified files are outside the
+  bounded policy; there is no automatic migration or cleanup of legacy history.
+- A per-source lock prevents competing builder operations from pruning each
+  other's copies. A unique temporary file in the backup directory is fully
+  written and flushed before an atomic, non-overwriting rename. Failed reads,
+  partial writes, flushes, lock acquisition or publication cannot prune existing
+  recovery copies. Temporary files are cleaned on normal failure. A removal
+  error reports both the new backup path and the old file it could not remove.
+  The newly published snapshot is retained even if the clock moves backwards.
+
+Validation:
+
+- `./build/dev.sh doctor`: passed; optional translation utilities remain absent.
+- `make qmake_all` in `.build/debug`, then
+  `JOBS=4 ./build/dev.sh build debug`: passed.
+- `./tools/check-backup-retention.sh`: passed. The linked debug-library check
+  uses `saveAt` with explicit timestamps, without changing the machine clock.
+  It covers twelve same-second saves (including ordinals 9–11), minimum seven
+  and higher configured counts, twelve saves per day across 36 days, the
+  inclusive 30-day boundary, recent/daily overlap, sparse old recent copies,
+  same-named stories in different folders, malformed/legacy/unrelated names,
+  directory and broken-symlink collisions, and missing-source, lock, invalid
+  date, invalid name and folder-creation failures. A process-local file-size
+  limit also forces a partial write and verifies every old copy's exact bytes
+  and temporary-file cleanup. The test creates and types in a disposable
+  screenplay, explicitly serializes its models before saving, compares the
+  complete backup bytes, restores a copy and checks editor text and serialized
+  document bytes through save/reopen.
+- `./tools/check-screenplay-scope.sh`, `./tools/check-project-sync.sh` and
+  `./tools/check-writing-session-storage.sh`: passed. The sync check needed
+  escalation for its local mock server; no real account was contacted.
+- A real application window on private Xvfb `:1`, launched with
+  `STARC_PROFILE_DIR` and `unshare -Urn` (network disabled), opened a copy of the
+  previous disposable mixed project. Typing `BACKUP UI SURVIVAL MARKER` in the
+  screenplay and pressing Ctrl+S exercised the ordinary save and asynchronous
+  backup path. The backup matched the saved file byte for byte and passed
+  SQLite integrity checking. Only the screenplay content changed; the other
+  37 document contents and identities stayed exact. A copied backup opened in
+  a second application launch displayed the marker and retained all 38 saved
+  document contents and identities. Both launches quit normally with Ctrl+Q,
+  exit 0; the private X server was then stopped. No file dialogs, file managers
+  or external links were opened, and no unrelated application was terminated.
+- Bash syntax, ShellCheck and `git diff --check`: passed. Graph coverage was
+  checked for the relied-on paths; Qt macro/parser gaps and unreliable caller
+  edges were verified directly in source.
+
+Evidence is retained under `.build/evidence/backup-retention/` and the unique
+`backup-retention-*` check directories. It includes failed fixture runs and
+backtraces (missing embedded icon font, then undelivered queued completion
+callbacks), corrected by loading all required fonts and dispatching normal
+per-keystroke events, with no sleeps or retries. The initial sandbox-blocked
+Xvfb, ptrace and mock-server attempts are retained too. The UI driver,
+screenshots and `ui/save-result.json` record the save, restoration and exits.
+
+Limits: this is Linux debug and Xvfb evidence, not the owner's desktop or a
+release build. The three-minute autosave timer was not waited out; deterministic
+checks exercise the same backup builder it uses. Forced process/power loss,
+concurrent modification of the source during copying, disk-full flush/rename
+failures, and an actual pruning-permission failure were not injected. Legacy
+copies and histories for moved/renamed source paths can accumulate by design.
+
 Build, UI, disabled-plugin control and debugger logs, including the failed
 fixture attempts, are retained under `.build/evidence/screenplay-statistics/`.
 The fixture fixes give model serialization an explicit save boundary, keep
