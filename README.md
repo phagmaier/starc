@@ -6,7 +6,7 @@
 
 ### Your stories. Your way.
 
-**A professional writing environment for screenplays, novels, stage plays, audio plays, comic books, and more.**
+**A professional writing environment for screenplays and novels.**
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-blue.svg)](./LICENSE)
 [![Windows build](https://github.com/story-apps/starc/actions/workflows/build_starc_windows.yml/badge.svg)](https://github.com/story-apps/starc/actions/workflows/build_starc_windows.yml)
@@ -30,7 +30,7 @@ The project is created by the team behind [KIT Scenarist](https://github.com/dim
 
 ## Highlights
 
-- **Multiple writing formats** — screenplays, TV series, novels, comic books, stage plays, audio plays, presentations, and free-form text.
+- **Multiple writing formats** — screenplays, TV series, novels, presentations, and free-form text.
 - **Professional templates** — page presets for different regions and industry conventions.
 - **One home for the whole story** — keep drafts, scripts, notes, research, images, characters, locations, and story worlds together.
 - **Planning tools** — outlines, cards, timelines, mind maps, series plans, and screenplay breakdowns.

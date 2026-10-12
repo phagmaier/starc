@@ -133,3 +133,50 @@ storage and local mock GitHub sync regressions passed. Generated dependencies
 required `make qmake_all` after deleting the AI headers. Failed build and harness
 attempts remain under `.build/evidence/feature-pruning/`; the construction check
 is not visible GUI or document round-trip evidence.
+
+## Audioplay, stageplay, and comic book removal
+
+These three formats can no longer be created, imported, exported, or configured.
+Their 13 public document plugins, corelib models, documents, templates,
+importers, exporters, reports, export dialogs, and bundled template resources
+were deleted (325 tracked paths), with the three private statistics submodule
+links. Novel and simple text support is unchanged.
+
+Existing project data is kept. The persisted type identifiers, MIME mappings, and
+upstream database upgrade steps remain. A document of a retired format is shown
+in the project tree, is never loaded into a model or written back, and shows a
+notice that its content is preserved when selected. To edit it, open a copy of
+the project in an application that supports the format.
+
+Validation on 2026-10-11, all with the debug build:
+
+- `JOBS=4 ./build/dev.sh build debug` passed after `make qmake_all` in
+  `.build/debug`. The rebuilt core library and core plugin export no audioplay,
+  comic book, or stageplay symbols, and 26 plugins are built (the core plugin and
+  25 document plugins).
+- `./tools/check-screenplay-scope.sh` passed. It found two defects that were
+  fixed: adding a retired document to the structure dereferenced a missing
+  model, and several view paths showed an endless loading page.
+- `./tools/check-writing-session-storage.sh` and `./tools/check-project-sync.sh`
+  (local stand-in server only) passed.
+- The application started offscreen with an isolated profile and logged no
+  warnings or errors before a 20 second timeout ended it.
+
+Limits:
+
+- Every check ran offscreen and in process. Visible desktop behavior, the context
+  menu on a retired document, multi-selection, split view, and ordinary close
+  were not exercised in a window.
+- The scope check saves the model explicitly to define an Undo step and waits
+  for the editor's idle timer before saving; the application does both on timers.
+- The retired documents in the check are synthetic byte strings in a new
+  project, not a project written by an upstream release.
+- A project file is upgraded once on its second open. The retained upstream step
+  rewrites comic book and screenplay text as text, which is lossless for the XML
+  the application writes but not for arbitrary bytes.
+- No performance measurements were made, and no release build was compiled.
+- Translation catalogs still contain strings of the removed features.
+
+Build logs, including the failed attempts, the earlier scripted-pruning scripts,
+and the moved-aside plugin binaries of the retired formats are under
+`.build/evidence/feature-pruning/`.

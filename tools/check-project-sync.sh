@@ -29,7 +29,8 @@ SERVER=$!
 trap 'kill "$SERVER" 2>/dev/null || true' EXIT
 PORT=
 for _ in $(seq 1 50); do
-    PORT=$(sed -n 's/^PORT //p;q' "$EVIDENCE/server.log")
+    # The log may not exist yet while the server starts.
+    PORT=$(sed -n 's/^PORT //p;q' "$EVIDENCE/server.log" 2> /dev/null || true)
     [[ -n "$PORT" ]] && break
     sleep 0.1
 done

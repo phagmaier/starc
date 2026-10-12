@@ -115,6 +115,14 @@ After a debug build, run `./tools/check-writing-session-storage.sh` for the
 focused writing-statistics storage regression. It uses an isolated profile and
 retains compile/test logs under `.build/evidence/`.
 
+`./tools/check-screenplay-scope.sh` checks the screenplay-only scope: creation
+choices and settings offer no retired format, the real screenplay editor handles
+typing, Enter/Tab transitions, Undo/Redo and pagination, the Fountain, FDX, DOCX
+and PDF exports contain the typed text, and documents of retired formats keep
+their exact bytes across save and reopen. It builds `tests/screenplay_scope_test.cpp`
+against the debug build and runs it offscreen with a disposable project and
+profile. It needs `pdftotext` (poppler) and does not show a window.
+
 `./tools/check-project-sync.sh` checks the GitHub story sync logic and client
 the same way. It starts `tests/github_mock_server.py`, a local stand-in for the
 GitHub API, so it needs no account and sends nothing to GitHub. To try the sync

@@ -29,7 +29,7 @@ This is a starting map, not an exhaustive dependency inventory. The routes below
 
 The model and the editable rich text document are distinct layers. [TextDocument](../src/corelib/business_layer/document/text/text_document.h) binds a model, maps blocks to model items, and exposes edit transaction state. Trace both sides when diagnosing a change that appears correct on screen but saves or reopens incorrectly.
 
-Shared editor infrastructure lives in [ScriptTextEdit](../src/corelib/ui/modules/script_text_edit/script_text_edit.h), [BaseTextEdit](../src/corelib/ui/widgets/text_edit/base/base_text_edit.h), and [PageTextEdit](../src/corelib/ui/widgets/text_edit/page/page_text_edit.h). These cover reusable script editing, text correction/formatting, and paged text widget behavior. Screenplay-specific changes should begin in the screenplay plugin when practical. Changes to shared classes may also affect novels, stageplays, audioplays, or other document types.
+Shared editor infrastructure lives in [ScriptTextEdit](../src/corelib/ui/modules/script_text_edit/script_text_edit.h), [BaseTextEdit](../src/corelib/ui/widgets/text_edit/base/base_text_edit.h), and [PageTextEdit](../src/corelib/ui/widgets/text_edit/page/page_text_edit.h). These cover reusable script editing, text correction/formatting, and paged text widget behavior. Screenplay-specific changes should begin in the screenplay plugin when practical. Changes to shared classes may also affect novels and simple text documents.
 
 ## Formatting, preferences, and file operations
 
@@ -43,6 +43,20 @@ Shared editor infrastructure lives in [ScriptTextEdit](../src/corelib/ui/modules
 | Project document persistence | [DocumentStorage](../src/corelib/data_layer/storage/document_storage.h) and [Database](../src/corelib/data_layer/database.h) | Document objects, storage implementation, SQL transactions, schema creation, and migration methods. Start project save/open investigations at `ProjectManager` and follow the actual call path. |
 
 For layout changes, inspect the template, document correction, paged widget, and exporter paths together. Screen appearance alone does not establish PDF output or saved-document behavior.
+
+## Retired formats
+
+Audioplay, stageplay, and comic book editing was removed from this fork, together with the AI assistant. Novel, simple text, and the shared project documents remain. A project that already contains documents of a retired format keeps them untouched:
+
+| Area | Start here | Notes |
+| --- | --- | --- |
+| Which types are retired | `isUnsupportedDocumentType` in [document_object.h](../src/corelib/domain/document_object.h) | The 18 persisted type identifiers and their MIME mappings stay in the enum and in `document_object.cpp`. Do not renumber or remove them. |
+| No model, no rewrite | `ProjectModelsFacade::modelFor` in [project_models_facade.cpp](../src/core/management_layer/content/project/project_models_facade.cpp) | Returns `nullptr` for a retired type before a document is created or parsed, so its content is never loaded into a model or saved back. |
+| What the user sees | `ProjectManager::showView` and [ProjectView::showUnsupportedFormatPage](../src/core/ui/project/project_view.h) | Selecting such a document shows a notice instead of an editor. It cannot be created, dragged, given drafts, or changed from the context menu. |
+| Structure tree | [StructureModel](../src/corelib/business_layer/model/structure/structure_model.h) | `addDocument` refuses retired types; existing items are still parsed, shown, and serialized. |
+| Old project files | [Database](../src/corelib/data_layer/database.h) | The upstream upgrade steps stay, including the one that renames comic book blocks in projects from before 0.1.3. They treat script documents as text. |
+
+Several tables in `project_manager.cpp` still list the retired type identifiers (text items, items that cannot be removed separately, sharing). They classify existing structure items and need no retired source code.
 
 ## Story sync with GitHub
 
@@ -64,7 +78,7 @@ Rules the code relies on:
 
 ## Scope and validation notes
 
-- Some modules are conditional. [core.pro](../src/core/core.pro) optionally includes `src/cloud/cloud.pri`; [plugins.pro](../src/core/management_layer/plugins/plugins.pro) conditionally includes modules such as screenplay cards, timeline, breakdown, and statistics. Their absence should be checked against the checkout and build configuration before investigating it as a runtime defect.
+- Some modules are conditional. [core.pro](../src/core/core.pro) optionally includes `src/cloud/cloud.pri`; [plugins.pro](../src/core/management_layer/plugins/plugins.pro) conditionally includes modules such as screenplay cards, timeline, breakdown, and statistics. The private audioplay, stageplay, and comic book statistics modules are no longer referenced. Their absence should be checked against the checkout and build configuration before investigating it as a runtime defect.
 - [src/testapp/main.cpp](../src/testapp/main.cpp) is an interactive widget demo, and `testapp` is commented out in `src/starc.pro`. It is not evidence of an automated screenplay regression suite.
 - For an editor change, choose checks that exercise the changed behavior: typing and paragraph transitions, Undo/Redo, save/reopen, and affected exports. Use copies of project files. Record what actually ran and preserve failures.
 - A successful build or headless startup proves only that specific boundary. Visible desktop behavior, keyboard interaction, pagination, and exported layout require corresponding evidence.
