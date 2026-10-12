@@ -92,9 +92,15 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Debug build, screenplay scope and writing-session regressions passed.
     Private Xvfb confirmed the story list, Create and GitHub setup dialogs;
     ordinary Ctrl+Q exited 0. Evidence and limits: `docs/PROJECT.md`.
-- [ ] **Cover image search through upstream.** Queries go to `starc.app` and to
+- [x] **Cover image search through upstream.** Queries go to `starc.app` and to
   Google Translate (`unsplash_images_view.cpp`, `cover_generator_sidebar.cpp`).
-  Decide: cut the search, or keep it knowingly.
+  cut the search and cover images.
+  - Done 2026-10-12: removed project cover controls/generator, upstream search,
+    its unused Google Translate request helper and story-card cover thumbnails.
+    Existing cover references and image bytes remain stored unchanged.
+  - Debug build, screenplay/storage regressions and private Xvfb information
+    editing/save/reopen/story-card checks passed; both process exits were 0.
+    Missing-image references also survive open/save. See `docs/PROJECT.md`.
 - [ ] **Font downloads from `starc.app`** for missing fonts
   (`application_manager.cpp`). Decide: bundle what is needed, or drop it.
 - [x] **Novel and screenplay series.** Decided 2026-10-11: this fork is for

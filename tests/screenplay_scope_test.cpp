@@ -22,6 +22,7 @@
 #include <management_layer/content/project/project_manager.h>
 #include <management_layer/content/project/project_models_facade.h>
 #include <management_layer/content/projects/projects_manager.h>
+#include <management_layer/content/projects/projects_model.h>
 #include <management_layer/content/projects/projects_model_project_item.h>
 #include <management_layer/content/settings/settings_manager.h>
 #include <management_layer/content/shortcuts/shortcuts_manager.h>
@@ -35,6 +36,7 @@
 #include <ui/project/project_navigator.h>
 #include <ui/project/project_view.h>
 #include <ui/projects/create_project_dialog.h>
+#include <ui/projects/project_card.h>
 #include <ui/settings/settings_navigator.h>
 #include <ui/settings/settings_view.h>
 #include <ui/widgets/app_bar/app_bar.h>
@@ -42,21 +44,25 @@
 #include <ui/widgets/check_box/check_box.h>
 #include <ui/widgets/combo_box/combo_box.h>
 #include <ui/widgets/drawer/drawer.h>
+#include <ui/widgets/image/image_card.h>
 #include <ui/widgets/label/label.h>
 #include <ui/widgets/tree/tree.h>
 
 #include <QAction>
 #include <QApplication>
+#include <QBuffer>
 #include <QComboBox>
 #include <QDir>
 #include <QFile>
 #include <QFontDatabase>
-#include <QKeyEvent>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QKeyEvent>
+#include <QPainter>
 #include <QSettings>
 #include <QSortFilterProxyModel>
+#include <QStyleOptionGraphicsItem>
 #include <QTextDocument>
 #include <QTimer>
 #include <QTreeView>
@@ -73,6 +79,50 @@ void require(bool _ok, const char* _label)
     }
     std::printf("ok: %s\n", _label);
 }
+
+void checkStoryCardsWithoutCovers(const QString& _evidence)
+{
+    class RenderCard : public Ui::ProjectCard
+    {
+    public:
+        using Ui::ProjectCard::paint;
+    };
+    BusinessLayer::ProjectsModel projects;
+    auto project = new BusinessLayer::ProjectsModelProjectItem;
+    project->setProjectType(BusinessLayer::ProjectType::Local);
+    project->setName("A retained story with a description");
+    project->setLogline("The story card keeps its text and status.");
+    projects.appendItem(project);
+    RenderCard card;
+    const auto index = projects.indexForItem(project);
+    auto render = [&](Qt::LayoutDirection direction) {
+        card.setModelItemIndex(index);
+        QImage result(card.rect().size().toSize(), QImage::Format_ARGB32_Premultiplied);
+        result.fill(Qt::transparent);
+        QPainter painter(&result);
+        QStyleOptionGraphicsItem option;
+        option.direction = direction;
+        card.paint(&painter, &option, nullptr);
+        return result;
+    };
+    const auto path = _evidence + "/legacy-poster.png";
+    QPixmap poster(200, 300);
+    poster.fill(Qt::red);
+    require(poster.save(path), "seed cached legacy poster");
+    project->setPosterPath(path);
+    for (const auto direction : { Qt::LeftToRight, Qt::RightToLeft }) {
+        const auto withPoster = render(direction);
+        project->setPosterPath(_evidence + "/absent-poster.png");
+        require(render(direction) == withPoster,
+                "story card rendering does not depend on a stored or missing cover");
+        project->setPosterPath({ });
+        require(render(direction) == withPoster, "story card has no default cover");
+        project->setPosterPath(path);
+    }
+    require(QFile::exists(path) && project->posterPath() == path,
+            "retiring cover rendering keeps the cached poster and its reference");
+}
+
 void noAi(QWidget* _widget)
 {
     require(_widget, "construct retained view");
@@ -581,6 +631,7 @@ int main(int argc, char** argv)
     static_assert(static_cast<int>(Type::Novel) == 10500);
     static_assert(static_cast<int>(Type::ScreenplaySeries) == 10110);
     static_assert(static_cast<int>(Type::ScreenplayText) == 10104);
+    checkStoryCardsWithoutCovers(evidence);
 
     // Dialogs require a top-level parent to overlay.
     QWidget host;
@@ -677,7 +728,7 @@ int main(int argc, char** argv)
         { "type", static_cast<int>(BusinessLayer::ProjectType::Cloud) },
         { "uuid", "{12cf11aa-e03d-4d50-a09a-429e9b57c427}" },
         { "name", "Historical shared story" }, { "logline", "Retained logline" },
-        { "path", evidence + "/cached-cloud.starc" }, { "poster_path", "" },
+        { "path", evidence + "/cached-cloud.starc" }, { "poster_path", evidence + "/legacy-poster.png" },
         { "last_edit_time", "2026-10-01T12:00:00.000" }, { "can_ask", true },
         { "is_review_enabled", true }, { "is_owner", false }, { "role", 0 },
         { "permissions", QJsonArray{} }
@@ -738,8 +789,37 @@ int main(int argc, char** argv)
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
     DatabaseLayer::Database::setCurrentFile(path);
+    // Seed an old project's cover independently of the retired UI. A trailing
+    // payload makes re-encoding the PNG detectable even when its decoded pixels
+    // would remain identical.
+    const auto legacyCoverUuid = QUuid::createUuid();
+    QPixmap legacyCover(20, 30);
+    legacyCover.fill(Qt::green);
+    QByteArray legacyCoverBytes;
+    QBuffer coverBuffer(&legacyCoverBytes);
+    require(coverBuffer.open(QIODevice::WriteOnly) && legacyCover.save(&coverBuffer, "PNG"),
+            "seed legacy cover PNG");
+    legacyCoverBytes += QByteArray::fromHex("0000ff") + "retained cover payload";
+    auto coverDocument = storage->createDocument(legacyCoverUuid, Type::ImageData);
+    coverDocument->setContent(legacyCoverBytes);
+    require(storage->saveDocument(coverDocument), "store legacy cover bytes");
+    auto projectInfo = storage->document(Type::Project);
+    require(projectInfo, "stored project information");
+    const auto projectInfoUuid = projectInfo->uuid();
+    auto projectInfoBytes = projectInfo->content();
+    const QByteArray emptyCover
+        = "<cover><![CDATA[{00000000-0000-0000-0000-000000000000}]]></cover>";
+    const auto legacyCoverTag
+        = "<cover><![CDATA[" + legacyCoverUuid.toString().toUtf8() + "]]></cover>";
+    require(projectInfoBytes.contains(emptyCover), "seed project has an empty cover reference");
+    projectInfoBytes.replace(emptyCover, legacyCoverTag);
+    projectInfo->setContent(projectInfoBytes);
+    require(storage->saveDocument(projectInfo), "store legacy cover reference");
+    DatabaseLayer::Database::commit();
     manager.loadCurrentProject(&project);
     require(structure, "reopen the new project");
+    require(manager.projectCover().toImage() == legacyCover.toImage(),
+            "retired cover remains decodable from the project");
     const auto screenplay = structure->addDocument(Type::Screenplay, "Kept screenplay");
     require(screenplay.isValid(), "create screenplay");
     auto story = structure->itemForIndex(screenplay);
@@ -778,6 +858,7 @@ int main(int argc, char** argv)
                 && structure->itemForUuid(characterUuid)->type() == Type::Character,
             "seed mind map and character documents");
     QHash<QUuid, QByteArray> retired;
+    retired.insert(legacyCoverUuid, legacyCoverBytes);
     QVector<QUuid> retiredText;
     // All 32 persisted format identifiers, plus drafts and binary/image data. A novel and a
     // series have one document more than the other retired formats.
@@ -854,6 +935,25 @@ int main(int argc, char** argv)
     const auto proxyIndex = [&](const QUuid& _uuid) {
         return proxy->mapFromSource(structure->indexForItem(structure->itemForUuid(_uuid)));
     };
+    navigator->setCurrentIndex(proxyIndex(projectInfoUuid));
+    QWidget* informationView = nullptr;
+    for (auto widget : manager.view()->findChildren<QWidget*>()) {
+        if (QString(widget->metaObject()->className()) == "Ui::ProjectInformationView")
+            informationView = widget;
+    }
+    require(informationView && informationView->findChildren<ImageCard*>().isEmpty(),
+            "project information has no cover image card");
+    require(informationView->metaObject()->indexOfSignal("coverChanged(QPixmap)") < 0,
+            "project information has no cover mutation signal");
+    require(QMetaObject::invokeMethod(informationView, "nameChanged",
+                                      Q_ARG(QString, "Retained cover project renamed"))
+                && QMetaObject::invokeMethod(informationView, "loglineChanged",
+                                             Q_ARG(QString, "Retained description edited")),
+            "retained project information edit connections");
+    require(manager.projectName() == "Retained cover project renamed"
+                && manager.projectLogline() == "Retained description edited"
+                && storage->document(projectInfoUuid)->content().contains(legacyCoverTag),
+            "editing name and description retains the cover reference");
     navigator->setCurrentIndex(proxyIndex(episodeScriptUuid));
     require(manager.currentDocument() && manager.currentDocument()->uuid() == episodeScriptUuid
                 && !unsupportedNoticeShown(manager.view()),
@@ -948,6 +1048,7 @@ int main(int argc, char** argv)
     DatabaseLayer::Database::commit();
     const auto screenplayBytes = manager.currentDocument()->content();
     const auto structureBytes = structure->document()->content();
+    const auto savedProjectInfoBytes = storage->document(projectInfoUuid)->content();
     QHash<QUuid, QByteArray> kept;
     for (const auto& uuid : { statisticsUuid, mindMapUuid, characterUuid }) {
         require(storage->document(uuid), "document without an editor is stored");
@@ -999,6 +1100,12 @@ int main(int argc, char** argv)
     manager.loadCurrentProject(&project);
     require(storage->document(scriptUuid)->content() == screenplayBytes,
             "screenplay bytes survive reopen");
+    require(storage->document(projectInfoUuid)->content() == savedProjectInfoBytes
+                && savedProjectInfoBytes.contains(legacyCoverTag)
+                && manager.projectName() == "Retained cover project renamed"
+                && manager.projectLogline() == "Retained description edited",
+            "retired cover reference and information edits survive save/reopen "
+            "exactly");
     for (auto it = retired.cbegin(); it != retired.cend(); ++it) {
         const auto document = storage->document(it.key());
         if (document == nullptr || document->content() != it.value()) {
@@ -1225,6 +1332,31 @@ int main(int argc, char** argv)
         delete importDialog;
     }
     manager.closeCurrentProject(path);
+    // A cover whose image is absent must retain its reference, rather than
+    // being reset when the information page is opened or its model is saved.
+    auto missingCoverInfo = storage->document(projectInfoUuid);
+    const auto missingCoverTag
+        = "<cover><![CDATA[" + QUuid::createUuid().toString().toUtf8() + "]]></cover>";
+    auto missingCoverInfoBytes = missingCoverInfo->content();
+    require(missingCoverInfoBytes.contains(legacyCoverTag),
+            "cover reference before missing-image check");
+    missingCoverInfoBytes.replace(legacyCoverTag, missingCoverTag);
+    missingCoverInfo->setContent(missingCoverInfoBytes);
+    require(storage->saveDocument(missingCoverInfo), "seed missing cover image reference");
+    DatabaseLayer::Database::commit();
+    storage->clear();
+    DatabaseLayer::Database::closeCurrentFile();
+    DatabaseLayer::Database::setCurrentFile(path);
+    manager.loadCurrentProject(&project);
+    navigator->setCurrentIndex(proxyIndex(projectInfoUuid));
+    manager.saveChanges();
+    DatabaseLayer::Database::commit();
+    require(storage->document(projectInfoUuid)->content() == missingCoverInfoBytes
+                && manager.projectCover().isNull()
+                && storage->document(legacyCoverUuid)->content() == legacyCoverBytes,
+            "missing cover image reference and stored image bytes survive "
+            "open/save exactly");
+    manager.closeCurrentProject(path);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
 
@@ -1247,7 +1379,10 @@ int main(int argc, char** argv)
     // Keep the original hosts alive: several existing plugins retain their primary view as a
     // raw pointer, and QPluginLoader shares a plugin instance between builders in this process.
     checkStatistics(evidence, {});
-    std::puts("PASS: screenplay scope, keyboard editing, Undo/Redo, pagination, exports, "
-              "mixed-project preservation, editors limited to what this build contains, "
-              "notifications UI absent with retained update metadata");
+    std::puts("PASS: screenplay scope, keyboard editing, Undo/Redo, "
+              "pagination, exports, "
+              "mixed-project preservation, editors limited to what this build "
+              "contains, "
+              "notifications UI absent with retained update metadata, "
+              "cover UI retired with exact legacy image preservation");
 }

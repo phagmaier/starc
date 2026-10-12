@@ -157,10 +157,7 @@ void ProjectCard::init()
     // Если название не влезает, то установим его тултипом
     //
     const QRectF backgroundRect = rect().marginsRemoved(DesignSystem::card().shadowMargins());
-    const QSizeF posterSize
-        = d->project->poster().size().scaled(backgroundRect.size().toSize(), Qt::KeepAspectRatio);
-    const auto textWidth
-        = backgroundRect.width() - posterSize.width() - DesignSystem::layout().px12() * 2;
+    const auto textWidth = backgroundRect.width() - DesignSystem::layout().px16() * 2;
     if (TextHelper::fineTextWidthF(d->project->name(), DesignSystem::font().h6()) > textWidth) {
         setToolTip(d->project->name());
     } else {
@@ -214,28 +211,13 @@ void ProjectCard::paint(QPainter* _painter, const QStyleOptionGraphicsItem* _opt
     _painter->drawPixmap(backgroundRect, backgroundPixmapCache, backgroundPixmapCache.rect());
 
     //
-    // Постер
-    //
-    const QSizeF posterSize
-        = d->project->poster().size().scaled(backgroundRect.size().toSize(), Qt::KeepAspectRatio);
-    const QRectF posterRect(isLeftToRight
-                                ? backgroundRect.topLeft()
-                                : backgroundRect.topRight() - QPointF(posterSize.width(), 0),
-                            posterSize);
-    const auto scaledPoster = d->project->poster().scaled(posterSize.toSize(), Qt::KeepAspectRatio,
-                                                          Qt::SmoothTransformation);
-    _painter->drawPixmap(posterRect, scaledPoster, scaledPoster.rect());
-
-    //
     // Заголовок
     //
     _painter->setPen(DesignSystem::color().onBackground());
     _painter->setFont(DesignSystem::font().h6());
-    const QRectF textRect(isLeftToRight ? posterRect.right() + DesignSystem::layout().px16()
-                                        : backgroundRect.left() + DesignSystem::layout().px12(),
+    const QRectF textRect(backgroundRect.left() + DesignSystem::layout().px16(),
                           backgroundRect.top() + DesignSystem::layout().px8(),
-                          backgroundRect.width() - posterRect.width()
-                              - DesignSystem::layout().px12() * 2,
+                          backgroundRect.width() - DesignSystem::layout().px16() * 2,
                           TextHelper::fineLineSpacing(_painter->font()));
     _painter->drawText(
         textRect, Qt::AlignLeft | Qt::AlignVCenter,

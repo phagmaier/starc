@@ -149,6 +149,11 @@ Notifications navigation, filters and release/credits widgets must also be
 absent from the menus. Synthetic release-feed checks retain the update-download
 link's platform/Qt filtering and ordering without network access; old notification
 preferences stay stored and ignored.
+Project cover controls/generation/search and story-card cover thumbnails are
+retired. The scope check verifies that stored cover PNG bytes and UUID references
+survive name/description editing and save/reopen, absent image references remain
+intact, cached poster records survive, and story cards render without covers in
+both text directions.
 It builds
 `tests/screenplay_scope_test.cpp`
 against the debug build and runs it offscreen with a disposable project and

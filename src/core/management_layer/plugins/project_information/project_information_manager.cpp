@@ -3,10 +3,6 @@
 #include "project_information_view.h"
 
 #include <business_layer/model/project/project_information_model.h>
-#include <ui/widgets/image/image_cropping_dialog.h>
-
-#include <QApplication>
-#include <QFileDialog>
 
 
 namespace ManagementLayer {
@@ -98,7 +94,6 @@ void ProjectInformationManager::Implementation::setModelForView(
         auto reloadModel = [_view, model] {
             _view->setName(model->name());
             _view->setLogline(model->logline());
-            _view->setCover(model->cover());
         };
         reloadModel();
 
@@ -107,15 +102,11 @@ void ProjectInformationManager::Implementation::setModelForView(
                 &Ui::ProjectInformationView::setName);
         connect(model, &BusinessLayer::ProjectInformationModel::loglineChanged, _view,
                 &Ui::ProjectInformationView::setLogline);
-        connect(model, &BusinessLayer::ProjectInformationModel::coverChanged, _view,
-                &Ui::ProjectInformationView::setCover);
         //
         connect(_view, &Ui::ProjectInformationView::nameChanged, model,
                 &BusinessLayer::ProjectInformationModel::setName);
         connect(_view, &Ui::ProjectInformationView::loglineChanged, model,
                 &BusinessLayer::ProjectInformationModel::setLogline);
-        connect(_view, &Ui::ProjectInformationView::coverChanged, model,
-                qOverload<const QPixmap&>(&BusinessLayer::ProjectInformationModel::setCover));
     }
 }
 

@@ -350,9 +350,6 @@ SOURCES += \
     ui/modules/comments/comments_toolbar.cpp \
     ui/modules/comments/comments_view.cpp \
     ui/modules/counters_info/counters_info_widget.cpp \
-    ui/modules/cover_generator/cover_generator_sidebar.cpp \
-    ui/modules/cover_generator/cover_generator_view.cpp \
-    ui/modules/cover_generator/unsplash_images_view.cpp \
     ui/modules/fast_format_widget/fast_format_widget.cpp \
     ui/modules/images_list/images_list.cpp \
     ui/modules/images_list/images_list_preview.cpp \
@@ -463,7 +460,6 @@ SOURCES += \
     utils/helpers/shortcuts_helper.cpp \
     utils/helpers/string_helper.cpp \
     utils/helpers/text_helper.cpp \
-    utils/helpers/text_translate_helper.cpp \
     utils/helpers/time_helper.cpp \
     utils/helpers/ui_helper.cpp \
     utils/logging.cpp \
@@ -641,9 +637,6 @@ HEADERS += \
     ui/modules/comments/comments_toolbar.h \
     ui/modules/comments/comments_view.h \
     ui/modules/counters_info/counters_info_widget.h \
-    ui/modules/cover_generator/cover_generator_sidebar.h \
-    ui/modules/cover_generator/cover_generator_view.h \
-    ui/modules/cover_generator/unsplash_images_view.h \
     ui/modules/fast_format_widget/fast_format_widget.h \
     ui/modules/images_list/images_list.h \
     ui/modules/images_list/images_list_preview.h \
@@ -761,7 +754,6 @@ HEADERS += \
     utils/helpers/shortcuts_helper.h \
     utils/helpers/string_helper.h \
     utils/helpers/text_helper.h \
-    utils/helpers/text_translate_helper.h \
     utils/helpers/time_helper.h \
     utils/helpers/ui_helper.h \
     utils/logging.h \

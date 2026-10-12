@@ -843,3 +843,64 @@ Limits: Linux debug/offscreen and private Xvfb only. The private display used an
 isolated profile/keyring and network-isolated application. The owner's desktop,
 real remote sync, native Open file dialog, other platforms and release packaging
 were not exercised. Existing translation catalogs and later TODO items remain.
+
+## Cover images and upstream image search removed
+
+Completed 2026-10-12, limited to the next unchecked Cut item. Removed the project
+information page's cover image card, upload/paste/reset/cropping controls and
+cover generator; the page retains its name and short description fields. Story
+cards use the available width for text and no longer load or draw cover/default
+poster thumbnails. The generator/search sources and qmake entries are deleted,
+along with the Google Translate request helper whose only remaining consumer
+was cover search. The upstream Unsplash search/download paths are gone.
+
+Persisted cover UUIDs, project image documents, cached poster paths and their
+compatibility model/storage behavior remain. Opening or editing a project does
+not clear an old cover, including a reference whose image is missing. Shared
+image widgets, character/location image data, ordinary UI translations and
+GitHub sync remain available. No dependency or project-format migration changed.
+
+Validation:
+
+- `./build/dev.sh doctor`, `make qmake_all` in `.build/debug`, and
+  `JOBS=4 ./build/dev.sh build debug`: passed. Source/build-entry and rebuilt
+  corelib/core/project-information plugin audits found no retired cover/search
+  classes, view cover mutation methods or request helper.
+- `./tools/check-screenplay-scope.sh`: passed. New checks independently seed a
+  legacy cover PNG with an extra binary payload, edit the bound information
+  page, and verify exact reference/image preservation through save/reopen.
+  A missing-image reference survives open/save unchanged. Cached team/project
+  records retain a nonempty poster path. Actual story-card painting is identical
+  for existing, missing and default covers in both text directions. Existing
+  keyboard editing, Undo/Redo, pagination, exports and mixed-project preservation
+  checks remain green.
+- `./tools/check-writing-session-storage.sh`, changed-code formatting review,
+  disposable driver syntax and `git diff --check`: passed. Graph coverage was
+  checked; reported Qt/parser gaps and ignored runtime drivers were read directly.
+- The actual application on private Xvfb opened a disposable previously created
+  screenplay project with a seeded old cover. Its information page displayed
+  only name and description fields. Zero-delay edits and ordinary Ctrl+S saved
+  the expected text while retaining exact image bytes and the cover UUID.
+  Only the project-information/structure documents changed as expected; all 15
+  document UUIDs/type IDs and all other content hashes remained intact.
+- Fresh startup showed a text-only story card with the saved name/description.
+  Opening it restored those fields without cover controls. A second normal
+  close preserved every saved document hash exactly; SQLite integrity passed.
+  The first run ended with Ctrl+W (exit `0`), and the reopened run with Ctrl+Q
+  (exit `0`), before teardown of the private display, bus and disposable keyring.
+
+Evidence: `.build/evidence/cover-removal-hhhgjsp2/` retains doctor/qmake/build
+logs, audits, driver, screenshots, command/exit transcripts and before/saved/
+reopened document hashes. Full final scope evidence is
+`.build/evidence/screenplay-scope-reuhyd/`; the storage evidence is
+`.build/evidence/writing-session-storage-uam5Mn/`. The earlier scope run is
+retained in `.build/evidence/screenplay-scope-WmCtW0/`. Startup/animation and
+post-window-close blank captures are retained and excluded from settled UI
+evidence; `reopened-story-list.png` and the information `*-ready.png` files show
+the verified surfaces.
+
+Limits: Linux debug/offscreen and private Xvfb only, using disposable projects,
+an isolated profile/Secret Service and network-isolated application children.
+No owner projects/keyring, external cover search, real remote GitHub, private
+cloud build, other platform or release packaging was exercised. Later TODO
+items and existing translation catalogs remain outside this task.
