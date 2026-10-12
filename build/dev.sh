@@ -5,6 +5,14 @@ set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 JOBS=${JOBS:-4}
 QMAKE=${QMAKE:-qmake6}
+QTKEYCHAIN_PREFIX=${QTKEYCHAIN_PREFIX:-}
+# Use the prepared unprivileged development dependency when the system package
+# is absent. Report this prefix in doctor; this is not a system installation.
+if [[ -z "$QTKEYCHAIN_PREFIX" && ! -f /usr/include/qt6keychain/keychain.h && \
+      -f "$ROOT/.build/keyring-deps/usr/include/qt6keychain/keychain.h" && \
+      -f "$ROOT/.build/keyring-deps/usr/lib/libqt6keychain.so" ]]; then
+    QTKEYCHAIN_PREFIX="$ROOT/.build/keyring-deps/usr"
+fi
 
 usage() {
     cat <<'EOF'
@@ -94,6 +102,12 @@ doctor() {
             fi
         done
     fi
+    if [[ -f "${QTKEYCHAIN_PREFIX:-/usr}/include/qt6keychain/keychain.h" && \
+          -f "${QTKEYCHAIN_PREFIX:-/usr}/lib/libqt6keychain.so" ]]; then
+        printf 'OK native dependency: Qt6Keychain (%s)\n' "${QTKEYCHAIN_PREFIX:-/usr}"
+    else
+        printf 'MISSING Qt6Keychain: install qtkeychain-qt6 or set QTKEYCHAIN_PREFIX\n'; missing=1
+    fi
     if pdf_ready; then
         printf 'OK public PDF submodules\n'
     else
@@ -120,6 +134,7 @@ configure() {
     qmake_args=("$ROOT/src/starc.pro" "CONFIG-=$([[ "$MODE" == debug ]] && printf release || printf debug)"
         "CONFIG+=$MODE" CONFIG-=debug_and_release
         "QMAKE_CFLAGS+=-DHAVE_UNISTD_H=1")
+    [[ -z "$QTKEYCHAIN_PREFIX" ]] || qmake_args+=("QTKEYCHAIN_PREFIX=$QTKEYCHAIN_PREFIX")
     signature=$(printf '%s\n' "$(command -v "$QMAKE")" "$("$QMAKE" -query QT_VERSION)" "${qmake_args[@]}")
     "$QMAKE" "${qmake_args[@]}"
     # Existing subproject Makefiles retain old command-line options. Refresh
@@ -169,6 +184,9 @@ case "$COMMAND" in
             fi
         fi
         export LD_LIBRARY_PATH="$output:$output/libs${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        if [[ -n "$QTKEYCHAIN_PREFIX" ]]; then
+            export LD_LIBRARY_PATH="$QTKEYCHAIN_PREFIX/lib:$LD_LIBRARY_PATH"
+        fi
         # Keep caller-relative project filenames meaningful. Plugins/assets
         # resolve via applicationDirPath, resources, or QStandardPaths.
         exec "$output/starcapp" "$@"

@@ -1,5 +1,6 @@
 #include "github_sync_manager.h"
 
+#include <data_layer/storage/github_credential_store.h>
 #include <data_layer/storage/settings_storage.h>
 #include <data_layer/storage/storage_facade.h>
 #include <management_layer/content/projects/projects_manager.h>
@@ -196,6 +197,11 @@ public:
     ProjectsManager* projectsManager = nullptr;
 
     GitHubFilesClient client;
+    GitHubCredentialStore* credentials = nullptr;
+    bool waitingForCredentialClose = false;
+    quint64 credentialCloseRequest = 0;
+    QPointer<Dialog> credentialCloseDialog;
+    quint64 operationGeneration = 0;
 
     /**
      * @brief Synced stories by the paths of their files
@@ -265,13 +271,26 @@ void GitHubSyncManager::Implementation::saveLinks()
 void GitHubSyncManager::Implementation::refresh(
     std::function<void(const GitHubFilesClient::Error&)> _callback)
 {
+    // Keep the private per-story action route behind the same readiness boundary.
+    if (credentials->isBusy()) {
+        const auto generation = operationGeneration;
+        credentials->whenSettled(q, [this, generation, _callback] {
+            if (operationGeneration == generation) refresh(_callback);
+        });
+        return;
+    }
+    if (credentials->token().trimmed().isEmpty()) {
+        _callback({ GitHubFilesClient::Error::Type::Unauthorized,
+                    tr("Set the GitHub access token in application settings before syncing.") });
+        return;
+    }
     //
     // The state is determined by the files, so all changes should be there
     //
     emit q->saveCurrentProjectRequested();
 
     client.setRepository(settingsValue(DataStorageLayer::kGitHubSyncRepositoryKey).toString());
-    client.setToken(settingsValue(DataStorageLayer::kGitHubSyncTokenKey).toString());
+    client.setToken(credentials->token());
 
     auto fail = [this, _callback](const GitHubFilesClient::Error& _error) {
         Log::warning("[GitHubSyncManager] Stories can't be checked: %1", _error.text);
@@ -636,6 +655,7 @@ void GitHubSyncManager::Implementation::runNextOperation()
 
 void GitHubSyncManager::Implementation::cancel()
 {
+    ++operationGeneration;
     client.abort();
     operations.clear();
     operationsCallback = {};
@@ -1139,10 +1159,20 @@ void GitHubSyncManager::Implementation::finishUploadBeforeExit(const QStringList
 
 
 GitHubSyncManager::GitHubSyncManager(QObject* _parent, QWidget* _parentWidget,
-                                     ProjectsManager* _projectsManager)
+                                     ProjectsManager* _projectsManager,
+                                     GitHubCredentialStore* _credentials)
     : QObject(_parent)
     , d(new Implementation(this, _parentWidget, _projectsManager))
 {
+    d->credentials = _credentials ? _credentials : GitHubCredentialStore::instance();
+    connect(d->credentials, &GitHubCredentialStore::changed, this, [this] {
+        if (d->credentials->isReady() && d->client.setToken(d->credentials->token())) {
+            d->cancel();
+            d->entries.clear();
+            d->updateStatuses();
+        }
+    });
+    d->credentials->start();
 }
 
 GitHubSyncManager::~GitHubSyncManager() = default;
@@ -1150,11 +1180,17 @@ GitHubSyncManager::~GitHubSyncManager() = default;
 bool GitHubSyncManager::isConfigured() const
 {
     return !settingsValue(DataStorageLayer::kGitHubSyncRepositoryKey).toString().trimmed().isEmpty()
-        && !settingsValue(DataStorageLayer::kGitHubSyncTokenKey).toString().trimmed().isEmpty();
+        && d->credentials->isReady() && !d->credentials->token().trimmed().isEmpty();
 }
 
 void GitHubSyncManager::checkOnStart()
 {
+    if (d->credentials->isBusy()) {
+        d->credentials->whenSettled(this, [this] { checkOnStart(); });
+        return;
+    }
+    if (!d->credentials->problem().isEmpty())
+        d->showMessage(d->credentials->problem());
     if (!isConfigured() || d->isBusy) {
         return;
     }
@@ -1162,6 +1198,7 @@ void GitHubSyncManager::checkOnStart()
     d->isBusy = true;
     d->refresh([this](const GitHubFilesClient::Error& _error) {
         d->isBusy = false;
+        emit checkFinished(!_error.isValid());
         if (_error.isValid()) {
             //
             // There is no need to disturb the user, if the computer is just offline
@@ -1179,6 +1216,14 @@ void GitHubSyncManager::checkOnStart()
 
 void GitHubSyncManager::sync()
 {
+    if (d->credentials->isBusy()) {
+        d->credentials->whenSettled(this, [this] { sync(); });
+        return;
+    }
+    if (!isConfigured() && !d->credentials->problem().isEmpty()) {
+        d->showMessage(d->credentials->problem());
+        return;
+    }
     if (!isConfigured()) {
         constexpr int setupButtonId = 1;
         d->showDialog(tr("The application can keep copies of your stories in a private GitHub "
@@ -1205,6 +1250,7 @@ void GitHubSyncManager::sync()
     d->refresh([this](const GitHubFilesClient::Error& _error) {
         TaskBar::finishTask(kTaskId);
         d->isBusy = false;
+        emit checkFinished(!_error.isValid());
         if (_error.isValid()) {
             d->showMessage(_error.text);
             return;
@@ -1214,7 +1260,62 @@ void GitHubSyncManager::sync()
     });
 }
 
+void GitHubSyncManager::settleCredentialsBeforeExit(std::function<void()> _callback)
+{
+    // Settle an intended field edit even if the user closes without leaving settings first.
+    if (d->waitingForCredentialClose)
+        return;
+    if (d->credentials->hasPendingChange() && d->credentials->problem().isEmpty()) {
+        d->credentials->save();
+    }
+    if (d->credentials->isBusy()) {
+        const auto request = ++d->credentialCloseRequest;
+        d->waitingForCredentialClose = true;
+        d->credentialCloseDialog = d->showDialog(
+            tr("Waiting for GitHub credential storage before closing..."),
+            { { 0, tr("Keep application open"), Dialog::RejectButton } }, [this](int) {
+                d->waitingForCredentialClose = false;
+                ++d->credentialCloseRequest;
+                d->credentialCloseDialog.clear();
+            });
+        d->credentials->whenSettled(this, [this, _callback, request] {
+            if (!d->waitingForCredentialClose || d->credentialCloseRequest != request)
+                return;
+            d->waitingForCredentialClose = false;
+            if (d->credentialCloseDialog)
+                d->credentialCloseDialog->hideDialog();
+            d->credentialCloseDialog.clear();
+            settleCredentialsBeforeExit(_callback);
+        });
+        return;
+    }
+    if (d->credentials->hasPendingChange()) {
+        d->waitingForCredentialClose = true;
+        d->showDialog(tr("The GitHub token change has not been saved.") + kParagraphBreak
+                          + d->credentials->problem(),
+                      { { 0, tr("Try again"), Dialog::NormalButton },
+                        { 1, tr("Keep application open"), Dialog::RejectButton },
+                        { 2, tr("Close without saving token"), Dialog::AcceptButton } },
+                      [this, _callback](int _choice) {
+                          d->waitingForCredentialClose = false;
+                          if (_choice == 0) {
+                              d->credentials->retry();
+                              settleCredentialsBeforeExit(_callback);
+                          } else if (_choice == 2) {
+                              _callback();
+                          }
+                      });
+        return;
+    }
+    _callback();
+}
+
 void GitHubSyncManager::uploadBeforeExit(std::function<void()> _callback)
+{
+    settleCredentialsBeforeExit([this, _callback] { uploadReadyBeforeExit(_callback); });
+}
+
+void GitHubSyncManager::uploadReadyBeforeExit(std::function<void()> _callback)
 {
     if (!isConfigured() || !settingsValue(DataStorageLayer::kGitHubSyncUploadOnExitKey).toBool()) {
         _callback();

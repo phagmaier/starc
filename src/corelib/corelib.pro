@@ -18,6 +18,16 @@ win32 {
 }
 
 QT += widgets widgets-private sql xml network concurrent
+
+# Qt 6 native credential storage; QtKeychain's plaintext fallback is disabled in the adapter.
+# Optional prefix supports a locally installed library without changing system packages.
+isEmpty(QTKEYCHAIN_PREFIX): QTKEYCHAIN_PREFIX = $$(QTKEYCHAIN_PREFIX)
+!isEmpty(QTKEYCHAIN_PREFIX) {
+    INCLUDEPATH += $$QTKEYCHAIN_PREFIX/include
+    LIBS += -L$$QTKEYCHAIN_PREFIX/lib
+    unix:QMAKE_RPATHDIR += $$QTKEYCHAIN_PREFIX/lib
+}
+LIBS += -lqt6keychain
 greaterThan(QT_MAJOR_VERSION, 5) {
     QT += core5compat
 }
@@ -193,6 +203,7 @@ DEPENDPATH += $$PWD/../3rd_party/pdfhummus/LibTiff
 #
 
 SOURCES += \
+    data_layer/storage/github_credential_store.cpp \
     business_layer/chronometry/chronometer.cpp \
     business_layer/compliance/compliance_checker.cpp \
     business_layer/compliance/compliance_checker_impl.cpp \
@@ -467,6 +478,7 @@ SOURCES += \
     utils/validators/email_validator.cpp
 
 HEADERS += \
+    data_layer/storage/github_credential_store.h \
     business_layer/chronometry/chronometer.h \
     business_layer/compliance/compliance_checker.h \
     business_layer/compliance/compliance_checker_impl.h \

@@ -25,8 +25,10 @@ public:
      * @brief Set the repository and the access token, which are already used for the sync
      */
     void setGitHubSync(const QString& _repository, const QString& _token);
+    void setCredentialState(bool _busy, const QString& _status);
 
 signals:
+    void retryCredentialRequested();
     /**
      * @brief The user wants to sync the stories with the GitHub repository
      */

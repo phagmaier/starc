@@ -622,6 +622,10 @@ SettingsStorage::~SettingsStorage() = default;
 void SettingsStorage::setValue(const QString& _key, const QVariant& _value,
                                SettingsStorage::Type _type)
 {
+    if (_key == kGitHubSyncTokenKey) {
+        Log::warning("[SettingsStorage] Refused credential write outside the keyring store");
+        return;
+    }
     if (d->isReadOnly) {
         return;
     }
@@ -673,6 +677,10 @@ void SettingsStorage::setValue(const QString& _key, const QVariant& _value,
 void SettingsStorage::setValues(const QString& _valuesGroup, const QVariantMap& _values,
                                 SettingsStorage::Type _type)
 {
+    if (_valuesGroup == kGitHubSyncGroupKey || _values.contains(kGitHubSyncTokenKey)) {
+        Log::warning("[SettingsStorage] Refused credential-group write outside the keyring store");
+        return;
+    }
     if (d->isReadOnly) {
         return;
     }
@@ -856,6 +864,36 @@ void SettingsStorage::sync()
     d->appSettings.sync();
 }
 
+QString SettingsStorage::legacyGitHubToken() const
+{
+    return value(kGitHubSyncTokenKey).toString();
+}
+
+bool SettingsStorage::removeLegacyGitHubToken()
+{
+    if (d->isReadOnly)
+        return false;
+    sync();
+    const auto key = kGitHubSyncTokenKey.toUtf8().toHex();
+    // Use an atomic QSettings writer, leaving the live cache intact on failure.
+    // The long-lived settings object's status retains its first error. A fresh writer
+    // must decide this attempt, so a repaired permission failure can actually be retried.
+    QSettings writer(d->appSettings.fileName(), d->appSettings.format());
+    writer.setAtomicSyncRequired(true);
+    writer.remove(key);
+    writer.sync();
+    if (writer.status() != QSettings::NoError)
+        return false;
+    QSettings persisted(d->appSettings.fileName(), d->appSettings.format());
+    if (persisted.status() != QSettings::NoError || persisted.contains(key))
+        return false;
+    d->appSettings.sync();
+    d->cachedAppSettings.remove(kGitHubSyncTokenKey);
+    d->pendingAppSettings.remove(kGitHubSyncTokenKey);
+    d->sessionSettings.remove(kGitHubSyncTokenKey);
+    return true;
+}
+
 void SettingsStorage::resetSession()
 {
     //
@@ -925,17 +963,21 @@ void SettingsStorage::resetToDefaults(bool _fullReset)
     // Стираем все настройки
     //
     QHash<QString, QVariant> settings;
-    if (!_fullReset) {
+    {
         //
         // ... если стирание не полное, то оставляем несколько параметров, которые по-сути не
         //     являются настройками приложения и пользователь не ожидает, что они будут удалены
         //
         for (const auto& key : d->appSettings.allKeys()) {
             const QString realKey = QByteArray::fromHex(key.toUtf8());
-            if (realKey == kDeviceUuidKey || realKey == kApplicationProjectsKey
-                || realKey.startsWith(kAccountGroupKey) || realKey.startsWith(kProjectGroupKey)
-                || realKey.startsWith(kGitHubSyncGroupKey)
-                || realKey.startsWith(QLatin1String("starc"))) {
+            // Even a settings reset must not discard a credential awaiting migration.
+            if (realKey == kGitHubSyncTokenKey
+                || (!_fullReset
+                    && (realKey == kDeviceUuidKey || realKey == kApplicationProjectsKey
+                        || realKey.startsWith(kAccountGroupKey)
+                        || realKey.startsWith(kProjectGroupKey)
+                        || realKey.startsWith(kGitHubSyncGroupKey)
+                        || realKey.startsWith(QLatin1String("starc"))))) {
                 settings.insert(key, d->appSettings.value(key));
             }
         }

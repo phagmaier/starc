@@ -31,6 +31,7 @@
 #include <QGridLayout>
 #include <QLocale>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QStandardItemModel>
 #include <QStringListModel>
 #include <QVariantAnimation>
@@ -249,6 +250,10 @@ public:
     TextField* gitHubSyncRepository = nullptr;
     TextField* gitHubSyncToken = nullptr;
     CheckBox* gitHubSyncUploadOnExit = nullptr;
+    Button* gitHubTokenSave = nullptr;
+    Button* gitHubTokenClear = nullptr;
+    Button* gitHubTokenRetry = nullptr;
+    Body2Label* gitHubTokenStatus = nullptr;
     //
     // ... Text editing
     //
@@ -448,6 +453,10 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     , gitHubSyncRepository(new TextField(applicationCard))
     , gitHubSyncToken(new TextField(applicationCard))
     , gitHubSyncUploadOnExit(new CheckBox(applicationCard))
+    , gitHubTokenSave(new Button(applicationCard))
+    , gitHubTokenClear(new Button(applicationCard))
+    , gitHubTokenRetry(new Button(applicationCard))
+    , gitHubTokenStatus(new Body2Label(applicationCard))
     , applicationTextEditingTitle(new H6Label(applicationCard))
     , showDocumentsPages(new CheckBox(applicationCard))
     , useTypewriterSound(new CheckBox(applicationCard))
@@ -680,7 +689,21 @@ void SettingsView::Implementation::initApplicationCard()
         layout->addWidget(gitHubSyncToken, 1);
         applicationCardLayout->addLayout(layout, itemIndex++, 0);
     }
+    applicationCardLayout->addWidget(gitHubTokenStatus, itemIndex++, 0);
+    {
+        auto layout = makeLayout();
+        layout->addWidget(gitHubTokenSave);
+        layout->addWidget(gitHubTokenClear);
+        layout->addWidget(gitHubTokenRetry);
+        layout->addStretch();
+        applicationCardLayout->addLayout(layout, itemIndex++, 0);
+    }
     applicationCardLayout->addWidget(gitHubSyncUploadOnExit, itemIndex++, 0);
+    gitHubSyncToken->setObjectName("githubToken");
+    gitHubTokenSave->setObjectName("githubTokenSave");
+    gitHubTokenClear->setObjectName("githubTokenClear");
+    gitHubTokenRetry->setObjectName("githubTokenRetry");
+    gitHubTokenStatus->setObjectName("githubTokenStatus");
     //
     // ... параметры редакторов текста
     //
@@ -1139,6 +1162,12 @@ SettingsView::SettingsView(QWidget* _parent)
     });
     connect(d->gitHubSyncToken, &TextField::textChanged, this,
             [this] { emit applicationGitHubSyncTokenChanged(d->gitHubSyncToken->text()); });
+    connect(d->gitHubTokenSave, &Button::clicked, this,
+            &SettingsView::applicationGitHubSyncTokenSaveRequested);
+    connect(d->gitHubTokenClear, &Button::clicked, this,
+            &SettingsView::applicationGitHubSyncTokenClearRequested);
+    connect(d->gitHubTokenRetry, &Button::clicked, this,
+            &SettingsView::applicationGitHubSyncTokenRetryRequested);
     connect(d->gitHubSyncUploadOnExit, &CheckBox::checkedChanged, this,
             &SettingsView::applicationGitHubSyncUploadOnExitChanged);
     connect(d->showDocumentsPages, &CheckBox::checkedChanged, this,
@@ -1893,7 +1922,19 @@ void SettingsView::setApplicationGitHubSyncRepository(const QString& _repository
 
 void SettingsView::setApplicationGitHubSyncToken(const QString& _token)
 {
+    if (d->gitHubSyncToken->text() == _token)
+        return;
+    const QSignalBlocker blocker(d->gitHubSyncToken);
     d->gitHubSyncToken->setText(_token);
+}
+
+void SettingsView::setApplicationGitHubSyncTokenState(bool _busy, const QString& _status)
+{
+    d->gitHubSyncToken->setEnabled(!_busy);
+    d->gitHubTokenSave->setEnabled(!_busy);
+    d->gitHubTokenClear->setEnabled(!_busy);
+    d->gitHubTokenRetry->setEnabled(!_busy);
+    d->gitHubTokenStatus->setText(_status);
 }
 
 void SettingsView::setApplicationGitHubSyncUploadOnExit(bool _upload)
@@ -2362,6 +2403,9 @@ void SettingsView::updateTranslations()
     d->gitHubSyncRepository->setLabel(tr("Private repository"));
     d->gitHubSyncRepository->setHelper(tr("In the form owner/name"));
     d->gitHubSyncToken->setLabel(tr("Access token"));
+    d->gitHubTokenSave->setText(tr("Save token"));
+    d->gitHubTokenClear->setText(tr("Clear token"));
+    d->gitHubTokenRetry->setText(tr("Retry keyring"));
     d->gitHubSyncToken->setHelper(
         tr("With read and write access to the contents of the repository"));
     d->gitHubSyncUploadOnExit->setText(tr("Upload changed stories when closing the application"));
@@ -2673,6 +2717,10 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->applicationUserInterfaceTitle,
              d->applicationSaveAndBackupTitle,
              d->applicationGitHubSyncTitle,
+             d->gitHubTokenSave,
+             d->gitHubTokenClear,
+             d->gitHubTokenRetry,
+             d->gitHubTokenStatus,
              d->applicationTextEditingTitle,
              d->applicationTextEditingSubtitle,
              d->simpleTextTitle,
@@ -2697,6 +2745,10 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
              d->applicationUserInterfaceTitle,
              d->applicationSaveAndBackupTitle,
              d->applicationGitHubSyncTitle,
+             d->gitHubTokenSave,
+             d->gitHubTokenClear,
+             d->gitHubTokenRetry,
+             d->gitHubTokenStatus,
              d->applicationTextEditingTitle,
              d->simpleTextEditorTitle,
              d->simpleTextNavigatorTitle,

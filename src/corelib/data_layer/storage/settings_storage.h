@@ -143,6 +143,7 @@ const QString kGitHubSyncGroupKey = "github-sync";
 // repository in the form "owner/name"
 const QString kGitHubSyncRepositoryKey = kGitHubSyncGroupKey + "/repository";
 // personal access token
+// Migration only. New credentials belong to GitHubCredentialStore, never settings.
 const QString kGitHubSyncTokenKey = kGitHubSyncGroupKey + "/token";
 // upload changed stories when the application is closing
 const QString kGitHubSyncUploadOnExitKey = kGitHubSyncGroupKey + "/upload-on-exit";
@@ -420,6 +421,9 @@ public:
      * @brief Сохранить настройки
      */
     void sync();
+
+    QString legacyGitHubToken() const;
+    bool removeLegacyGitHubToken();
 
     /**
      * @brief Сбросить настройки сессии

@@ -9,6 +9,7 @@
 
 #include <QBoxLayout>
 #include <QScrollArea>
+#include <QSignalBlocker>
 
 namespace Ui {
 
@@ -31,6 +32,8 @@ public:
     TextField* syncToken = nullptr;
     Button* syncSetupButton = nullptr;
     Button* syncSkipButton = nullptr;
+    Button* syncRetryButton = nullptr;
+    Body2Label* syncStatus = nullptr;
 };
 
 OnboardingNavigator::Implementation::Implementation(OnboardingNavigator* _q)
@@ -45,6 +48,8 @@ OnboardingNavigator::Implementation::Implementation(OnboardingNavigator* _q)
     , syncToken(new TextField(syncPageContainer))
     , syncSetupButton(new Button(syncPageContainer))
     , syncSkipButton(new Button(syncPageContainer))
+    , syncRetryButton(new Button(syncPageContainer))
+    , syncStatus(new Body2Label(syncPageContainer))
 {
     initSyncPage();
 }
@@ -70,6 +75,10 @@ void OnboardingNavigator::Implementation::initSyncPage()
     pageLayout->addWidget(syncDescription);
     pageLayout->addWidget(syncRepository);
     pageLayout->addWidget(syncToken);
+    pageLayout->addWidget(syncStatus);
+    pageLayout->addWidget(syncRetryButton);
+    syncToken->setObjectName("onboardingToken");
+    syncSetupButton->setObjectName("onboardingSetup");
     pageLayout->addStretch();
     pageLayout->addWidget(syncSetupButton);
     pageLayout->addWidget(syncSkipButton, 0, Qt::AlignHCenter);
@@ -111,6 +120,8 @@ OnboardingNavigator::OnboardingNavigator(QWidget* _parent)
 
         emit setupGitHubSyncRequested(repository, token);
     });
+    connect(d->syncRetryButton, &Button::clicked, this,
+            &OnboardingNavigator::retryCredentialRequested);
     connect(d->syncSkipButton, &Button::clicked, this,
             &OnboardingNavigator::skipGitHubSyncRequested);
 }
@@ -124,8 +135,19 @@ void OnboardingNavigator::showWelcomePage()
 
 void OnboardingNavigator::setGitHubSync(const QString& _repository, const QString& _token)
 {
+    const QSignalBlocker repositoryBlocker(d->syncRepository);
+    const QSignalBlocker tokenBlocker(d->syncToken);
     d->syncRepository->setText(_repository);
     d->syncToken->setText(_token);
+}
+
+void OnboardingNavigator::setCredentialState(bool _busy, const QString& _status)
+{
+    d->syncRepository->setEnabled(!_busy);
+    d->syncToken->setEnabled(!_busy);
+    d->syncSetupButton->setEnabled(!_busy);
+    d->syncRetryButton->setEnabled(!_busy);
+    d->syncStatus->setText(_status);
 }
 
 bool OnboardingNavigator::eventFilter(QObject* _watched, QEvent* _event)
@@ -155,6 +177,7 @@ void OnboardingNavigator::updateTranslations()
     d->syncToken->setLabel(tr("Access token"));
     d->syncToken->setHelper(tr("With read and write access to the contents of the repository"));
     d->syncSetupButton->setText(tr("Set up sync"));
+    d->syncRetryButton->setText(tr("Retry keyring"));
     d->syncSkipButton->setText(tr("Set up later"));
 }
 
@@ -171,6 +194,7 @@ void OnboardingNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _even
              d->syncTitle,
              d->syncSubtitle,
              d->syncDescription,
+             d->syncStatus,
          }) {
         widget->setBackgroundColor(DesignSystem::color().primary());
         widget->setTextColor(DesignSystem::color().onPrimary());
@@ -188,7 +212,7 @@ void OnboardingNavigator::designSystemChangeEvent(DesignSystemChangeEvent* _even
         textField->setCustomMargins({ margin, DesignSystem::layout().px24(), margin, 0 });
     }
 
-    for (auto button : { d->syncSetupButton, d->syncSkipButton }) {
+    for (auto button : { d->syncSetupButton, d->syncSkipButton, d->syncRetryButton }) {
         button->setBackgroundColor(DesignSystem::color().accent());
         button->setTextColor(DesignSystem::color().onAccent());
         button->setContentsMargins(margin - DesignSystem::card().shadowMargins().left(), 0,

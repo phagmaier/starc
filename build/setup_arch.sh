@@ -20,6 +20,7 @@ printf 'Prerequisite: finish a full Arch upgrade with sudo pacman -Syu first.\n'
 packages=(
     base-devel git cmake ninja pkgconf python curl openssl zlib
     qt6-base qt6-5compat qt6-multimedia qt6-tools qt6-wayland
+    qtkeychain-qt6
     libxkbcommon-x11 xcb-util-cursor
     clang gdb shellcheck
 )

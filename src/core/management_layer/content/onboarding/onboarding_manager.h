@@ -3,6 +3,8 @@
 #include <QObject>
 
 
+class GitHubCredentialStore;
+
 namespace ManagementLayer {
 
 /**
@@ -13,7 +15,8 @@ class OnboardingManager : public QObject
     Q_OBJECT
 
 public:
-    OnboardingManager(QObject* _parent, QWidget* _parentWidget);
+    OnboardingManager(QObject* _parent, QWidget* _parentWidget,
+                      GitHubCredentialStore* _credentials = nullptr);
     ~OnboardingManager() override;
 
     QWidget* toolBar() const;

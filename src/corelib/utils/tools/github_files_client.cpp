@@ -137,7 +137,13 @@ void GitHubFilesClient::Implementation::handle(
     QObject::connect(_reply, &QNetworkReply::finished, q, [_reply, _callback] {
         _reply->deleteLater();
         const auto body = _reply->readAll();
-        _callback(error(_reply, body), body);
+        auto problem = error(_reply, body);
+        // A server error can echo request data. Never send the bearer token to logs or UI.
+        const auto authorization = _reply->request().rawHeader("Authorization");
+        const auto credential = QString::fromUtf8(authorization.mid(7));
+        if (!credential.isEmpty())
+            problem.text.replace(credential, QStringLiteral("[credential]"));
+        _callback(problem, body);
     });
 }
 
@@ -177,9 +183,13 @@ void GitHubFilesClient::setRepository(const QString& _repository)
     d->repository = repository;
 }
 
-void GitHubFilesClient::setToken(const QString& _token)
+bool GitHubFilesClient::setToken(const QString& _token)
 {
-    d->token = _token.trimmed();
+    const auto token = _token.trimmed();
+    if (d->token == token) return false;
+    abort();
+    d->token = token;
+    return true;
 }
 
 void GitHubFilesClient::setApiUrl(const QString& _url)

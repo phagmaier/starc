@@ -7,6 +7,7 @@
 #include <business_layer/templates/screenplay_template.h>
 #include <business_layer/templates/simple_text_template.h>
 #include <business_layer/templates/templates_facade.h>
+#include <data_layer/storage/github_credential_store.h>
 #include <data_layer/storage/settings_storage.h>
 #include <data_layer/storage/storage_facade.h>
 #include <domain/document_object.h>
@@ -95,6 +96,7 @@ public:
                                                   const QString& _errorDetails = {});
 
     SettingsManager* q = nullptr;
+    GitHubCredentialStore* credentials = nullptr;
 
     Ui::SettingsToolBar* toolBar = nullptr;
     Ui::SettingsNavigator* navigator = nullptr;
@@ -136,8 +138,8 @@ void SettingsManager::Implementation::loadApplicationSettings()
         settingsValue(DataStorageLayer::kApplicationBackupsQtyKey).toInt());
     view->setApplicationGitHubSyncRepository(
         settingsValue(DataStorageLayer::kGitHubSyncRepositoryKey).toString());
-    view->setApplicationGitHubSyncToken(
-        settingsValue(DataStorageLayer::kGitHubSyncTokenKey).toString());
+    view->setApplicationGitHubSyncToken(credentials->fieldToken());
+    view->setApplicationGitHubSyncTokenState(credentials->isBusy(), credentials->statusText());
     view->setApplicationGitHubSyncUploadOnExit(
         settingsValue(DataStorageLayer::kGitHubSyncUploadOnExitKey).toBool());
     view->setApplicationShowDocumentsPages(
@@ -516,15 +518,34 @@ void SettingsManager::Implementation::finishSpellCheckingDictionaryLoadingTask(
 
 SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
                                  const PluginsBuilder& _pluginsBuilder,
-                                 ShortcutsManager* _shortcutsManager)
+                                 ShortcutsManager* _shortcutsManager,
+                                 GitHubCredentialStore* _credentials)
     : QObject(_parent)
     , d(new Implementation(this, _parentWidget, _pluginsBuilder, _shortcutsManager))
 {
+    d->credentials = _credentials ? _credentials : GitHubCredentialStore::instance();
+    auto updateCredential = [this] {
+        d->view->setApplicationGitHubSyncToken(d->credentials->fieldToken());
+        d->view->setApplicationGitHubSyncTokenState(d->credentials->isBusy(),
+                                                    d->credentials->statusText());
+    };
+    connect(d->credentials, &GitHubCredentialStore::changed, this, updateCredential);
+    d->credentials->start();
     d->reloadSettings();
     d->view->installEventFilter(this);
 
-    connect(d->toolBar, &Ui::SettingsToolBar::backPressed, this,
-            &SettingsManager::closeSettingsRequested);
+    connect(d->toolBar, &Ui::SettingsToolBar::backPressed, this, [this] {
+        d->credentials->save();
+        emit closeSettingsRequested();
+    });
+    connect(d->view, &Ui::SettingsView::applicationGitHubSyncTokenSaveRequested, d->credentials,
+            &GitHubCredentialStore::save);
+    connect(d->view, &Ui::SettingsView::applicationGitHubSyncTokenRetryRequested, d->credentials,
+            &GitHubCredentialStore::retry);
+    connect(d->view, &Ui::SettingsView::applicationGitHubSyncTokenClearRequested, this, [this] {
+        d->credentials->stageToken(QString());
+        d->credentials->save();
+    });
 
     connect(d->navigator, &Ui::SettingsNavigator::applicationPressed, d->view,
             &Ui::SettingsView::showApplication);
@@ -1116,7 +1137,7 @@ void SettingsManager::setApplicationGitHubSyncRepository(const QString& _reposit
 
 void SettingsManager::setApplicationGitHubSyncToken(const QString& _token)
 {
-    setSettingsValue(DataStorageLayer::kGitHubSyncTokenKey, _token);
+    d->credentials->stageToken(_token);
 }
 
 void SettingsManager::setApplicationGitHubSyncUploadOnExit(bool _upload)

@@ -70,7 +70,8 @@ This fork can keep each local story as one file in the root of a private GitHub 
 | When and what to sync, dialogs, story menu actions | [GitHubSyncManager](../src/core/management_layer/content/github_sync/github_sync_manager.h) | Owned by `ApplicationManager`, which calls it after startup, before exit, and after every save. |
 | Deciding which copy is newer | [ProjectSync](../src/corelib/utils/tools/project_sync.h) | Pure functions: content fingerprint of a project file and the state of a local/remote pair. |
 | Talking to GitHub | [GitHubFilesClient](../src/corelib/utils/tools/github_files_client.h) | Repository contents API over `QNetworkAccessManager`. `STARC_GITHUB_API_URL` points it at another server for tests. |
-| Settings | `kGitHubSync*` keys in [SettingsStorage](../src/corelib/data_layer/storage/settings_storage.h) | Repository, token (stored as plain text), upload on exit, and what was synced on this computer. |
+| Credential boundary | [GitHubCredentialStore](../src/corelib/data_layer/storage/github_credential_store.h) | Shared by onboarding, settings and sync. Serializes asynchronous native QtKeychain jobs, confirms storage by reading back, migrates legacy settings, and retains newer staged edits. Injectable backend for deterministic failures. |
+| Settings | `kGitHubSync*` keys in [SettingsStorage](../src/corelib/data_layer/storage/settings_storage.h) | Repository, upload on exit, and sync history. `kGitHubSyncTokenKey` is migration-only; ordinary setters refuse credential writes. |
 | First-run setup | [OnboardingNavigator](../src/core/ui/onboarding/onboarding_navigator.h), [OnboardingManager](../src/core/management_layer/content/onboarding/onboarding_manager.h) | The only page of the first launch: set the repository and token now, or later in the settings. Setting them runs a sync check as soon as the main window appears; the startup check is skipped while this page is shown. |
 
 Rules the code relies on:
@@ -79,6 +80,9 @@ Rules the code relies on:
 - A file is uploaded only over the repository version it was last synced with (GitHub refuses the upload otherwise), and downloaded over a local file only if that file has not changed since the last sync. When both changed, nothing is replaced until the user picks a version in the story's context menu.
 - A local version replaced by a download is first copied to the backups folder as `<name> (before GitHub download)_<time>.starc`.
 - A public repository is refused.
+- Sync waits for credential loading and writes to settle. A keyring credential takes precedence over any legacy settings token; only a confirmed keyring copy permits durable plaintext removal. Failed migration retains the legacy token for authentication and reports a retryable warning.
+- Settings stage token edits in memory; Save token, Clear token, Retry keyring, leaving settings, and normal close use the shared store. Programmatic population blocks change signals. Shutdown and settings-driven restarts report unsaved changes and allow retry or keeping the application open.
+- The native adapter explicitly disables QtKeychain's insecure fallback. Keyring/backend messages are mapped to safe application text; bearer tokens echoed by a server are removed from errors before logs or UI receive them. See [PROJECT.md](PROJECT.md#github-token-storage) for policy and evidence.
 
 ## Scope and validation notes
 

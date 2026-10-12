@@ -11,6 +11,8 @@ class ThemeSetupView;
 } // namespace Ui
 
 
+class GitHubCredentialStore;
+
 namespace ManagementLayer {
 
 class PluginsBuilder;
@@ -25,7 +27,8 @@ class SettingsManager : public QObject
 
 public:
     SettingsManager(QObject* _parent, QWidget* _parentWidget, const PluginsBuilder& _pluginsBuilder,
-                    ShortcutsManager* _shortcutsManager);
+                    ShortcutsManager* _shortcutsManager,
+                    GitHubCredentialStore* _credentials = nullptr);
     ~SettingsManager() override;
 
     QWidget* toolBar() const;

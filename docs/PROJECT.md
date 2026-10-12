@@ -386,3 +386,109 @@ fixture attempts, are retained under `.build/evidence/screenplay-statistics/`.
 The fixture fixes give model serialization an explicit save boundary, keep
 hosts alive for existing plugins that retain raw view pointers, and select
 screenplay editors by document UUID after split-view checks.
+
+## GitHub token storage
+
+Completed 2026-10-11. GitHub story-sync credentials now pass through
+`GitHubCredentialStore` in corelib. The small public [QtKeychain library](https://github.com/frankosterfeld/qtkeychain)
+provides asynchronous native read/write/delete jobs; the adapter explicitly sets
+`setInsecureFallback(false)`. qmake links the Qt 6 library, and the Arch setup
+includes `qtkeychain-qt6`. Repository names and sync history remain ordinary
+settings; `kGitHubSyncTokenKey` is reserved for migration and ordinary settings
+setters refuse credential writes.
+
+Credential policy:
+
+- An existing keyring entry takes precedence over legacy settings, including an
+  explicitly empty entry. Stale migration data never replaces that entry.
+- When the entry is absent, the legacy token is stored and read back through the
+  keyring before removal from settings. Removal uses an atomic settings writer
+  and checks persistence before clearing the live cache. A fresh writer on each
+  attempt permits retry after a settings access error; Qt's long-lived settings
+  object retains its [first error status](https://doc.qt.io/qt-6/qsettings.html#status).
+- Failed migration retains the legacy credential for authentication and reports
+  the incomplete step. Failed replacement/deletion retains the previous confirmed
+  credential and the unsaved edit. Clearing requires any legacy value to be
+  durably retired first, so a subsequent startup cannot resurrect it.
+- Jobs are serialized. Operation/revision guards reject stale completions and
+  preserve newer drafts, including clearing during the first write or reverting
+  to the previous token during replacement. Successful writes/deletes are read
+  back before the application reports success.
+- Programmatic field population blocks change signals. Typing stages only an
+  in-memory draft; Save token, Clear token, Retry keyring, leaving settings, and
+  normal close use the shared boundary. Onboarding finishes only after confirmed
+  storage. Close/restart waits for jobs or reports unsaved changes, with retry,
+  keep-open, and explicit close-without-saving choices after a failure.
+- Startup/manual/per-story sync waits for readiness. Credential changes cancel
+  requests using the previous token; a missing or unavailable credential does
+  not prevent local editing. Backend diagnostics are mapped to safe text, and
+  server-reflected bearer credentials are removed from error messages.
+- Settings resets retain the keyring credential and any legacy value still
+  awaiting migration. Clear the token explicitly in GitHub settings. Isolated
+  development profiles use a path-derived service distinct from the ordinary
+  `app.starc.screenplay.github` service; tests additionally isolate D-Bus/provider
+  storage. No real keyring, GitHub account, or remote story repository was used.
+
+Validation against the debug build:
+
+- `./build/dev.sh doctor`, `make qmake_all` in `.build/debug`, then
+  `JOBS=4 ./build/dev.sh build debug`: passed. On this host these commands used
+  `QTKEYCHAIN_PREFIX="$PWD/.build/keyring-deps/usr"`: QtKeychain 0.17.0 and the
+  native-test provider were unpacked from public Arch packages into an ignored
+  development prefix because sudo installation requires a password. This is
+  not a system package installation; the normal setup script installs the dependency.
+  The helper also passed without an explicit prefix: when the system package is
+  absent it selects this prepared development prefix and reports the path in doctor.
+- `./tools/check-github-credential-storage.sh`: passed. Injected backend checks
+  cover first storage/fresh-instance retrieval, migration success/failure,
+  precedence conflicts, empty entries, failed write/delete/confirmation,
+  ordering and destruction, field population, onboarding failure/retry, pending
+  close and canceled-close ordering, diagnostic redaction, and sync waiting for
+  readiness/authenticating with the expected fake token to the local mock server.
+  Separate real filesystem checks denied atomic settings publication with a
+  read-only disposable directory, retained the legacy bytes, restored permissions,
+  and successfully retried. Persisted settings contain no token after success.
+- `QT_QPA_PLATFORM=offscreen python3 tests/isolated_keyring.py <evidence>/native --
+  <evidence>/credential-test --native app.starc.test.credentials`: passed against
+  an actual disposable GNOME Secret Service on a private bus with desktop
+  activation disabled. First storage, fresh-instance retrieval, replacement,
+  deletion, native migration and persisted plaintext removal passed. Its separate
+  `--unavailable` / `--native-unavailable` run passed with no provider and no
+  plaintext fallback. The native files contain no fake credential plaintext.
+- Real application on private Xvfb: onboarding stored a fake token and authenticated
+  to `tests/github_mock_server.py` via `STARC_GITHUB_API_URL`. A second disposable
+  profile migrated a seeded legacy token, populated settings without writes,
+  replaced and cleared it, then settled a staged token on Ctrl+Q. Reopening
+  authenticated with that saved token. Both settings-run Ctrl+Q exits were `0`;
+  settings bytes after close/reopen contain neither the legacy key nor token.
+  The whole application/server pair ran inside a private network namespace with
+  only loopback enabled; no file dialogs, file managers or external links were used.
+- `./tools/check-project-sync.sh`, `./tools/check-screenplay-scope.sh`,
+  `./tools/check-writing-session-storage.sh`, `./tools/check-backup-retention.sh`:
+  passed. Bash syntax, ShellCheck, Python syntax, linkage and `git diff --check`
+  also passed.
+
+Evidence is retained in `.build/evidence/github-credentials/` (doctor, qmake,
+all build attempts and regression summaries), unique `github-credentials-*`
+directories (injected/native logs and disposable storage), and
+`github-credentials-ui-1` through `github-credentials-ui-4` (driver transcripts,
+screenshots, profiles and actual exits). The successful focused/native run is
+`github-credentials-DtmeIC`; successful settings/reopen UI evidence is in
+`github-credentials-ui-4`. Existing backup/statistics evidence was not overwritten.
+
+Retained failures include initial constructor build errors, a sandbox-blocked
+mock-server socket, a private network namespace with loopback initially down,
+a test-driver namespace-inspection permission error, and a regression-host
+TaskBar assertion. The latter has its core/backtrace retained; the host now
+registers TaskBar like the application. Early driver input before credential
+readiness and title-bar/minimize coordinate captures are retained rather than
+used as passing behavior evidence. The input method remains zero-delay xdotool
+injection; corrections addressed readiness, loopback and event routing.
+
+Limits: native locked-keyring prompts and native write/delete fault conditions
+were not exercised (denial/failure paths use the injected backend). KWallet,
+macOS/Windows, the ordinary desktop/profile/keyring, release packaging, update
+installation, and interactive settings-reset/restart dialogs were not exercised.
+The shared settlement boundary for restart/update exits is source-verified and
+covered by the close callback tests. The native evidence proves the adapter on
+the isolated GNOME provider; injected tests do not stand in for native evidence.

@@ -36,9 +36,15 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
     with the same filename; legacy and unclassified copies remain untouched.
     Deterministic retention/failure checks and disposable-project restoration
     passed, including an ordinary save and recovery in the real Xvfb application.
-- [ ] **Store the GitHub token in the system keyring.** It is plain text in the
-  settings file (`kGitHubSyncTokenKey`). No keychain library is in the build
-  yet. An existing token has to keep working after the change.
+- [x] **Store the GitHub token in the system keyring.**
+  - Done 2026-10-11: a shared asynchronous QtKeychain store serves onboarding,
+    settings and sync, with plaintext fallback disabled. Existing tokens migrate
+    without re-entry; an existing keyring entry wins over legacy settings.
+    Failed migration preserves the legacy credential and offers retry. Settings
+    removal is confirmed on disk, and pending edits are settled or reported on close.
+  - Injected failure/ordering and real settings-permission checks, isolated native
+    keyring checks, local mock sync, and real Xvfb onboarding/settings/normal-close
+    checks passed. See `docs/PROJECT.md` for evidence, dependency setup and limits.
 - [ ] **Add import and export round-trip checks** for Fountain and FDX. Nothing
   covers the interchange formats today.
 

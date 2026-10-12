@@ -6,8 +6,12 @@ reference. [AGENTS.md](AGENTS.md) describes the working rules and
 
 ## Arch Linux setup
 
-This checkout uses C++17, Qt 6, qmake, GNU Make, and public PDF libraries. The
-fork has no startup telemetry or crash-report uploader. Qt's private
+This checkout uses C++17, Qt 6, qmake, GNU Make, and public PDF libraries.
+The GitHub credential adapter also requires QtKeychain for Qt 6 (`qtkeychain-qt6`
+on Arch), linked by `src/corelib/corelib.pro`. A native Secret Service or KWallet
+provider must be available and unlocked at runtime to store new credentials.
+The adapter disables plaintext fallback; local editing remains available when
+credential storage fails. The fork has no startup telemetry or crash-report uploader. Qt's private
 GUI/Widgets headers must match the installed Qt version.
 
 After your normal full Arch system upgrade, run from this directory:
@@ -56,6 +60,16 @@ and stop with "No rule to make target" until they are regenerated. A plugin that
 is no longer built also leaves its library in `_build/plugins/`; remove it there.
 This supplies the declarations required by modern C compilers without modifying
 the pinned PDF submodule checkout.
+
+An unprivileged QtKeychain installation can be selected with
+`QTKEYCHAIN_PREFIX=/absolute/prefix` for `doctor`, `build`, and `run`. The prefix
+must contain `include/qt6keychain/keychain.h` and `lib/libqt6keychain.so`. qmake
+adds its include/library paths and a development runtime search path. Prefer the
+system package for normal setup; a development prefix is not a system install.
+If the system package is absent and `.build/keyring-deps/usr` contains a prepared
+development library, the helper selects that prefix automatically and reports it
+in `doctor`. Direct qmake/Qt Creator builds still need the system installation
+or an explicit prefix.
 
 The run helper supplies the local library path and preserves the desktop
 environment and caller's working directory, so relative project filenames keep
@@ -139,6 +153,41 @@ GitHub API, so it needs no account and sends nothing to GitHub. To try the sync
 in the running application without touching a real repository, start that server
 and launch with `STARC_GITHUB_API_URL=http://127.0.0.1:<port>`; its default
 access token is `test-token`.
+
+`./tools/check-github-credential-storage.sh` uses injected asynchronous storage,
+isolated settings, actual settings/onboarding widgets, and the local mock GitHub
+server. It prints a unique evidence directory and its native test command.
+This injected check cannot prove native integration. For that separate check:
+
+```bash
+# Replace EVIDENCE with the directory printed by the focused check.
+QT_QPA_PLATFORM=offscreen python3 tests/isolated_keyring.py EVIDENCE/native -- \
+  EVIDENCE/credential-test --native app.starc.test.credentials
+QT_QPA_PLATFORM=offscreen python3 tests/isolated_keyring.py EVIDENCE/unavailable \
+  --unavailable -- EVIDENCE/credential-test --native-unavailable app.starc.test.unavailable
+```
+
+The runner requires `dbus-daemon`, `gdbus`, and `gnome-keyring-daemon` and creates
+a private bus with no desktop-service activation, private XDG directories, and
+an encrypted disposable keyring. It never contacts the normal desktop bus or
+normal keyring. `STARC_TEST_KEYRING_DAEMON` selects an unprivileged daemon binary;
+include its dependency directory in `LD_LIBRARY_PATH` if needed. Each destination
+must be new: failed logs and profiles are retained. Never pass real credentials.
+
+For a real application check, use `tests/github_credential_ui_driver.py` inside
+that private runner and `unshare -Urn`. It allocates Xvfb with `-displayfd`, enables
+only the private namespace's loopback for the local mock server, uses xdotool,
+and captures PNGs with ffmpeg. Set `STARC_TEST_REPO` to the checkout. It copies
+only the geometry/splitter `[application-view]` group from the retained disposable
+backup-check profile. Its JSON commands distinguish window and screen coordinates;
+wait for credential readiness before entering a token. Quit with its `quit`
+command (Ctrl+Q) and retain the actual exit result before `stop` tears down Xvfb.
+
+Development profiles (`STARC_PROFILE_DIR`) use a path-derived credential service
+separate from the ordinary profile's `app.starc.screenplay.github` service. An
+isolated profile alone does not isolate the native keyring provider: use the
+private-bus runner for experiments. Settings resets retain credentials; clear
+the token explicitly through the GitHub settings controls.
 
 Current setup results and any remaining machine-specific work are recorded in
 [docs/PROJECT.md](docs/PROJECT.md).

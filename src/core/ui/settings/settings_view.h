@@ -52,6 +52,7 @@ public:
     void setApplicationBackupsQty(int _qty);
     void setApplicationGitHubSyncRepository(const QString& _repository);
     void setApplicationGitHubSyncToken(const QString& _token);
+    void setApplicationGitHubSyncTokenState(bool _busy, const QString& _status);
     void setApplicationGitHubSyncUploadOnExit(bool _upload);
     void setApplicationShowDocumentsPages(bool _show);
     void setApplicationUseTypewriterSound(bool _use);
@@ -140,6 +141,9 @@ signals:
     void applicationBackupsQtyChanged(int _qty);
     void applicationGitHubSyncRepositoryChanged(const QString& _repository);
     void applicationGitHubSyncTokenChanged(const QString& _token);
+    void applicationGitHubSyncTokenSaveRequested();
+    void applicationGitHubSyncTokenClearRequested();
+    void applicationGitHubSyncTokenRetryRequested();
     void applicationGitHubSyncUploadOnExitChanged(bool _upload);
     void applicationShowDocumentsPagesChanged(bool _show);
     void applicationUseTypewriterSoundChanged(bool _use);

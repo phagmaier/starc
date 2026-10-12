@@ -85,7 +85,8 @@ public:
     /**
      * @brief Personal access token
      */
-    void setToken(const QString& _token);
+    // Returns whether it changed; a changed credential cancels outstanding requests.
+    bool setToken(const QString& _token);
 
     /**
      * @brief Address of the API, the STARC_GITHUB_API_URL environment variable overrides

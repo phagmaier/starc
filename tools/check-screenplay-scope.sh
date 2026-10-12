@@ -35,6 +35,8 @@ fi
 export XDG_CONFIG_HOME="$EVIDENCE/profile/config"
 export XDG_DATA_HOME="$EVIDENCE/profile/data"
 export XDG_CACHE_HOME="$EVIDENCE/profile/cache"
+export STARC_PROFILE_DIR="$EVIDENCE/profile"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
 printf 'XDG_DOCUMENTS_DIR="%s"\n' "$EVIDENCE/profile/documents" > "$XDG_CONFIG_HOME/user-dirs.dirs"
 export QT_QPA_PLATFORM=offscreen
 export LD_LIBRARY_PATH="$OUTPUT:$OUTPUT/libs:$OUTPUT/plugins${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"

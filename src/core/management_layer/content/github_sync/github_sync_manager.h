@@ -11,6 +11,8 @@ class ProjectsModelProjectItem;
 }
 
 
+class GitHubCredentialStore;
+
 namespace ManagementLayer {
 
 class ProjectsManager;
@@ -28,7 +30,8 @@ class GitHubSyncManager : public QObject
     Q_OBJECT
 
 public:
-    GitHubSyncManager(QObject* _parent, QWidget* _parentWidget, ProjectsManager* _projectsManager);
+    GitHubSyncManager(QObject* _parent, QWidget* _parentWidget, ProjectsManager* _projectsManager,
+                      GitHubCredentialStore* _credentials = nullptr);
     ~GitHubSyncManager() override;
 
     /**
@@ -52,6 +55,9 @@ public:
      */
     void uploadBeforeExit(std::function<void()> _callback);
 
+    // Also used for settings-driven restarts and update exits, without uploading stories.
+    void settleCredentialsBeforeExit(std::function<void()> _callback);
+
     /**
      * @brief Show the state of the story after its file was changed
      */
@@ -63,6 +69,7 @@ public:
     QVector<QAction*> projectActions(BusinessLayer::ProjectsModelProjectItem* _project);
 
 signals:
+    void checkFinished(bool _success);
     /**
      * @brief Changes of the opened story should be written to its file
      */
@@ -79,6 +86,7 @@ signals:
     void setupRequested();
 
 private:
+    void uploadReadyBeforeExit(std::function<void()> _callback);
     class Implementation;
     QScopedPointer<Implementation> d;
 };

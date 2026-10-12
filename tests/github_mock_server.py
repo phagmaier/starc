@@ -45,6 +45,8 @@ class Handler(BaseHTTPRequestHandler):
         if len(parts) < 3 or parts[0] != "repos":
             return None
         rest = parts[3:]
+        if parts[1:3] == ["echo", "denied"]:
+            return ("credential-error", None, query)
         if not rest:
             return ("repository", None, query)
         if rest[0] == "contents":
@@ -69,7 +71,9 @@ class Handler(BaseHTTPRequestHandler):
         kind, name, _ = route
         storage = self.server.storage
 
-        if kind == "repository":
+        if kind == "credential-error":
+            self.reply(403, {"message": "Refused credential " + self.server.token})
+        elif kind == "repository":
             self.reply(200, {"private": not self.server.public, "permissions": {"push": True}})
         elif kind == "contents" and not name:
             files = sorted(path for path in storage.iterdir() if path.is_file())

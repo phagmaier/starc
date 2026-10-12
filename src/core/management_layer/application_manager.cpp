@@ -721,7 +721,7 @@ void ApplicationManager::Implementation::askUpdateToLatestVersion()
             connect(downloader, &NetworkRequest::downloadProgress, q,
                     [taskId](int _progress) { TaskBar::setTaskProgress(taskId, _progress); });
             connect(downloader, &NetworkRequest::downloadComplete, q,
-                    [taskId](const QByteArray& _data, const QUrl _url) {
+                    [this, taskId](const QByteArray& _data, const QUrl _url) {
                         TaskBar::finishTask(taskId);
 
                         const QString tempDirPath
@@ -761,7 +761,8 @@ void ApplicationManager::Implementation::askUpdateToLatestVersion()
                             QDesktopServices::openUrl(QUrl::fromLocalFile(downloadedFilePath));
 #endif
                         if (updateStarted) {
-                            QCoreApplication::quit();
+                            gitHubSyncManager->settleCredentialsBeforeExit(
+                                [] { QCoreApplication::quit(); });
                         }
                     });
 
@@ -3047,15 +3048,18 @@ void ApplicationManager::initConnections()
                 //
                 // ... закроем текущий проект
                 //
-                d->closeCurrentProject();
-                //
-                // ... сохраним настройки, чтобы они успешно считались следующей копией приложения
-                //
-                DataStorageLayer::StorageFacade::settingsStorage()->sync();
-                //
-                // ... перезапустим приложение
-                //
-                restartApplication();
+                d->gitHubSyncManager->settleCredentialsBeforeExit([this] {
+                    d->closeCurrentProject();
+                    //
+                    // ... сохраним настройки, чтобы они успешно считались следующей копией
+                    // приложения
+                    //
+                    DataStorageLayer::StorageFacade::settingsStorage()->sync();
+                    //
+                    // ... перезапустим приложение
+                    //
+                    restartApplication();
+                });
             });
     connect(d->settingsManager.data(), &SettingsManager::advancedUseExtendingLoggingChanged, this,
             [this] { d->initLogging(); });
@@ -3065,15 +3069,17 @@ void ApplicationManager::initConnections()
                 //
                 // Если пользователь хочет сбросить все настройки, закроем текущий проект
                 //
-                d->closeCurrentProject();
-                //
-                // ... сбросим настройки
-                //
-                DataStorageLayer::StorageFacade::settingsStorage()->resetToDefaults(_fullReset);
-                //
-                // ... перезапустим приложение
-                //
-                restartApplication();
+                d->gitHubSyncManager->settleCredentialsBeforeExit([this, _fullReset] {
+                    d->closeCurrentProject();
+                    //
+                    // ... сбросим настройки
+                    //
+                    DataStorageLayer::StorageFacade::settingsStorage()->resetToDefaults(_fullReset);
+                    //
+                    // ... перезапустим приложение
+                    //
+                    restartApplication();
+                });
             });
 
     //
