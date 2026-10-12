@@ -245,6 +245,11 @@ void ScreenplaySeriesInformationView::setStatisticsVisible(bool _visible)
     d->statisticsVisiblity->setChecked(_visible);
 }
 
+void ScreenplaySeriesInformationView::setStatisticsAvailable(bool _available)
+{
+    d->statisticsVisiblity->setVisible(_available);
+}
+
 void ScreenplaySeriesInformationView::updateTranslations()
 {
     d->seriesName->setLabel(tr("Series name"));

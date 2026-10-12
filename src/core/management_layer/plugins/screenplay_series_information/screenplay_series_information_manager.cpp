@@ -3,9 +3,11 @@
 #include "screenplay_series_information_view.h"
 
 #include <business_layer/model/screenplay/series/screenplay_series_information_model.h>
+#include <domain/document_object.h>
 
 #include <QApplication>
 #include <QFileDialog>
+#include <QSet>
 
 
 namespace ManagementLayer {
@@ -39,12 +41,18 @@ public:
         QPointer<BusinessLayer::ScreenplaySeriesInformationModel> model;
     };
     QVector<ViewAndModel> allViews;
+
+    /**
+     * @brief Is there an editor to open the statistics with
+     */
+    bool isStatisticsAvailable = true;
 };
 
 Ui::ScreenplaySeriesInformationView* ScreenplaySeriesInformationManager::Implementation::createView(
     BusinessLayer::AbstractModel* _model)
 {
     auto view = new Ui::ScreenplaySeriesInformationView;
+    view->setStatisticsAvailable(isStatisticsAvailable);
     setModelForView(_model, view);
     return view;
 }
@@ -213,6 +221,20 @@ void ScreenplaySeriesInformationManager::setEditingMode(DocumentEditingMode _mod
         }
 
         viewAndModel.view->setEditingMode(_mode);
+    }
+}
+
+void ScreenplaySeriesInformationManager::setDocumentsWithEditors(
+    const QSet<QString>& _documentsMimeTypes)
+{
+    d->isStatisticsAvailable = _documentsMimeTypes.contains(
+        Domain::mimeTypeFor(Domain::DocumentObjectType::ScreenplaySeriesStatistics));
+    for (auto& viewAndModel : d->allViews) {
+        if (viewAndModel.view.isNull()) {
+            continue;
+        }
+
+        viewAndModel.view->setStatisticsAvailable(d->isStatisticsAvailable);
     }
 }
 

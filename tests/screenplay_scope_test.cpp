@@ -3,6 +3,7 @@
 #include <business_layer/export/screenplay/screenplay_fdx_exporter.h>
 #include <business_layer/export/screenplay/screenplay_fountain_exporter.h>
 #include <business_layer/export/screenplay/screenplay_pdf_exporter.h>
+#include <business_layer/import/import_options.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model.h>
 #include <business_layer/model/structure/structure_model.h>
 #include <business_layer/model/structure/structure_model_item.h>
@@ -12,7 +13,9 @@
 #include <data_layer/storage/document_storage.h>
 #include <data_layer/storage/storage_facade.h>
 #include <domain/document_object.h>
+#include <interfaces/management_layer/i_document_manager.h>
 #include <interfaces/ui/i_document_view.h>
+#include <management_layer/content/import/import_manager.h>
 #include <management_layer/content/project/project_manager.h>
 #include <management_layer/content/project/project_models_facade.h>
 #include <management_layer/content/projects/projects_model_project_item.h>
@@ -21,6 +24,7 @@
 #include <management_layer/plugins/screenplay_text/text/screenplay_text_edit.h>
 #include <management_layer/plugins_builder.h>
 #include <ui/account/account_navigator.h>
+#include <ui/import/import_dialog.h>
 #include <ui/onboarding/onboarding_navigator.h>
 #include <ui/project/create_document_dialog.h>
 #include <ui/project/create_document_dialog_option.h>
@@ -30,6 +34,7 @@
 #include <ui/settings/settings_navigator.h>
 #include <ui/settings/settings_view.h>
 #include <ui/widgets/app_bar/app_bar.h>
+#include <ui/widgets/check_box/check_box.h>
 #include <ui/widgets/combo_box/combo_box.h>
 #include <ui/widgets/label/label.h>
 #include <ui/widgets/tree/tree.h>
@@ -40,6 +45,7 @@
 #include <QFile>
 #include <QFontDatabase>
 #include <QKeyEvent>
+#include <QSettings>
 #include <QSortFilterProxyModel>
 #include <QTextDocument>
 #include <QTimer>
@@ -144,6 +150,19 @@ bool noEditorNoticeShown(QWidget* _view)
 bool hasEditor(const ManagementLayer::PluginsBuilder& _plugins, Domain::DocumentObjectType _type)
 {
     return !_plugins.editorsInfoFor(Domain::mimeTypeFor(_type), false).isEmpty();
+}
+// The option of an information page that shows the statistics of the document in the project.
+CheckBox* statisticsOption(QWidget* _page)
+{
+    if (_page == nullptr) {
+        return nullptr;
+    }
+    for (auto option : _page->findChildren<CheckBox*>()) {
+        if (option->text() == "Statistics") {
+            return option;
+        }
+    }
+    return nullptr;
 }
 QByteArray read(const QString& _path)
 {
@@ -255,6 +274,7 @@ int main(int argc, char** argv)
     }
     require(script, "screenplay text created");
     const auto scriptUuid = script->uuid();
+    const auto screenplayUuid = story->uuid();
     // A document set gets statistics only when there is a view to show them with. A project
     // from a build that had one already holds them, like the item added by hand here.
     const bool statisticsView = hasEditor(plugins, Type::ScreenplayStatistics);
@@ -586,6 +606,112 @@ int main(int argc, char** argv)
     }
     require(screenplayOffered, "screenplay is offered");
     delete addDocument;
+
+    // The information page of a screenplay, a series and a novel has an option that shows the
+    // statistics of the document in the project. It is there only with a view for them, in
+    // either panel, and hiding it leaves the choice it holds and the item as they are.
+    struct DocumentSet {
+        Type document;
+        Type statistics;
+        QUuid uuid;
+    };
+    for (auto set : {
+             DocumentSet{ Type::Screenplay, Type::ScreenplayStatistics, screenplayUuid },
+             DocumentSet{ Type::ScreenplaySeries, Type::ScreenplaySeriesStatistics, {} },
+             DocumentSet{ Type::Novel, Type::NovelStatistics, {} },
+         }) {
+        if (!hasEditor(plugins, set.document)) {
+            continue;
+        }
+        if (set.uuid.isNull()) {
+            set.uuid = structure->itemForIndex(structure->addDocument(set.document, "Kept set"))
+                           ->uuid();
+        }
+        const bool available = hasEditor(plugins, set.statistics);
+        navigator->setCurrentIndex(proxyIndex(set.uuid));
+        QApplication::processEvents();
+        auto page = panel->currentEditor();
+        auto option = statisticsOption(page);
+        require(option, "information page has the statistics option");
+        require(option->isVisibleTo(page) == available,
+                "statistics option is there only with a view for them");
+
+        // The option follows the documents this build can open, whichever they are.
+        int changes = 0;
+        const auto counter
+            = QObject::connect(option, &CheckBox::checkedChanged, [&changes] { ++changes; });
+        const bool checked = option->isChecked();
+        const auto information = plugins.plugin(
+            plugins.editorsInfoFor(Domain::mimeTypeFor(set.document), false).first().mimeType);
+        require(information, "information plugin of the document");
+        const QSet<QString> withStatistics = { QString(Domain::mimeTypeFor(set.statistics)) };
+        information->setDocumentsWithEditors(withStatistics);
+        require(option->isVisibleTo(page), "statistics option comes with a view for them");
+        information->setDocumentsWithEditors({});
+        require(!option->isVisibleTo(page), "statistics option goes without a view for them");
+        // Opening the page puts the option back to what this build has.
+        information->setDocumentsWithEditors(available ? QSet<QString>() : withStatistics);
+        navigator->setCurrentIndex(proxyIndex(scriptUuid));
+        navigator->setCurrentIndex(proxyIndex(set.uuid));
+        QApplication::processEvents();
+        require(panel->currentEditor() == page && option->isVisibleTo(page) == available,
+                "opening the page sets the statistics option for this build");
+
+        // The second panel uses another view of the same plugin.
+        split->toggle();
+        navigator->setCurrentIndex(proxyIndex(set.uuid));
+        QApplication::processEvents();
+        auto secondPage = secondPanel->currentEditor();
+        auto secondOption = statisticsOption(secondPage);
+        require(secondOption && secondOption != option
+                    && secondOption->isVisibleTo(secondPage) == available,
+                "statistics option of the second panel is there only with a view for them");
+        split->toggle();
+        QApplication::processEvents();
+
+        require(changes == 0 && option->isChecked() == checked,
+                "hiding the statistics option leaves its choice alone");
+        QObject::disconnect(counter);
+    }
+    require(structure->itemForUuid(statisticsUuid)
+                && structure->itemForUuid(statisticsUuid)->isVisible(),
+            "statistics item stays visible in the project data");
+
+    // A file is imported only to a document that has an editor. Nothing is read from the files
+    // here, the dialog works with their names.
+    {
+        const QString first = evidence + "/first.pdf";
+        const QString second = evidence + "/second.pdf";
+        // The type chosen for a file is remembered, here by a build with more plugins.
+        QSettings().setValue(QString("widgets/import-dialog/%1/document-type").arg(second),
+                             static_cast<int>(Type::Presentation));
+        ManagementLayer::ImportManager importManager(nullptr, &parent, plugins);
+        importManager.import({ first, second });
+        QApplication::processEvents();
+        auto importDialog = parent.findChild<Ui::ImportDialog*>();
+        require(importDialog, "import dialog for two PDF files");
+        auto importTo = importDialog->findChild<ComboBox*>();
+        require(importTo && importTo->model(), "import dialog lists the document types");
+        QStringList offered;
+        for (int row = 0; row < importTo->model()->rowCount(); ++row) {
+            offered.append(importTo->model()->index(row, 0).data().toString());
+        }
+        require(offered.contains("Screenplay"), "PDF file can be imported as a screenplay");
+        require(offered.contains("Presentation") == hasEditor(plugins, Type::Presentation),
+                "presentation is offered for a PDF file only with an editor for it");
+        const auto importOptions = importDialog->importOptions();
+        require(importOptions.size() == 2, "import options for both files");
+        for (const auto& options : importOptions) {
+            require(hasEditor(plugins, options.documentType),
+                    "file is imported to a document with an editor");
+            if (options.filePath == second) {
+                require((options.documentType == Type::Presentation)
+                            == hasEditor(plugins, Type::Presentation),
+                        "remembered presentation is kept only with an editor for it");
+            }
+        }
+        delete importDialog;
+    }
     manager.closeCurrentProject(path);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();

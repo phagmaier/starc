@@ -143,7 +143,14 @@ QVector<Domain::DocumentObjectType> importTypesForFile(const QString& _path)
 class ImportDialog::Implementation
 {
 public:
-    Implementation(const QStringList& _importFilePaths, ImportDialog* _parent);
+    Implementation(const QStringList& _importFilePaths,
+                   const std::function<bool(Domain::DocumentObjectType)>& _documentTypesFilter,
+                   ImportDialog* _parent);
+
+    /**
+     * @brief Types of the documents the file can be imported to
+     */
+    QVector<Domain::DocumentObjectType> importTypesFor(const QString& _path) const;
 
     /**
      * @brief Обновить ширину диалога
@@ -204,6 +211,7 @@ public:
     ImportDialog* q = nullptr;
 
     const QStringList importFilePaths;
+    const std::function<bool(Domain::DocumentObjectType)> documentTypesFilter;
     OverlineLabel* filesCountTitle = nullptr;
     Tree* tree = nullptr;
 
@@ -231,10 +239,13 @@ public:
     QHash<QString, BusinessLayer::ImportOptions> filesOptions;
 };
 
-ImportDialog::Implementation::Implementation(const QStringList& _importFilePaths,
-                                             ImportDialog* _parent)
+ImportDialog::Implementation::Implementation(
+    const QStringList& _importFilePaths,
+    const std::function<bool(Domain::DocumentObjectType)>& _documentTypesFilter,
+    ImportDialog* _parent)
     : q(_parent)
     , importFilePaths(_importFilePaths)
+    , documentTypesFilter(_documentTypesFilter)
     , filesCountTitle(new OverlineLabel(_parent))
     , tree(new Tree(_parent))
     , optionsWidget(new Widget(_parent))
@@ -272,16 +283,19 @@ ImportDialog::Implementation::Implementation(const QStringList& _importFilePaths
     for (const auto& path : _importFilePaths) {
         BusinessLayer::ImportOptions options;
 
+        //
+        // The type chosen for the file last time is used while it's still offered for the file
+        //
+        const auto documentTypes = importTypesFor(path);
+        options.documentType = documentTypes.constFirst();
         const auto documentTypeValue = settings.value(settingsKey(path, kDocumentType));
         if (!documentTypeValue.isNull()) {
             bool ok = false;
             const auto documentType
                 = static_cast<Domain::DocumentObjectType>(documentTypeValue.toInt(&ok));
-            if (ok && documentType != Domain::DocumentObjectType::Undefined) {
+            if (ok && documentTypes.contains(documentType)) {
                 options.documentType = documentType;
             }
-        } else {
-            options.documentType = importTypesForFile(path).constFirst();
         }
         options.filePath = path;
         options.importCharacters
@@ -295,6 +309,24 @@ ImportDialog::Implementation::Implementation(const QStringList& _importFilePaths
 
         filesOptions[path] = options;
     }
+}
+
+QVector<Domain::DocumentObjectType> ImportDialog::Implementation::importTypesFor(
+    const QString& _path) const
+{
+    auto types = importTypesForFile(_path);
+    if (documentTypesFilter) {
+        types.erase(std::remove_if(types.begin(), types.end(),
+                                   [this](Domain::DocumentObjectType _type) {
+                                       return _type != Domain::DocumentObjectType::Undefined
+                                           && !documentTypesFilter(_type);
+                                   }),
+                    types.end());
+    }
+    if (types.isEmpty()) {
+        types.append(Domain::DocumentObjectType::Undefined);
+    }
+    return types;
 }
 
 void ImportDialog::Implementation::updateDialogWidth()
@@ -449,9 +481,11 @@ void ImportDialog::Implementation::saveSetting()
 // ****
 
 
-ImportDialog::ImportDialog(const QStringList& _importFilePaths, QWidget* _parent)
+ImportDialog::ImportDialog(
+    const QStringList& _importFilePaths,
+    const std::function<bool(Domain::DocumentObjectType)>& _documentTypesFilter, QWidget* _parent)
     : AbstractDialog(_parent)
-    , d(new Implementation(_importFilePaths, this))
+    , d(new Implementation(_importFilePaths, _documentTypesFilter, this))
 {
     setAcceptButton(d->importButton);
     setRejectButton(d->cancelButton);
@@ -597,7 +631,7 @@ ImportDialog::ImportDialog(const QStringList& _importFilePaths, QWidget* _parent
         bool state = d->sameOptions->isChecked();
         bool isEnabled = true;
         for (const auto& fileOptions : d->filesOptions) {
-            if (!importTypesForFile(fileOptions.filePath).contains(d->currentType())) {
+            if (!d->importTypesFor(fileOptions.filePath).contains(d->currentType())) {
                 state = false;
                 isEnabled = false;
                 break;
@@ -631,7 +665,7 @@ ImportDialog::ImportDialog(const QStringList& _importFilePaths, QWidget* _parent
             [this, updateSameOptionsAvailable](const QModelIndex& _index) {
                 d->writeCurrentOptions();
                 d->currentFile = _index.data().toString();
-                d->setImportDocumentTypes(importTypesForFile(d->currentFile));
+                d->setImportDocumentTypes(d->importTypesFor(d->currentFile));
                 d->showOptionsForFile(d->currentFile);
                 if (d->sameOptions->isChecked()) {
                     return;
@@ -661,7 +695,7 @@ ImportDialog::ImportDialog(const QStringList& _importFilePaths, QWidget* _parent
     //
     // Отображаем настройки текущего файла
     //
-    d->setImportDocumentTypes(importTypesForFile(d->currentFile));
+    d->setImportDocumentTypes(d->importTypesFor(d->currentFile));
     d->showOptionsForFile(d->currentFile);
     d->sameOptions->setChecked(false);
     updateSameOptionsAvailable();
@@ -722,7 +756,7 @@ void ImportDialog::updateTranslations()
     //
     // Обновляем выпадающий список
     //
-    d->setImportDocumentTypes(importTypesForFile(d->currentFile));
+    d->setImportDocumentTypes(d->importTypesFor(d->currentFile));
     d->showOptionsForFile(d->currentFile);
 
     d->documentType->setLabel(tr("Import to"));

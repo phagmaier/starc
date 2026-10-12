@@ -2,9 +2,15 @@
 
 #include <ui/widgets/dialog/abstract_dialog.h>
 
+#include <functional>
+
 namespace BusinessLayer {
 struct ImportOptions;
 } // namespace BusinessLayer
+
+namespace Domain {
+enum class DocumentObjectType;
+}
 
 
 namespace Ui {
@@ -23,7 +29,13 @@ public:
     };
 
 public:
-    explicit ImportDialog(const QStringList& _importFilePaths, QWidget* _parent = nullptr);
+    /**
+     * @param _documentTypesFilter tells whether a file can be imported to the document of
+     *        the given type, the types it rejects aren't offered
+     */
+    ImportDialog(const QStringList& _importFilePaths,
+                 const std::function<bool(Domain::DocumentObjectType)>& _documentTypesFilter,
+                 QWidget* _parent = nullptr);
     ~ImportDialog() override;
 
     /**

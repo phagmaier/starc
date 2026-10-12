@@ -34,6 +34,7 @@ public:
     Ui::IDocumentView* createView(BusinessLayer::AbstractModel* _model) override;
     void resetModels() override;
     void setEditingMode(DocumentEditingMode _mode) override;
+    void setDocumentsWithEditors(const QSet<QString>& _documentsMimeTypes) override;
     /** @} */
 
 private:

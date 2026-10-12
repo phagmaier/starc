@@ -17,11 +17,14 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Limit: a screenplay or novel created while there is no statistics view has
     no Statistics item and does not get one if a view is added later. Older
     projects keep theirs; it is only hidden.
-  - Left open: the "Statistics" checkbox on the screenplay, novel and series
-    information pages still shows and does nothing visible; the import dialog
-    still lists "Presentation" for PDF files (choosing it now shows a message
-    instead of crashing); "Split to episodes" creates an "Episodes" item that
-    has no editor.
+  - Also done 2026-10-11: the "Statistics" checkbox on the screenplay, novel
+    and series information pages is hidden while the statistics have no view
+    (`IDocumentManager::setDocumentsWithEditors`); the choice it holds is kept.
+    The import dialog offers only document types that have an editor, so
+    "Presentation" is gone for PDF files, and a type remembered for a file
+    falls back to the first one offered.
+  - Left open: "Split to episodes" creates an "Episodes" item that has no
+    editor.
 - [ ] **Keep backups for longer than one writing session.** Every save writes a
   full copy and only the newest 7 are kept, while autosave runs every 3 minutes.
   Keep a few recent copies plus one per day. Start at

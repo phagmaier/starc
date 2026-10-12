@@ -37,6 +37,7 @@ public:
                         bool _canBeSentForChecking,
                         const QVector<BusinessLayer::ComplianceRule>& _complianceRules) override;
     void setEditingMode(DocumentEditingMode _mode) override;
+    void setDocumentsWithEditors(const QSet<QString>& _documentsMimeTypes) override;
     /** @} */
 
 signals:

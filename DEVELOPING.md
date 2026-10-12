@@ -121,8 +121,10 @@ typing, Enter/Tab transitions, Undo/Redo and pagination, the Fountain, FDX, DOCX
 and PDF exports contain the typed text, and documents of retired formats keep
 their exact bytes across save and reopen. It also checks that only editors whose
 plugin loads are offered (view switcher, add-document dialog, the view remembered
-for a document, its drafts, the split view), and that statistics, mind map and
-character documents of an existing project survive save and reopen. It builds
+for a document, its drafts, the split view, the Statistics option of the
+information pages, the document types of the import dialog), and that statistics,
+mind map and character documents of an existing project survive save and reopen.
+It builds
 `tests/screenplay_scope_test.cpp`
 against the debug build and runs it offscreen with a disposable project and
 profile. It needs `pdftotext` (poppler) and does not show a window.

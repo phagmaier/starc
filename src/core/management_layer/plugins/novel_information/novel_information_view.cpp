@@ -236,6 +236,11 @@ void NovelInformationView::setNovelStatisticsVisible(bool _visible)
     d->novelStatisticsVisiblity->setChecked(_visible);
 }
 
+void NovelInformationView::setNovelStatisticsAvailable(bool _available)
+{
+    d->novelStatisticsVisiblity->setVisible(_available);
+}
+
 void NovelInformationView::updateTranslations()
 {
     d->novelName->setLabel(tr("Novel name"));

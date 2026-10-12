@@ -7,6 +7,7 @@
 
 #include <QApplication>
 #include <QFileDialog>
+#include <QSet>
 
 
 namespace ManagementLayer {
@@ -44,6 +45,11 @@ public:
         QPointer<BusinessLayer::ScreenplayInformationModel> model;
     };
     QVector<ViewAndModel> allViews;
+
+    /**
+     * @brief Is there an editor to open the statistics with
+     */
+    bool isStatisticsAvailable = true;
 };
 
 ScreenplayInformationManager::Implementation::Implementation(ScreenplayInformationManager* _q)
@@ -55,6 +61,7 @@ Ui::ScreenplayInformationView* ScreenplayInformationManager::Implementation::cre
     BusinessLayer::AbstractModel* _model)
 {
     auto view = new Ui::ScreenplayInformationView;
+    view->setScreenplayStatisticsAvailable(isStatisticsAvailable);
     setModelForView(_model, view);
     return view;
 }
@@ -244,6 +251,19 @@ void ScreenplayInformationManager::setEditingMode(DocumentEditingMode _mode)
         }
 
         viewAndModel.view->setEditingMode(_mode);
+    }
+}
+
+void ScreenplayInformationManager::setDocumentsWithEditors(const QSet<QString>& _documentsMimeTypes)
+{
+    d->isStatisticsAvailable = _documentsMimeTypes.contains(
+        Domain::mimeTypeFor(Domain::DocumentObjectType::ScreenplayStatistics));
+    for (auto& viewAndModel : d->allViews) {
+        if (viewAndModel.view.isNull()) {
+            continue;
+        }
+
+        viewAndModel.view->setScreenplayStatisticsAvailable(d->isStatisticsAvailable);
     }
 }
 

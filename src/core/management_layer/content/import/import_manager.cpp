@@ -14,6 +14,7 @@
 #include <business_layer/import/text/simple_text_pdf_importer.h>
 #include <data_layer/storage/settings_storage.h>
 #include <data_layer/storage/storage_facade.h>
+#include <management_layer/plugins_builder.h>
 #include <ui/design_system/design_system.h>
 #include <ui/import/import_dialog.h>
 #include <ui/widgets/dialog/dialog.h>
@@ -30,7 +31,8 @@ namespace ManagementLayer {
 class ImportManager::Implementation
 {
 public:
-    explicit Implementation(ImportManager* _parent, QWidget* _topLevelWidget);
+    Implementation(ImportManager* _parent, QWidget* _topLevelWidget,
+                   const PluginsBuilder& _pluginsBuilder);
 
     /**
      * @brief Показать диалог импорта для заданных файлов
@@ -53,12 +55,19 @@ public:
 
     QWidget* topLevelWidget = nullptr;
 
+    /**
+     * @brief Editors of the documents, a file is imported only to a document that has one
+     */
+    const PluginsBuilder& pluginsBuilder;
+
     Ui::ImportDialog* importDialog = nullptr;
 };
 
-ImportManager::Implementation::Implementation(ImportManager* _parent, QWidget* _topLevelWidget)
+ImportManager::Implementation::Implementation(ImportManager* _parent, QWidget* _topLevelWidget,
+                                              const PluginsBuilder& _pluginsBuilder)
     : q(_parent)
     , topLevelWidget(_topLevelWidget)
+    , pluginsBuilder(_pluginsBuilder)
 {
 }
 
@@ -131,7 +140,15 @@ void ImportManager::Implementation::showImportDialogFor(const QStringList& _path
     // Создаем диалог импорта
     //
     if (importDialog == nullptr) {
-        importDialog = new Ui::ImportDialog(filesToImport, topLevelWidget);
+        //
+        // A document is offered only if there's an editor to open it with
+        //
+        const auto hasEditorFor = [this](Domain::DocumentObjectType _type) {
+            const auto isProjectRemote = false;
+            return !pluginsBuilder.editorsInfoFor(Domain::mimeTypeFor(_type), isProjectRemote)
+                        .isEmpty();
+        };
+        importDialog = new Ui::ImportDialog(filesToImport, hasEditorFor, topLevelWidget);
         connect(importDialog, &Ui::ImportDialog::importRequested, importDialog, [this] {
             const auto optionsList = importDialog->importOptions();
             importDialog->hideDialog();
@@ -382,9 +399,10 @@ void ImportManager::Implementation::importPresentation(const BusinessLayer::Impo
 // ****
 
 
-ImportManager::ImportManager(QObject* _parent, QWidget* _parentWidget)
+ImportManager::ImportManager(QObject* _parent, QWidget* _parentWidget,
+                             const PluginsBuilder& _pluginsBuilder)
     : QObject(_parent)
-    , d(new Implementation(this, _parentWidget))
+    , d(new Implementation(this, _parentWidget, _pluginsBuilder))
 {
 }
 

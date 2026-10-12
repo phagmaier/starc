@@ -117,6 +117,14 @@ public:
     }
 
     /**
+     * @brief Set mime-types of the documents that have an editor in the current build
+     * @note Lets a plugin hide the controls of the documents that can't be opened
+     */
+    virtual void setDocumentsWithEditors(const QSet<QString>&)
+    {
+    }
+
+    /**
      * @brief Задать режим редактирования документа
      */
     virtual void setEditingMode(DocumentEditingMode)

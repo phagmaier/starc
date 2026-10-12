@@ -50,6 +50,12 @@ public:
     Q_SIGNAL void screenplayStatisticsVisibleChanged(bool _visible);
 
     /**
+     * @brief Set whether there is an editor to open the statistics with, the option that
+     *        shows them in the project is hidden while there is none
+     */
+    void setScreenplayStatisticsAvailable(bool _available);
+
+    /**
      * @brief Запрос отправки документа на проверку
      */
     Q_SIGNAL void sendDocumentToReviewRequested(const QString& _comment);

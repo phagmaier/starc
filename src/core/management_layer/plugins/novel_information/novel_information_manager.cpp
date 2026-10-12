@@ -3,9 +3,11 @@
 #include "novel_information_view.h"
 
 #include <business_layer/model/novel/novel_information_model.h>
+#include <domain/document_object.h>
 
 #include <QApplication>
 #include <QFileDialog>
+#include <QSet>
 
 
 namespace ManagementLayer {
@@ -38,12 +40,18 @@ public:
         QPointer<BusinessLayer::NovelInformationModel> model;
     };
     QVector<ViewAndModel> allViews;
+
+    /**
+     * @brief Is there an editor to open the statistics with
+     */
+    bool isStatisticsAvailable = true;
 };
 
 Ui::NovelInformationView* NovelInformationManager::Implementation::createView(
     BusinessLayer::AbstractModel* _model)
 {
     auto view = new Ui::NovelInformationView;
+    view->setNovelStatisticsAvailable(isStatisticsAvailable);
     setModelForView(_model, view);
     return view;
 }
@@ -207,6 +215,19 @@ void NovelInformationManager::setEditingMode(DocumentEditingMode _mode)
         }
 
         viewAndModel.view->setEditingMode(_mode);
+    }
+}
+
+void NovelInformationManager::setDocumentsWithEditors(const QSet<QString>& _documentsMimeTypes)
+{
+    d->isStatisticsAvailable = _documentsMimeTypes.contains(
+        Domain::mimeTypeFor(Domain::DocumentObjectType::NovelStatistics));
+    for (auto& viewAndModel : d->allViews) {
+        if (viewAndModel.view.isNull()) {
+            continue;
+        }
+
+        viewAndModel.view->setNovelStatisticsAvailable(d->isStatisticsAvailable);
     }
 }
 

@@ -50,6 +50,12 @@ public:
     void setNovelStatisticsVisible(bool _visible);
     Q_SIGNAL void novelStatisticsVisibleChanged(bool _visible);
 
+    /**
+     * @brief Set whether there is an editor to open the statistics with, the option that
+     *        shows them in the project is hidden while there is none
+     */
+    void setNovelStatisticsAvailable(bool _available);
+
 protected:
     /**
      * @brief Обновить переводы

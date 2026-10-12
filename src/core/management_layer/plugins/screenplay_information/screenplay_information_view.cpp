@@ -273,6 +273,11 @@ void ScreenplayInformationView::setScreenplayStatisticsVisible(bool _visible)
     d->screenplayStatisticsVisiblity->setChecked(_visible);
 }
 
+void ScreenplayInformationView::setScreenplayStatisticsAvailable(bool _available)
+{
+    d->screenplayStatisticsVisiblity->setVisible(_available);
+}
+
 void ScreenplayInformationView::updateTranslations()
 {
     d->checkingComment->setLabel(tr("Comment"));

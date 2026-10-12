@@ -11,6 +11,8 @@ enum class DocumentObjectType;
 
 namespace ManagementLayer {
 
+class PluginsBuilder;
+
 /**
  * @brief Управляющий импортом документов
  */
@@ -19,7 +21,7 @@ class ImportManager : public QObject
     Q_OBJECT
 
 public:
-    ImportManager(QObject* _parent, QWidget* _parentWidget);
+    ImportManager(QObject* _parent, QWidget* _parentWidget, const PluginsBuilder& _pluginsBuilder);
     ~ImportManager() override;
 
     /**

@@ -290,6 +290,11 @@ public:
     bool isPluginAvailable(const QString& _mimeType);
 
     /**
+     * @brief Mime-types of the documents that have at least one editor to be opened with
+     */
+    QSet<QString> documentsWithEditors();
+
+    /**
      * @brief Инициировать плагин заданного типа
      */
     bool initPlugin(const QString& _mimeType);
@@ -394,6 +399,21 @@ bool PluginsBuilder::Implementation::isPluginAvailable(const QString& _mimeType)
     return !brokenPlugins.contains(_mimeType) && !pluginPath(_mimeType).isEmpty();
 }
 
+QSet<QString> PluginsBuilder::Implementation::documentsWithEditors()
+{
+    QSet<QString> documents;
+    for (auto editors = kDocumentToEditors.constBegin(); editors != kDocumentToEditors.constEnd();
+         ++editors) {
+        for (const auto& editor : editors.value()) {
+            if (isPluginAvailable(editor.mimeType)) {
+                documents.insert(editors.key());
+                break;
+            }
+        }
+    }
+    return documents;
+}
+
 bool PluginsBuilder::Implementation::initPlugin(const QString& _mimeType)
 {
     if (plugins.contains(_mimeType)) {
@@ -471,6 +491,10 @@ Ui::IDocumentView* PluginsBuilder::Implementation::activatePlugin(
     //
     plugin->checkAvailabilityToEdit(isProjectInTeam);
     plugin->setEditingPermissions(editingPermissions);
+    //
+    // ... the documents that can be opened, for the controls that belong to them
+    //
+    plugin->setDocumentsWithEditors(documentsWithEditors());
     //
     // ... а также доступные кредиты для работы с ИИ
     //

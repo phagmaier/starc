@@ -414,7 +414,7 @@ ApplicationManager::Implementation::Implementation(ApplicationManager* _q)
     , onboardingManager(new OnboardingManager(nullptr, applicationView))
     , projectsManager(new ProjectsManager(nullptr, applicationView))
     , projectManager(new ProjectManager(nullptr, applicationView, pluginsBuilder))
-    , importManager(new ImportManager(nullptr, applicationView))
+    , importManager(new ImportManager(nullptr, applicationView, pluginsBuilder))
     , exportManager(new ExportManager(nullptr, applicationView))
     , settingsManager(
           new SettingsManager(nullptr, applicationView, pluginsBuilder, shortcutsManager.data()))
