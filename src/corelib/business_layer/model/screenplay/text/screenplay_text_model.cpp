@@ -120,6 +120,37 @@ QVector<QPair<int, int>> characterCueNames(const QString& _text, const QString& 
     }
     return names;
 }
+
+/**
+ * @brief Source span of the parsed location, starting after the heading's first ". ".
+ *        Preserve prefix and surrounding whitespace; uppercase/simplification can change
+ *        lengths, so use the original text's positions for the annotation-aware replacement.
+ */
+QPair<int, int> sceneLocationNameRange(const QString& _text, const QString& _name)
+{
+    const auto introEnd = _text.indexOf(". ");
+    if (introEnd == -1 || _name.isEmpty()) {
+        return { -1, 0 };
+    }
+    int from = introEnd + 2;
+    while (from < _text.length() && _text.at(from).isSpace()) {
+        ++from;
+    }
+    for (int end = from; end < _text.length(); ++end) {
+        if (_text.at(end).isSpace()) {
+            continue;
+        }
+        const auto candidate
+            = TextHelper::smartToUpper(_text.mid(from, end - from + 1)).simplified();
+        if (candidate == _name) {
+            return { from, end - from + 1 };
+        }
+        if (!_name.startsWith(candidate)) {
+            break;
+        }
+    }
+    return { -1, 0 };
+}
 } // namespace
 
 class ScreenplayTextModel::Implementation
@@ -627,10 +658,11 @@ void ScreenplayTextModel::updateLocationName(const QString& _oldName, const QStr
                       auto textItem = static_cast<ScreenplayTextModelTextItem*>(childItem);
                       if (textItem->paragraphType() == TextParagraphType::SceneHeading
                           && ScreenplaySceneHeadingParser::location(textItem->text()) == oldName) {
-                          const auto nameIndex
-                              = TextHelper::smartToUpper(textItem->text()).indexOf(oldName);
-                          textItem->replaceText(nameIndex, oldName.length(), _newName);
-                          updateItem(textItem);
+                          const auto name = sceneLocationNameRange(textItem->text(), oldName);
+                          if (name.second > 0) {
+                              textItem->replaceText(name.first, name.second, _newName);
+                              updateItem(textItem);
+                          }
                       }
                       break;
                   }

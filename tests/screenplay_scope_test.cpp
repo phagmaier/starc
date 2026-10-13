@@ -8,6 +8,7 @@
 #include <business_layer/model/characters/character_model.h>
 #include <business_layer/model/locations/location_model.h>
 #include <business_layer/model/screenplay/screenplay_information_model.h>
+#include <business_layer/model/screenplay/text/screenplay_text_block_parser.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model_text_item.h>
 #include <business_layer/model/structure/structure_model.h>
@@ -767,6 +768,42 @@ void checkCharacterRenameModel()
 void checkLocationRenameModel()
 {
     using namespace BusinessLayer;
+    struct LocationFixture {
+        QString heading;
+        QString oldName;
+        QString expected;
+    };
+    const QVector<LocationFixture> locationFixtures = {
+        { "INT. INT - DAY", "INT", "INT. ROOM - DAY" },
+        { "EXT. EXT - NIGHT", "EXT", "EXT. ROOM - NIGHT" },
+        { "INT./EXT. EXT - DAY", "EXT", "INT./EXT. ROOM - DAY" },
+        { "  EXT.  EXT  -- LATER  ", "EXT", "  EXT.  ROOM  -- LATER  " },
+        { "INT. int - DAY", "INT", "INT. ROOM - DAY" },
+        { "INT. INT. GATE - NIGHT", "INT. GATE", "INT. ROOM - NIGHT" },
+        { "INT. INT  GATE - DAY", "INT GATE", "INT. ROOM - DAY" },
+        { "EXT. EXT\tGATE -- DAWN", "EXT GATE", "EXT. ROOM -- DAWN" },
+        { "INT. NIGHT.NIGHT", "NIGHT", "INT. ROOM.NIGHT" },
+        { "EXT. DAY. DAY", "DAY", "EXT. ROOM. DAY" },
+        { "INT. A|B - DAY", "A|B", "INT. ROOM - DAY" },
+        { "INT. ÉTÉ - DAY", "ÉTÉ", "INT. ROOM - DAY" },
+        { "ﬃ. ﬃ - DAY", "FFI", "ﬃ. ROOM - DAY" },
+    };
+    for (const auto& fixture : locationFixtures) {
+        ScreenplayInformationModel information;
+        ScreenplayTextModel model;
+        model.setInformationModel(&information);
+        auto heading = new ScreenplayTextModelTextItem(&model);
+        heading->setParagraphType(TextParagraphType::SceneHeading);
+        heading->setText(fixture.heading);
+        model.appendItem(heading);
+        require(ScreenplaySceneHeadingParser::location(fixture.heading) == fixture.oldName,
+                "location fixture agrees with the existing heading parser");
+        model.updateLocationName(fixture.oldName, "ROOM");
+        require(
+            heading->text() == fixture.expected
+                && ScreenplaySceneHeadingParser::location(heading->text()) == "ROOM",
+            qPrintable("rename preserves heading prefix, separators and time: " + fixture.heading));
+    }
     // Include annotations before, on, after, across and strictly inside the replaced name.
     const QVector<QPair<int, int>> originalRanges
         = { { 0, 3 }, { 5, 5 }, { 13, 3 }, { 3, 11 }, { 7, 2 } };
@@ -1840,7 +1877,7 @@ void checkCharacterAndLocationPages(const QString& _evidence)
                     == QVector<BusinessLayer::TextModelTextItem::ReviewMark>{ locationReview }
                 && locationItem->resourceMarks() == locationResources,
             "live editor stores location emphasis, completed comment and resource links");
-    for (const QString& newName : { QString("HO"), QString("LIVING ROOM") }) {
+    for (const QString& newName : { QString("INT"), QString("HO"), QString("LIVING ROOM") }) {
         const auto before = script();
         fields = fieldsOf(annotatedHouseUuid, "Ui::LocationInformationView");
         enter(fields[0], newName);

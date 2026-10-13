@@ -2,7 +2,7 @@
 
 Audit date: 2026-10-12 (local time). Reviewed `dev` at `12722c89`; frozen
 upstream reference: `master` at `4b9677db`. No application fixes were made during
-the initial audit. Issues 1–5 have since been completed; issues 6–8 remain open.
+the initial audit. Issues 1–6 have since been completed; issues 7–8 remain open.
 
 Eight defects were confirmed outside the passing regression suite. Existing
 upstream defects are included because they still affect this fork. The source
@@ -410,7 +410,51 @@ successful runs exited 0. An earlier diagnostic harness aborted on its own
 unchecked indexing after the comment disappeared; its retained core is not an
 application-crash finding.
 
-## 6. Medium: location renaming can overwrite the INT/EXT prefix
+## 6. Completed: location renaming can overwrite the INT/EXT prefix
+
+- [x] **Fixed and verified on 2026-10-13.**
+
+**Resolution:** Location renaming now identifies the original location-name span
+after the heading parser's first `. ` separator. It compares the same uppercase,
+simplified name as the existing parser, while keeping replacement positions in
+the original text. INT/EXT names cannot replace the prefix. Surrounding whitespace,
+prefix spelling and time suffixes remain intact, including names with repeated
+whitespace or Unicode uppercasing that changes length. The replacement retains
+issue #5's annotation-aware boundary and the existing screenplay Undo transaction.
+
+**Validation:** `./build/dev.sh doctor` and `JOBS=4 ./build/dev.sh build debug`
+passed. The new model regression reproduced `INT. INT - DAY` prefix corruption
+before the fix. `STARC_RENAME_CHECK=model ./tools/check-screenplay-scope.sh` passed
+all 13 heading fixtures: INT/EXT names, a combined prefix, original surrounding
+whitespace, mixed case, names with dots, repeated spaces/tabs, repeated location
+and time names, literal punctuation, accented names and expanding Unicode case
+conversion. The existing shorter/longer/equal-length annotation checks passed.
+
+The full `./tools/check-screenplay-scope.sh` passed. Its real location page now
+renames the annotated HOUSE heading to INT, then HO, then LIVING ROOM; each step
+checks the heading, annotation payloads and location identity, exact script XML
+through one Undo/Redo, and preservation after project save/reopen. Existing
+keyboard, pagination, export and project-preservation checks passed too.
+`./tools/check-screenplay-interchange.sh` passed its independent Fountain/FDX
+fixtures and persisted round trips. An independent read-only SQLite/XML postcheck
+confirmed the final saved INT prefix, location/time and annotation ranges/payloads.
+`git diff --check` passed.
+
+**Fix evidence:** [doctor](.build/evidence/issue-6-doctor.log),
+[build](.build/evidence/issue-6-build.log),
+[pre-fix model failure](.build/evidence/screenplay-scope-kTXQdp/),
+[model fixtures](.build/evidence/screenplay-scope-M2Njur/),
+[full scope and page/save/reopen checks](.build/evidence/screenplay-scope-mtfCQj/),
+[interchange](.build/evidence/screenplay-interchange-fjP4og/), and
+[independent postcheck](.build/evidence/issue-6-independent-postcheck.json).
+
+This establishes Linux debug behavior with injected Qt editor/page actions and
+in-process offscreen save/reopen. Visible desktop/GPU behavior, other operating
+systems and release packages were unexercised. Existing compiler warnings in
+unchanged code remain. All profiles and projects were disposable. Issues 7–8
+remain open.
+
+The original finding and reproduction below are retained for reference.
 
 **Where:** [screenplay_text_model.cpp](src/corelib/business_layer/model/screenplay/text/screenplay_text_model.cpp),
 lines 631–633. The replacement searches the entire heading and uses its first

@@ -281,6 +281,11 @@ taken. Upstream matched on the bare prefix and removed the duplicate.
 to move emphasis, review comments/status and resource links with the heading's
 text when the location name changes length. An annotation on the replaced name
 covers its replacement; annotations on later text, such as DAY, follow that text.
+`sceneLocationNameRange` finds that name's original source span after the parser's
+first `. ` separator. Names such as INT or EXT cannot replace the heading prefix;
+prefix spelling, surrounding whitespace and time-of-day suffixes stay intact.
+The span also accounts for simplified name whitespace and Unicode uppercasing
+that changes length, without deriving source positions from the normalized text.
 
 The upstream trait navigators (`character_information_structure`,
 `location_information_structure`) listed the categories of the private editors

@@ -183,6 +183,8 @@ Location rename checks cover shorter, longer and equal-length names with emphasi
 review comments/status and resource links before, on, after and overlapping the
 name. The location page checks shorter/longer names, exact
 script XML through Undo/Redo, and annotation/identity preservation after reopening.
+They also exercise locations named INT/EXT, combined prefixes, repeated/spaced
+names, time suffixes, punctuation and Unicode uppercasing that changes length.
 It builds
 `tests/screenplay_scope_test.cpp`
 against the debug build and runs it offscreen with a disposable project and
