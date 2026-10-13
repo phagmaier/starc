@@ -1250,6 +1250,20 @@ void checkCharacterAndLocationPages(const QString& _evidence)
     require(script().contains("INT. HOUSE - DAY") && script().contains("INT. HOUSE - KITCHEN - NIGHT")
                 && script().contains("INT. HOUSEBOAT - DAY"),
             "script names the locations before renaming");
+    enter(fields[0], "ho");
+    key(fields[0], Qt::Key_Return, "\r");
+    save();
+    require(house->name() == "HO" && structure->itemForUuid(kitchenUuid)->name() == "HO - KITCHEN"
+                && script().contains("INT. HO - DAY")
+                && script().contains("INT. HO - KITCHEN - NIGHT")
+                && structure->itemForUuid(houseboatUuid)->name() == "HOUSEBOAT",
+            "shortening HOUSE to HO renames its nested location and heading only");
+    enter(fields[0], "house");
+    key(fields[0], Qt::Key_Return, "\r");
+    save();
+    require(house->name() == "HOUSE"
+                && structure->itemForUuid(kitchenUuid)->name() == "HOUSE - KITCHEN",
+            "nested location follows its parent back to HOUSE");
     enter(fields[0], "home");
     key(fields[0], Qt::Key_Return, "\r");
     save();
@@ -1915,6 +1929,140 @@ void checkCharacterAndLocationPages(const QString& _evidence)
         require(script() == after && annotationsKept()
                     && structure->itemForUuid(annotatedHouseUuid)->name() == newName,
                 "location emphasis, comments, links and identities survive save and reopen");
+    }
+
+    // Descendants can rename their own descendants synchronously. Exercise both separators,
+    // shortening to a shared prefix, extending that prefix, and a taken nested destination.
+    select(scriptUuid);
+    edit = screenplayEdit(scriptUuid);
+    edit->moveCursor(QTextCursor::End);
+    const QStringList suffixes
+        = { "", " - KITCHEN", " - KITCHEN - PANTRY", ". STUDY", ". STUDY. CLOSET" };
+    for (const auto& suffix : suffixes) {
+        paragraph(Paragraph::SceneHeading, "INT. HOUSE" + suffix + " - DAY");
+        paragraph(Paragraph::Action, "Keep the nested location.");
+    }
+    save();
+    QVector<QUuid> nestedUuids;
+    for (const auto& suffix : suffixes) {
+        nestedUuids.append(member(Type::Locations, "HOUSE" + suffix));
+        require(!nestedUuids.last().isNull(), "collect the nested location fixture");
+    }
+    manager.storeLocation("HOUSE - GARDEN", { });
+    manager.storeLocation("HO - GARDEN", { });
+    const auto sourceGardenUuid = member(Type::Locations, "HOUSE - GARDEN");
+    const auto targetGardenUuid = member(Type::Locations, "HO - GARDEN");
+    require(!sourceGardenUuid.isNull() && !targetGardenUuid.isNull(),
+            "collect both sides of the nested rename collision");
+    auto allNestedUuids = nestedUuids;
+    allNestedUuids.append(sourceGardenUuid);
+    allNestedUuids.append(targetGardenUuid);
+    QHash<QUuid, QByteArray> nestedContent;
+    QHash<QUuid, QString> originalNestedNames;
+    for (const auto& uuid : allNestedUuids) {
+        fields = fieldsOf(uuid, "Ui::LocationInformationView");
+        type(fields[1], "Preserve this description.");
+        type(fields[2], "Preserve these notes.");
+        save();
+        nestedContent.insert(uuid, storage->document(uuid)->content());
+        originalNestedNames.insert(uuid, structure->itemForUuid(uuid)->name());
+    }
+    const auto locationCount = members(Type::Locations).size();
+    select(scriptUuid);
+    edit = screenplayEdit(scriptUuid);
+    const QString deepHeading = "INT. HOUSE - KITCHEN - PANTRY - DAY";
+    annotationCursor = edit->document()->find(deepHeading);
+    require(!annotationCursor.isNull(), "find the deepest nested heading to annotate");
+    annotationCursor.setPosition(annotationCursor.selectionEnd() - 3);
+    annotationCursor.movePosition(QTextCursor::Right, QTextCursor::KeepAnchor, 3);
+    auto nestedReview = locationReview;
+    nestedReview.from = deepHeading.length() - 3;
+    auto nestedResource = dayResource;
+    nestedResource.from = nestedReview.from;
+    annotationCursor.beginEditBlock();
+    annotationCursor.mergeCharFormat(bold);
+    annotationCursor.mergeCharFormat(nestedReview.charFormat());
+    annotationCursor.mergeCharFormat(nestedResource.charFormat());
+    annotationCursor.endEditBlock();
+    save();
+    auto nestedModel = qobject_cast<BusinessLayer::ScreenplayTextModel*>(current);
+    auto nestedItem = findText(nestedModel, deepHeading);
+    require(nestedItem && nestedItem->formats().size() == 1
+                && nestedItem->formats()[0].from == nestedReview.from
+                && nestedItem->formats()[0].length == 3 && nestedItem->formats()[0].isBold
+                && nestedItem->reviewMarks()
+                    == QVector<BusinessLayer::TextModelTextItem::ReviewMark>{ nestedReview }
+                && nestedItem->resourceMarks()
+                    == QVector<BusinessLayer::TextModelTextItem::ResourceMark>{ nestedResource },
+            "deep heading stores emphasis, review status and resource link on DAY");
+    auto nestedFormats = nestedItem->formats();
+    for (const QString& newName :
+         { QString("HO"), QString("HO - MAIN"), QString("HO"), QString("HO - FINAL") }) {
+        const auto before = script();
+        fields = fieldsOf(nestedUuids[0], "Ui::LocationInformationView");
+        enter(fields[0], newName);
+        key(fields[0], Qt::Key_Return, "\r");
+        save();
+        const auto after = script();
+        const auto checkNestedDocuments = [&] {
+            require(members(Type::Locations).size() == locationCount,
+                    "nested rename creates or removes no location documents");
+            for (int i = 0; i < allNestedUuids.size(); ++i) {
+                const auto uuid = allNestedUuids[i];
+                const QString expectedName = i < nestedUuids.size() ? newName + suffixes[i]
+                    : uuid == sourceGardenUuid                      ? QString("HOUSE - GARDEN")
+                                                                    : newName + " - GARDEN";
+                auto expectedContent = nestedContent.value(uuid);
+                expectedContent.replace(
+                    ("<name><![CDATA[" + originalNestedNames.value(uuid) + "]]></name>").toUtf8(),
+                    ("<name><![CDATA[" + expectedName + "]]></name>").toUtf8());
+                require(structure->itemForUuid(uuid)
+                            && structure->itemForUuid(uuid)->name() == expectedName
+                            && storage->document(uuid)
+                            && storage->document(uuid)->content() == expectedContent,
+                        "nested names, UUIDs and every other location field are preserved");
+                if (i < nestedUuids.size()) {
+                    require(script().contains("INT. " + expectedName + " - DAY"),
+                            "nested location heading follows the name exactly once");
+                }
+            }
+            require(structure->itemForUuid(houseboatUuid)->name() == "HOUSEBOAT"
+                        && script().contains("INT. HOUSEBOAT - DAY"),
+                    "nested rename leaves the unrelated HOUSEBOAT intact");
+        };
+        checkNestedDocuments();
+        select(scriptUuid);
+        edit = screenplayEdit(scriptUuid);
+        int undoSteps = 0;
+        while (script() != before && undoSteps < suffixes.size()) {
+            edit->undo();
+            save();
+            ++undoSteps;
+        }
+        require(undoSteps > 0 && script() == before,
+                "Undo restores all nested headings and annotations exactly");
+        for (int step = 0; step < undoSteps; ++step) {
+            edit->redo();
+            save();
+        }
+        require(script() == after, "Redo restores the entire nested rename exactly");
+        std::printf("ok: nested rename to %s restored through %d Undo/Redo steps\n",
+                    qPrintable(newName), undoSteps);
+        reopen();
+        select(scriptUuid);
+        nestedModel = qobject_cast<BusinessLayer::ScreenplayTextModel*>(current);
+        const QString renamedDeepHeading = "INT. " + newName + " - KITCHEN - PANTRY - DAY";
+        nestedItem = findText(nestedModel, renamedDeepHeading);
+        nestedReview.from = nestedResource.from = renamedDeepHeading.length() - 3;
+        nestedFormats[0].from = nestedReview.from;
+        require(
+            script() == after && nestedItem && nestedItem->formats() == nestedFormats
+                && nestedItem->reviewMarks()
+                    == QVector<BusinessLayer::TextModelTextItem::ReviewMark>{ nestedReview }
+                && nestedItem->resourceMarks()
+                    == QVector<BusinessLayer::TextModelTextItem::ResourceMark>{ nestedResource },
+            "nested headings and all DAY annotations survive save and reopen");
+        checkNestedDocuments();
     }
     manager.closeCurrentProject(path);
     storage->clear();

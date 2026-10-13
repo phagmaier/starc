@@ -2,7 +2,7 @@
 
 Audit date: 2026-10-12 (local time). Reviewed `dev` at `12722c89`; frozen
 upstream reference: `master` at `4b9677db`. No application fixes were made during
-the initial audit. Issues 1–6 have since been completed; issues 7–8 remain open.
+the initial audit. Issues 1–7 have since been completed; issue 8 remains open.
 
 Eight defects were confirmed outside the passing regression suite. Existing
 upstream defects are included because they still affect this fork. The source
@@ -474,7 +474,52 @@ Inherited from upstream.
 and [model probe](.build/evidence/audit-location-rename/probe.log); offscreen,
 disposable projects, successful exit 0.
 
-## 7. Medium: shortening a parent location can leave nested locations unchanged
+## 7. Completed: shortening a parent location can leave nested locations unchanged
+
+- [x] **Fixed and verified on 2026-10-13.**
+
+**Resolution:** The parent-rename callback now snapshots descendants' original
+names and proposed names before applying changes. It skips the renamed parent
+by identity and applies a descendant's change only while that model still has
+its original name. Recursive child callbacks can rename deeper descendants
+without the outer callback renaming them twice. A name beginning with the new
+parent's letters no longer causes an untouched descendant to be skipped.
+The existing separator rules and destination-collision guard remain in force;
+taken destinations keep both location documents and their notes.
+
+**Validation:** `./build/dev.sh doctor` and `JOBS=4 ./build/dev.sh build debug`
+passed. The new page regression reproduced HOUSE → HO leaving HOUSE - KITCHEN
+unchanged before the fix. The full `./tools/check-screenplay-scope.sh` passed:
+HOUSE → HO and back, unrelated HOUSEBOAT retention, the existing collision
+checks, and a five-location subtree using both dash and dot separators.
+The subtree checks exercise HOUSE → HO, HO → HO - MAIN, HO - MAIN → HO and
+HO → HO - FINAL, including recursive grandchildren and a taken garden name.
+They compare every location UUID, document count and exact stored location
+content with only the expected name change. All four tested subtree renames
+restored exact screenplay XML with one Undo/Redo and retained deep-heading
+emphasis, completed review comments and resource links through save/reopen.
+
+Existing keyboard, pagination, export, character/location rename and project
+preservation checks passed. `./tools/check-screenplay-interchange.sh` passed
+independent Fountain/FDX fixtures and persisted round trips. An independent
+read-only SQLite/XML postcheck confirmed the baseline's stale child and the
+fixed saved nested names, collision records/notes, deep-heading annotations and
+unrelated location. `git diff --check` passed.
+
+**Fix evidence:** [doctor](.build/evidence/issue-7-doctor.log),
+[build](.build/evidence/issue-7-build.log),
+[pre-fix page failure](.build/evidence/screenplay-scope-Xz9LwZ/),
+[full scope, nested pages and save/reopen](.build/evidence/screenplay-scope-vreVm7/),
+[interchange](.build/evidence/screenplay-interchange-x4HQbS/), and
+[independent postcheck](.build/evidence/issue-7-independent-postcheck.json).
+
+This establishes Linux debug behavior with injected Qt editor/page actions and
+in-process offscreen save/reopen. Visible desktop/GPU behavior, other operating
+systems and release packages were unexercised. Existing compiler warnings in
+unchanged code remain. All profiles and projects were disposable. Issue 8
+remains open.
+
+The original finding and reproduction below are retained for reference.
 
 **Where:** [project_manager.cpp](src/core/management_layer/content/project/project_manager.cpp),
 lines 3201–3202. The nested-location loop skips names beginning with the new

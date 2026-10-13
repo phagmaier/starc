@@ -277,6 +277,11 @@ For a location the same connection renames the locations nested in it
 " - " or ". "; a location that merely begins with the same letters ("HOUSEBOAT")
 is left alone, and a nested location keeps its name when the new one is already
 taken. Upstream matched on the bare prefix and removed the duplicate.
+The callback snapshots each descendant's old name and proposed name before
+applying changes. Recursive child callbacks can update deeper descendants;
+the outer callback skips a model whose name has already changed. It skips the
+renamed parent by identity, so shortening HOUSE to HO or extending HO to
+HO - MAIN updates descendants once while preserving existing destination records.
 `ScreenplayTextModel::updateLocationName` uses `TextModelTextItem::replaceText`
 to move emphasis, review comments/status and resource links with the heading's
 text when the location name changes length. An annotation on the replaced name

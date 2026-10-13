@@ -185,6 +185,9 @@ name. The location page checks shorter/longer names, exact
 script XML through Undo/Redo, and annotation/identity preservation after reopening.
 They also exercise locations named INT/EXT, combined prefixes, repeated/spaced
 names, time suffixes, punctuation and Unicode uppercasing that changes length.
+Nested-location page checks cover shared-prefix shortening and extension, both
+nesting separators, recursive descendants, taken destinations, exact retained
+location fields/UUIDs and annotated screenplay Undo/Redo plus save/reopen.
 It builds
 `tests/screenplay_scope_test.cpp`
 against the debug build and runs it offscreen with a disposable project and

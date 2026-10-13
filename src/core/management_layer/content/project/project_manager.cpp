@@ -3194,11 +3194,17 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                 }
 
                 //
-                // Переименовываем вложенные локации
+                // Snapshot nested locations before setName recursively renames their descendants.
                 //
+                struct NestedLocationRename {
+                    QPointer<BusinessLayer::LocationModel> location;
+                    QString oldName;
+                    QString newName;
+                };
+                QVector<NestedLocationRename> nestedRenames;
                 for (int index = 0; index < locationsModel->rowCount(); ++index) {
                     auto location = locationsModel->location(index);
-                    if (location->name().startsWith(_newName)) {
+                    if (location == _location) {
                         continue;
                     }
 
@@ -3217,14 +3223,23 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                             break;
                         }
                     }
+                    if (!newLocationName.isEmpty()) {
+                        nestedRenames.append({ location, location->name(), newLocationName });
+                    }
+                }
+                for (const auto& rename : std::as_const(nestedRenames)) {
+                    // A preceding child's callback may already have renamed this descendant.
+                    if (rename.location.isNull() || rename.location->name() != rename.oldName) {
+                        continue;
+                    }
                     //
                     // ... and it keeps its name, if the new one is taken: a location renamed
                     //     to the name of another one is removed with all it describes
                     //
-                    if (newLocationName.isEmpty() || locationsModel->exists(newLocationName)) {
+                    if (locationsModel->exists(rename.newName)) {
                         continue;
                     }
-                    location->setName(newLocationName);
+                    rename.location->setName(rename.newName);
                 }
             });
     connect(&d->modelsFacade, &ProjectModelsFacade::locationScenesUpdateRequested, this,
