@@ -258,7 +258,7 @@ public:
      * @brief Создать проект
      */
     void createProject();
-    void createLocalProject(const QString& _projectName, const QString& _projectPath,
+    bool createLocalProject(const QString& _projectName, const QString& _projectPath,
                             const QString& _importFilePath);
 
     /**
@@ -271,7 +271,7 @@ public:
      * @brief Попробовать захватить владение файлом, заблокировав его изменение другими копиями
      *        приложения
      */
-    bool tryLockProject(const QString& _path);
+    bool tryLockProject(const QString& _path, QScopedPointer<QLockFile>& _lockFile);
 
     /**
      * @brief Попробовать захватить владение файлом, заблокировав его изменение другими копиями
@@ -1266,61 +1266,52 @@ void ApplicationManager::Implementation::createProject()
     saveIfNeeded(callback);
 }
 
-void ApplicationManager::Implementation::createLocalProject(const QString& _projectName,
+bool ApplicationManager::Implementation::createLocalProject(const QString& _projectName,
                                                             const QString& _projectPath,
                                                             const QString& _importFilePath)
 {
     if (_projectPath.isEmpty()) {
-        return;
+        return false;
     }
 
-    //
-    // Закроем текущий проект
-    //
-    closeCurrentProject();
+    const QFileInfo destination(_projectPath);
+    const auto reportCreationError = [this, &destination] {
+        const auto currentDestination = QFileInfo(destination.absoluteFilePath());
+        const auto message = currentDestination.exists() || currentDestination.isSymLink()
+            ? tr("A file already exists at %1. It has been left unchanged. Please choose another "
+                 "name or location for the new story.")
+                  .arg(destination.absoluteFilePath())
+            : tr("The new story could not be created at %1. Please check permissions or choose "
+                 "another location.")
+                  .arg(destination.absoluteFilePath());
+        StandardDialog::information(applicationView, tr("Create project error"), message);
+    };
+    if (destination.exists() || destination.isSymLink()) {
+        reportCreationError();
+        return false;
+    }
 
     //
     // Папки, в которую пользователь хочет писать может и не быть,
     // создадим на всякий случай, чтобы его не мучать
     //
-    QDir::root().mkpath(QFileInfo(_projectPath).absolutePath());
-
-    //
-    // Проверяем, можем ли мы писать в выбранный файл
-    //
-    QFile file(_projectPath);
-    const bool canWrite = file.open(QIODevice::WriteOnly);
-    file.close();
-
-    //
-    // Если невозможно записать в файл, предупреждаем пользователя и отваливаемся
-    //
-    if (!canWrite) {
-        const QFileInfo fileInfo(_projectPath);
-        QString errorMessage;
-        if (!fileInfo.dir().exists()) {
-            errorMessage = tr("You tried to create a project in nonexistent folder %1. "
-                              "Please, choose another location for the new project.")
-                               .arg(fileInfo.dir().absolutePath());
-        } else if (fileInfo.exists()) {
-            errorMessage
-                = tr("The file can't be written. Looks like it is opened by another application. "
-                     "Please close it and retry to create a new project.");
-        } else {
-            errorMessage
-                = tr("The file can't be written. Please, check and give permissions to the app "
-                     "to write into the selected folder, or choose another folder for saving a new "
-                     "project.");
-        }
-        StandardDialog::information(applicationView, tr("Create project error"), errorMessage);
-        return;
+    if (!QDir::root().mkpath(destination.absolutePath())) {
+        reportCreationError();
+        return false;
     }
 
-    //
-    // ... проверяем не открыт ли файл в другом приложении
-    //
-    if (!tryLockProject(_projectPath)) {
-        return;
+    // Keep the current story and its lock until the new destination is ready.
+    QScopedPointer<QLockFile> destinationLock;
+    if (!tryLockProject(_projectPath, destinationLock)) {
+        return false;
+    }
+
+    // Publish only our own complete temporary file. rename refuses an existing target,
+    // including one created after the initial existence check, without overwriting it.
+    QTemporaryFile file(destination.absoluteFilePath() + ".XXXXXX");
+    if (!file.open()) {
+        reportCreationError();
+        return false;
     }
 
     //
@@ -1329,23 +1320,27 @@ void ApplicationManager::Implementation::createLocalProject(const QString& _proj
     // ... если в новый проект должны быть импортированы данные другого проекта,
     //     то просто создаём новый, как копию импортируемого файла
     //
-    if (_importFilePath.endsWith(ExtensionHelper::starc())) {
-        //
-        // ... удаляем файл, который был создан при проверки возможности записи в файл
-        //
-        QFile::remove(QDir::toNativeSeparators(_projectPath));
-        //
-        // ... а затем копируем исходный файл
-        //
-        if (!QFile::copy(QDir::toNativeSeparators(_importFilePath),
-                         QDir::toNativeSeparators(_projectPath))) {
-            lockFile.reset();
+    if (_importFilePath.endsWith(ExtensionHelper::starc(), Qt::CaseInsensitive)) {
+        QFile source(_importFilePath);
+        bool copied = source.open(QIODevice::ReadOnly);
+        while (copied && !source.atEnd()) {
+            const auto chunk = source.read(1024 * 1024);
+            copied = source.error() == QFileDevice::NoError && file.write(chunk) == chunk.size();
+        }
+        if (!copied || !file.setPermissions(source.permissions())) {
             StandardDialog::information(applicationView, tr("Create project error"),
                                         tr("The source story could not be copied."));
-            showProjects();
-            return;
+            return false;
         }
     }
+    if (!file.flush() || !file.rename(destination.absoluteFilePath())) {
+        reportCreationError();
+        return false;
+    }
+    file.setAutoRemove(false);
+
+    closeCurrentProject();
+    lockFile.reset(destinationLock.take());
     //
     // ... создаём новую базу данных в файле и делаем её текущим проектом
     //
@@ -1362,7 +1357,9 @@ void ApplicationManager::Implementation::createLocalProject(const QString& _proj
     if (!goToEditCurrentProject(afterProjectCreation, _importFilePath)) {
         closeCurrentProject();
         showProjects();
+        return false;
     }
+    return true;
 }
 
 void ApplicationManager::Implementation::openProject()
@@ -1455,19 +1452,20 @@ bool ApplicationManager::Implementation::openProject(const QString& _path)
     return true;
 }
 
-bool ApplicationManager::Implementation::tryLockProject(const QString& _path)
+bool ApplicationManager::Implementation::tryLockProject(const QString& _path,
+                                                        QScopedPointer<QLockFile>& _lockFile)
 {
     const QFileInfo projectFileInfo(_path);
-    lockFile.reset(new QLockFile(
+    _lockFile.reset(new QLockFile(
         QString("%1/%2.lock").arg(projectFileInfo.absolutePath(), projectFileInfo.fileName())));
-    if (!lockFile->tryLock()) {
+    _lockFile->setStaleLockTime(0);
+    if (!_lockFile->tryLock()) {
         StandardDialog::information(applicationView, {},
                                     tr("This file can't be open at this moment, because it is "
                                        "already open in another copy of the application."));
         return false;
     }
 
-    lockFile->setStaleLockTime(0);
     return true;
 }
 
@@ -1656,13 +1654,15 @@ bool ApplicationManager::Implementation::goToEditCurrentProject(bool _afterProje
                                  // ... создаём новый документ и туда импортируем данные текущего
                                  //
                                  const auto project = projectsManager->currentProject();
+                                 const auto sourcePath = project->path();
                                  const QString projectPath
-                                     = project->path() + "." + ExtensionHelper::starc();
-                                 createLocalProject(project->name(), projectPath, project->path());
+                                     = sourcePath + "." + ExtensionHelper::starc();
                                  //
                                  // ... скрываем текущий из списка недавних
                                  //
-                                 projectsManager->hideProject(project->path());
+                                 if (createLocalProject(project->name(), projectPath, sourcePath)) {
+                                     projectsManager->hideProject(sourcePath);
+                                 }
                              });
             QObject::connect(informationDialog, &Dialog::disappeared, informationDialog,
                              &Dialog::deleteLater);

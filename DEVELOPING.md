@@ -142,6 +142,12 @@ profiles and retains all logs under `.build/evidence/`. The default is offscreen
 `STARC_STARTUP_PLATFORM=xcb STARC_STARTUP_SCREENSHOTS=1` on a private Xvfb display
 adds native window screenshots. Test actions use Qt signals and dialog responses;
 production executable and desktop keyboard checks are separate evidence.
+It also checks safe new-story creation and **Switch to .STARC** conversion:
+existing destinations, live locks, symlinks, unwritable folders and failed source
+copies leave the source open and existing data intact. Successful conversion and
+story copying retain screenplay content through save/reopen. A Linux test-only
+interposer creates a conflicting destination immediately before publication;
+that writer's bytes must survive and the conversion must be refused.
 
 `./tools/check-screenplay-scope.sh` checks the screenplay-only scope: creation
 choices and settings offer no retired format, the real screenplay editor handles

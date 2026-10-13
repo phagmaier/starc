@@ -20,6 +20,7 @@
 #include <ui/widgets/check_box/check_box.h>
 #include <ui/widgets/dialog/dialog.h>
 #include <ui/widgets/label/label.h>
+#include <ui/widgets/text_field/text_field.h>
 #include <ui/widgets/tree/tree.h>
 
 #include <QDir>
@@ -176,6 +177,144 @@ void seedScript(const QString& _root)
     require(expected.write(bytes) == bytes.size(), "write exact script oracle");
     expected.close();
     verifyScript(_root);
+}
+
+QByteArray readFile(const QString& _path)
+{
+    QFile file(_path);
+    require(file.open(QIODevice::ReadOnly), "read disposable file bytes");
+    return file.readAll();
+}
+
+void verifyConversion(ManagementLayer::ApplicationManager* _manager, const QString& _root,
+                      const QString& _mode)
+{
+    const auto folder = _root + "/" + _mode;
+    require(QDir().mkpath(folder), "create isolated conversion directory");
+    const auto original = _root + "/remembered.starc";
+    const auto originalBytes = readFile(original);
+    const auto source = folder + "/source.fountain";
+    const auto target = source + ".starc";
+    if (_mode.startsWith("conversion-copy")) {
+        auto menu = widget<Ui::MenuView>();
+        menu->createProjectPressed();
+        auto dialog = widget<Ui::CreateProjectDialog>();
+        dialog->setProjectName("copy");
+        dialog->setProjectFolder(folder);
+        dialog->setProjectType(static_cast<int>(Domain::DocumentObjectType::Screenplay));
+        const auto import
+            = _mode == "conversion-copy-failure" ? folder + "/missing.starc" : original;
+        for (auto field : dialog->findChildren<TextField*>()) {
+            if (field->text().isEmpty()) {
+                field->setText(import);
+            }
+        }
+        require(dialog->importFilePath() == import, "create dialog imports the intended story");
+        dialog->createProjectPressed();
+        if (_mode == "conversion-copy-failure") {
+            require(!QFile::exists(folder + "/copy.starc") && remembered() == original
+                        && DatabaseLayer::Database::currentFile() == original,
+                    "failed source copy publishes nothing and retains the current story");
+            require(!QFile::exists(folder + "/copy.starc.lock"),
+                    "failed source copy releases its destination lock");
+        } else {
+            require(remembered() == folder + "/copy.starc", "copied story opens successfully");
+        }
+        verifyScript(_root);
+        require(readFile(original) == originalBytes, "story copy preserves its source bytes");
+    } else {
+        const QByteArray sourceBytes
+            = "INT. LAB - DAY\n\nConversion retains the source screenplay.\n";
+        QFile input(source);
+        require(input.open(QIODevice::WriteOnly) && input.write(sourceBytes) == sourceBytes.size(),
+                "create disposable Fountain source");
+        input.close();
+        const bool existing = _mode == "conversion-existing" || _mode == "conversion-locked";
+        const bool symlink = _mode == "conversion-symlink" || _mode == "conversion-dangling";
+        if (existing) {
+            require(QFile::copy(original, target), "prepare existing saved destination");
+        } else if (symlink) {
+            require(
+                QFile::link(_mode == "conversion-dangling" ? folder + "/absent.starc" : original,
+                            target),
+                "prepare conversion destination symlink");
+        }
+        QLockFile held(target + ".lock");
+        if (_mode == "conversion-locked" || _mode == "conversion-lock-only") {
+            require(held.tryLock(), "hold destination lock on behalf of another instance");
+        }
+        require(_manager->openProject(source), "open source through the real coordinator");
+        const auto shadow = DatabaseLayer::Database::currentFile();
+        Dialog* conversion = nullptr;
+        for (auto candidate : QApplication::allWidgets()) {
+            if (auto dialog = qobject_cast<Dialog*>(candidate)) {
+                for (auto label : dialog->findChildren<AbstractLabel*>()) {
+                    if (label->text().contains(".FOUNTAIN")) {
+                        conversion = dialog;
+                    }
+                }
+            }
+        }
+        require(conversion, "source offers the normal Switch to .STARC choice");
+        const auto folderPermissions = QFile::permissions(folder);
+        if (_mode == "conversion-unwritable") {
+            require(QFile::setPermissions(folder, QFileDevice::ReadOwner | QFileDevice::ExeOwner),
+                    "make only the disposable conversion directory unwritable");
+        }
+        conversion->finished({ 2, "Switch to .STARC", Dialog::AcceptButton });
+        if (_mode == "conversion-unwritable") {
+            require(QFile::setPermissions(folder, folderPermissions),
+                    "restore disposable directory permissions");
+        }
+        require(readFile(source) == sourceBytes,
+                "conversion attempt leaves source bytes unchanged");
+        if (_mode == "conversion-success") {
+            require(remembered() == target && DatabaseLayer::Database::currentFile() == target,
+                    "successful conversion opens the new destination");
+            widget<Ui::MenuView>()->saveProjectChangesPressed();
+            auto query = DatabaseLayer::Database::query();
+            require(query.exec("SELECT content FROM documents WHERE type = 10104") && query.next(),
+                    "converted story contains a screenplay");
+            const auto bytes = query.value(0).toByteArray();
+            require(bytes.contains("Conversion retains the source screenplay."),
+                    "conversion retains the imported script");
+            require(_manager->openProject(original) && _manager->openProject(target),
+                    "saved conversion reopens successfully");
+            query = DatabaseLayer::Database::query();
+            require(query.exec("SELECT content FROM documents WHERE type = 10104") && query.next()
+                        && query.value(0).toByteArray() == bytes,
+                    "converted script survives save and reopen byte exactly");
+        } else {
+            require(remembered() == source && DatabaseLayer::Database::currentFile() == shadow
+                        && QFile::exists(source + ".lock"),
+                    "refused conversion retains the open source and its lock");
+            if (existing) {
+                require(readFile(target) == originalBytes,
+                        "existing destination is preserved byte exactly");
+            } else if (_mode == "conversion-race") {
+                require(readFile(target) == "Another writer owns these bytes.\n",
+                        "publication collision preserves the other writer's exact bytes");
+            } else if (symlink) {
+                require(QFileInfo(target).isSymLink() && readFile(original) == originalBytes,
+                        "refused conversion preserves the symlink and its referent");
+                require(!QFile::exists(folder + "/absent.starc"),
+                        "dangling destination symlink creates no referent");
+            } else {
+                require(!QFile::exists(target), "refused conversion creates no destination");
+            }
+            if (held.isLocked()) {
+                require(QFile::exists(target + ".lock"), "other instance retains its lock file");
+            } else {
+                require(!QFile::exists(target + ".lock"), "failure releases destination lock");
+            }
+        }
+    }
+    bool noStagingFiles = true;
+    for (const auto& entry :
+         QDir(folder).entryList({ "*.starc.*", ".starc-create-*" }, QDir::Files | QDir::Hidden)) {
+        noStagingFiles = noStagingFiles && entry.endsWith(".lock");
+    }
+    require(noStagingFiles, "conversion leaves no staging files");
 }
 
 void selectSaveAs(const QString& _target, Ui::MenuView* _menu, bool _fail = false)
@@ -420,6 +559,9 @@ int main(int argc, char** argv)
                     "remember meaningful source instead of temporary shadow database");
             widget<Ui::MenuView>()->saveProjectChangesPressed();
         }
+        if (mode.startsWith("conversion-")) {
+            verifyConversion(manager, root, mode);
+        }
         if (!noOpen && mode != "failures" && mode != "fountain" && mode != "fdx") {
             const auto before = DatabaseLayer::Database::currentFile();
             option->setChecked(false);
@@ -465,7 +607,8 @@ int main(int argc, char** argv)
                         "retain native settings screenshot with startup checkbox");
             }
         }
-        if (mode == "fountain" || mode == "fdx" || sourceReopen) {
+        if (mode == "fountain" || mode == "fdx" || sourceReopen
+            || mode.startsWith("conversion-")) {
             closeQuestion.start();
         }
         widget<Ui::ApplicationView>()->close();

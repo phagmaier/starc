@@ -35,6 +35,7 @@
 #include <QMenu>
 #include <QPointer>
 #include <QStandardPaths>
+#include <QTemporaryFile>
 #include <QTimer>
 #include <QWidget>
 
@@ -722,10 +723,10 @@ void ProjectsManager::createProject()
         //
         const auto projectPath = d->newProjectPath(d->createProjectDialog->projectName(),
                                                    d->createProjectDialog->projectFolder());
-        QFile file(projectPath);
-        const bool canWrite = file.open(QIODevice::WriteOnly);
+        QTemporaryFile file(
+            QDir(d->createProjectDialog->projectFolder()).filePath(".starc-create-XXXXXX"));
+        const bool canWrite = file.open();
         file.close();
-        file.remove();
         //
         // ... если нет, то покажем эту проблему прямо в диалоге
         //

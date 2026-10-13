@@ -24,12 +24,22 @@ if ! "$CXX" -std=c++17 -g -fPIC -I "$ROOT/src" -I "$ROOT/src/core" -I "$ROOT/src
     cat "$EVIDENCE/compile.log" >&2
     exit 1
 fi
+if ! "$CXX" -std=c++17 -g -fPIC -shared "${QT_CFLAGS[@]}" \
+    "$ROOT/tests/conversion_publish_collision.cpp" "${QT_LIBS[@]}" -ldl \
+    -o "$EVIDENCE/conversion-collision.so" > "$EVIDENCE/collision-compile.log" 2>&1; then
+    cat "$EVIDENCE/collision-compile.log" >&2
+    exit 1
+fi
 export QT_QPA_PLATFORM=${STARC_STARTUP_PLATFORM:-offscreen}
 export LD_LIBRARY_PATH="$OUTPUT:$OUTPUT/libs:$OUTPUT/plugins${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export STARC_STARTUP_TEST_ROOT="$EVIDENCE/stories"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
 run_case() {
     local mode=$1 profile=$2
+    local preload=${LD_PRELOAD:-}
+    if [[ $mode == conversion-race ]]; then
+        preload="$EVIDENCE/conversion-collision.so${preload:+:$preload}"
+    fi
     export STARC_PROFILE_DIR="$EVIDENCE/$profile"
     if [[ ! -d "$STARC_PROFILE_DIR" && $mode != create && $mode != onboarding* ]]; then
         cp -a "$EVIDENCE/shared-profile" "$STARC_PROFILE_DIR"
@@ -39,7 +49,8 @@ run_case() {
     export XDG_CACHE_HOME="$STARC_PROFILE_DIR/cache"
     mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME" "$STARC_PROFILE_DIR/documents"
     printf 'XDG_DOCUMENTS_DIR="%s"\n' "$STARC_PROFILE_DIR/documents" > "$XDG_CONFIG_HOME/user-dirs.dirs"
-    if ! STARC_STARTUP_TEST_MODE="$mode" "$EVIDENCE/startup-test" > "$EVIDENCE/$mode.log" 2>&1; then
+    if ! LD_PRELOAD="$preload" STARC_STARTUP_TEST_MODE="$mode" "$EVIDENCE/startup-test" \
+        > "$EVIDENCE/$mode.log" 2>&1; then
         cat "$EVIDENCE/$mode.log" >&2
         printf 'Failed case: %s; evidence: %s\n' "$mode" "$EVIDENCE" >&2
         exit 1
@@ -71,7 +82,9 @@ PY
 run_case persisted shared-profile
 for mode in disabled explicit explicit-failure unavailable early-event queued-event duplicate \
     onboarding onboarding-explicit locked failures save-as fountain fdx \
-    auto-corrupt auto-malformed auto-newer; do
+    auto-corrupt auto-malformed auto-newer conversion-existing conversion-locked \
+    conversion-lock-only conversion-symlink conversion-dangling conversion-unwritable \
+    conversion-race conversion-success conversion-copy conversion-copy-failure; do
     run_case "$mode" "$mode-profile"
 done
 run_case persisted-disabled disabled-profile
@@ -89,7 +102,7 @@ import json
 import sys
 root = Path(sys.argv[1])
 for path in root.glob('*.log'):
-    if path.name == 'compile.log':
+    if path.name in ('compile.log', 'collision-compile.log'):
         continue
     assert 'PASS: startup last story regression' in path.read_text(), path
 print('PASS: all cases include ordinary shutdown and persisted-settings checks')
