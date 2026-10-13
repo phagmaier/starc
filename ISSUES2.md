@@ -685,7 +685,7 @@ Issues 8–14 remain open.
 
 ## 8. Adding an adjacent comment silently discards the new comment
 
-- [ ] **P2 — confirmed through the real screenplay editor/model.**
+- [x] **P2 — fixed 2026-10-13; verified through the screenplay editor, live comments panel, coordinator saves and fresh-process reopening.**
 
 **Location:**
 [text_document.cpp](src/corelib/business_layer/document/text/text_document.cpp),
@@ -693,20 +693,97 @@ Issues 8–14 remain open.
 [screenplay_text_view.cpp](src/core/management_layer/plugins/screenplay_text/screenplay_text_view.cpp),
 1300–1303, through `ScreenplayTextEdit::addReviewMark`.
 
-**Trigger:** In `Alpha Beta Gamma`, comment on `Alpha `, then add another comment
-on `Beta`, using the same author and color.
+**Original trigger:** In `Alpha Beta Gamma`, comment on `Alpha `, then add another
+comment on `Beta`, using the same author and color.
 
-**Result:** Adjacent ranges are considered overlapping. The first mark expands
-from `[0,6)` to `[0,10)`, but its only comment remains “first comment”; “second
-comment” is never stored. The merge branch expands the old range and returns
-without consuming the incoming `_comment`.
+**Original result:** Adjacent ranges are considered overlapping. The first mark
+expands from `[0,6)` to `[0,10)`, but its only comment remains “first comment”;
+“second comment” is never stored. The merge branch expands the old range and
+returns without consuming the incoming `_comment`. A comment added on text the
+same author had highlighted in the same color was dropped the same way.
 
-**Debugging direction:** Preserve meaningful incoming comment/thread payloads
-when ranges merge. Distinguish merging highlight or revision ranges from adding
-a comment. Check adjacent and overlapping comments, including different authors,
-colors and existing threads.
+**Resolution:** `TextDocument::addReviewMark` stitches only marks without text
+(highlights, revision and Track Changes marks); that path is unchanged. A comment
+with text is always stored:
 
-**Evidence:** [editor log](.build/evidence/audit2-editor/run2.log),
+- A selection that only touches a comment or highlight becomes its own comment on
+  exactly the selected text. The neighbouring mark keeps its range, messages,
+  dates and resolved state.
+- A character holds one review thread, so a selection that shares text with
+  existing comment threads continues them: one thread covers the union of their
+  text and the selection, with every earlier message unchanged in text order and
+  the new comment last. It keeps the earliest thread's color and is reopened if
+  it was resolved. Parts of those threads outside the selection (other emphasis
+  fragments or paragraphs) are included.
+- A highlight without text gives way to the comment on the selected characters
+  only; the rest of the highlight remains.
+
+The comments panel model listed a comment in the story's first paragraph once per
+emphasis fragment after any edit, and compared fragments instead of whole threads
+when a paragraph changed. It now groups fragments the way its loader does, so the
+live panel and a reopened one show the same rows.
+
+An earlier uncommitted attempt joined touching comments into one thread and sent
+highlights through the same code. A probe showed that a same-color highlight over
+a comment then deleted the comment, and that a comment on highlighted text was
+filed under an empty first message, so it was replaced. Its patch and probe logs
+are kept in [issue8-review](.build/evidence/issue8-review/).
+
+**Regression:** [review_comments_test.cpp](tests/review_comments_test.cpp) and
+[check-review-comments.sh](tools/check-review-comments.sh) drive the production
+screenplay editor, a live comments-panel model and the project coordinator with
+disposable stories. The 56 cases (28 in both selection directions) cover touching
+selections before and after a comment, beside a resolved thread with a reply,
+between two threads, across a paragraph boundary and beside a highlight, with
+author and color differences; overlapping, contained, containing, identical and
+bridging selections; a repeated message; threads and selections spanning two
+paragraphs; comments inside and over highlights; and highlight, revision,
+addition and removal controls, including a highlight over a comment. Each case
+checks every panel row's text, messages, color and resolved state, exact metadata
+of earlier messages, the editor's mark on every character, emphasis, byte-exact
+one-step Undo/Redo, a shifted anchor, the coordinator save, and exact XML and
+panel rows after fresh-process reopening. An independent script compares the
+saved XML anchors with the expected ones and both selection directions.
+
+**Validation:**
+
+- `./build/dev.sh doctor` and `JOBS=6 ./build/dev.sh build debug`: passed.
+- `./tools/check-review-comments.sh`: 56 cases, fresh-process reopening and the
+  independent XML check passed offscreen
+  (`.build/evidence/review-comments-t9GQlt/`) and on a private Xvfb/XCB display
+  with editor screenshots (`.build/evidence/review-comments-SmI7A1/`).
+- Against the committed pre-fix sources 44 of the 56 cases fail; the 12 highlight
+  and revision controls pass before and after, so those paths behave as they did
+  (`prefix-soft-summary.txt`).
+- Removing each part of the fix in turn fails the suite at a different case: the
+  stitch guard (`adjacent`), the thread join (`overlap`), both panel changes
+  together (`adjacent`), the fragment grouping (`comment-in-highlight`) and the
+  first-paragraph guard removal (`new-comment-control`). Logs are in
+  `mutations/`; the sources were restored, rebuilt and the full suite rerun.
+- `./tools/check-track-changes.sh` (54 cases), `./tools/check-hidden-beats.sh`
+  (48 cases), `./tools/check-screenplay-scope.sh` and
+  `./tools/check-screenplay-interchange.sh`: passed.
+- Bash syntax, ShellCheck, changed-code formatting and `git diff --check`: passed.
+
+Build and suite logs are under [issue8-review](.build/evidence/issue8-review/).
+
+**Limits:** Comments are added with injected editor/model calls on disposable
+profiles; the toolbar and the add-comment form were not operated. Offscreen and
+private Xvfb runs do not establish physical desktop/GPU, other-platform or
+release behavior.
+
+Three related behaviors were present before this fix, are unchanged, and were
+confirmed on the fixed build (`limit-*` under `issue8-review`):
+
+- A highlight in a different color applied over a comment replaces the comment
+  on the highlighted text; one Undo restores it.
+- A comment applied over a Track Changes mark replaces that mark on the shared
+  text.
+- The panel identifies a thread by author, creation second and colors. Two
+  adjacent notes by one author with the same timestamp are shown as one row with
+  only the first note's text, although both are stored.
+
+**Original audit evidence:** [editor log](.build/evidence/audit2-editor/run2.log),
 `adjacent-comments.xml` and the independent `postcheck.txt` under
 `.build/evidence/audit2-editor/`.
 

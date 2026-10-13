@@ -24,6 +24,8 @@
 #include <QScopedValueRollback>
 #include <QTextTable>
 
+#include <algorithm>
+
 using BusinessLayer::TemplatesFacade;
 using BusinessLayer::TextBlockStyle;
 using BusinessLayer::TextParagraphType;
@@ -2024,6 +2026,13 @@ void TextDocument::addReviewMark(const QColor& _textColor, const QColor& _backgr
     //
     do {
         //
+        // Stitching keeps the existing mark and drops the added one, so it's only for the
+        // highlights and revisions. The text of a comment must be kept
+        //
+        if (!_comment.isEmpty()) {
+            break;
+        }
+        //
         // ... если добавляемая заметка касается только одного блока
         //
         auto selectionInterval = _cursor.selectionInterval();
@@ -2085,12 +2094,123 @@ void TextDocument::addReviewMark(const QColor& _textColor, const QColor& _backgr
     // Добавляем новую редакторскую заметку
     //
     const bool isEdited = false;
-    newReviewMark.comments.append(
-        { DataStorageLayer::StorageFacade::settingsStorage()->accountName(),
-          DataStorageLayer::StorageFacade::settingsStorage()->accountEmail(),
-          QDateTime::currentDateTime().toString(Qt::ISODate), _comment, isEdited, _isRevision,
-          _isAddition, _isRemoval });
+    const TextModelTextItem::ReviewComment newComment{
+        DataStorageLayer::StorageFacade::settingsStorage()->accountName(),
+        DataStorageLayer::StorageFacade::settingsStorage()->accountEmail(),
+        QDateTime::currentDateTime().toString(Qt::ISODate),
+        _comment,
+        isEdited,
+        _isRevision,
+        _isAddition,
+        _isRemoval
+    };
     auto cursor = _cursor;
+
+    //
+    // A character holds a single review mark, so a comment written over the text of other
+    // comments would replace them there. Continue their threads with it instead
+    //
+    if (!_comment.isEmpty()) {
+        //
+        // ... a thread is stored as a mark per paragraph and per text format, where each
+        //     next mark starts at the end of the previous one
+        //
+        struct ThreadPart {
+            TextModelTextItem::ReviewMark mark;
+            int from = 0;
+            int end = 0;
+            bool isContinuation = false;
+        };
+        QVector<ThreadPart> parts;
+        const TextModelTextItem* previousTextItem = nullptr;
+        const TextModelTextItem* lastMarkTextItem = nullptr;
+        for (const auto& [position, item] : d->positionsToItems) {
+            if (item->type() != TextModelItemType::Text) {
+                continue;
+            }
+            const auto textItem = static_cast<TextModelTextItem*>(item);
+            if (textItem->isCorrection()) {
+                continue;
+            }
+            for (const auto& mark : textItem->reviewMarks()) {
+                bool isContinuation = false;
+                if (!parts.isEmpty()) {
+                    const auto& previousMark = parts.constLast().mark;
+                    isContinuation = lastMarkTextItem == textItem
+                        ? previousMark.end() == mark.from
+                        : (lastMarkTextItem == previousTextItem && mark.from == 0
+                           && previousMark.end() == previousTextItem->text().length());
+                }
+                parts.append({ mark, position + mark.from, position + mark.end(), isContinuation });
+                lastMarkTextItem = textItem;
+            }
+            previousTextItem = textItem;
+        }
+        //
+        // ... the threads with the text sharing characters with the selection
+        //
+        const auto isThread = [_isRevision, _isAddition, _isRemoval](const ThreadPart& _part) {
+            const auto& comments = _part.mark.comments;
+            return !comments.isEmpty() && comments.constFirst().isRevision == _isRevision
+                && comments.constFirst().isAddition == _isAddition
+                && comments.constFirst().isRemoval == _isRemoval
+                && std::any_of(comments.begin(), comments.end(),
+                               [](const auto& _message) { return !_message.text.isEmpty(); });
+        };
+        const auto isSameThread = [&parts, isThread](int _index) {
+            return parts[_index].isContinuation && isThread(parts[_index - 1])
+                && isThread(parts[_index])
+                && parts[_index - 1].mark.isPartiallyEqual(parts[_index].mark);
+        };
+        const auto selectionInterval = _cursor.selectionInterval();
+        QVector<bool> isJoined(parts.size(), false);
+        for (int index = 0; index < parts.size(); ++index) {
+            isJoined[index] = isThread(parts[index]) && parts[index].from < selectionInterval.to
+                && parts[index].end > selectionInterval.from;
+        }
+        //
+        // ... with their parts out of the selection
+        //
+        for (int index = 1; index < parts.size(); ++index) {
+            if (isJoined[index - 1] && isSameThread(index)) {
+                isJoined[index] = true;
+            }
+        }
+        for (int index = parts.size() - 1; index > 0; --index) {
+            if (isJoined[index] && isSameThread(index)) {
+                isJoined[index - 1] = true;
+            }
+        }
+        //
+        // ... become one thread of the earliest one's color covering all of their text, the
+        //     comments stay as they are in the order of the text
+        //
+        auto from = selectionInterval.from;
+        auto to = selectionInterval.to;
+        QVector<QVector<TextModelTextItem::ReviewComment>> threads;
+        for (int index = 0; index < parts.size(); ++index) {
+            if (!isJoined[index]) {
+                continue;
+            }
+            const auto& part = parts[index];
+            if (threads.isEmpty()) {
+                newReviewMark.textColor = part.mark.textColor;
+                newReviewMark.backgroundColor = part.mark.backgroundColor;
+            }
+            if (!threads.contains(part.mark.comments)) {
+                threads.append(part.mark.comments);
+                newReviewMark.comments.append(part.mark.comments);
+            }
+            from = std::min(from, part.from);
+            to = std::max(to, part.end);
+        }
+        if (!threads.isEmpty()) {
+            cursor.setPosition(from);
+            cursor.setPosition(to, QTextCursor::KeepAnchor);
+        }
+    }
+
+    newReviewMark.comments.append(newComment);
     cursor.mergeCharFormat(newReviewMark.charFormat());
 }
 

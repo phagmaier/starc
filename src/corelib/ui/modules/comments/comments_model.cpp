@@ -107,10 +107,6 @@ void CommentsModel::Implementation::saveReviewMark(TextModelTextItem* _textItem,
             break;
         }
 
-        if (!modelTextItems.isEmpty() && _textItem == modelTextItems.constFirst()) {
-            break;
-        }
-
         //
         // Если заметка начинается в начале абзаца, проверяем нельзя ли её присовокупить к заметке в
         // конце предыдущего абзаца
@@ -589,10 +585,23 @@ void CommentsModel::Implementation::processSourceModelDataChanged(const QModelIn
     // Если в абзаце были заметки
     //
     else {
-        for (int newReviewMarkIndex = 0; newReviewMarkIndex < textItem->reviewMarks().size();
+        //
+        // The text formats split a thread into the marks following each other. Join them back
+        // like it's done when the model is loaded, so that every thread is compared as a whole
+        //
+        QVector<TextModelTextItem::ReviewMark> newReviewMarks;
+        for (const auto& reviewMark : std::as_const(textItem->reviewMarks())) {
+            if (!newReviewMarks.isEmpty() && newReviewMarks.constLast().end() == reviewMark.from
+                && newReviewMarks.constLast().isPartiallyEqual(reviewMark)) {
+                newReviewMarks.last().length += reviewMark.length;
+            } else {
+                newReviewMarks.append(reviewMark);
+            }
+        }
+        for (int newReviewMarkIndex = 0; newReviewMarkIndex < newReviewMarks.size();
              ++newReviewMarkIndex) {
             bool hasSimilar = false;
-            const auto newReviewMark = textItem->reviewMarks().at(newReviewMarkIndex);
+            const auto newReviewMark = newReviewMarks.at(newReviewMarkIndex);
             for (int oldReviewMarkIndex = 0; oldReviewMarkIndex < oldReviewMarkWrappers.size();
                  ++oldReviewMarkIndex) {
                 const auto oldReviewMarkWrapper = oldReviewMarkWrappers.value(oldReviewMarkIndex);

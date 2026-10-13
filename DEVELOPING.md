@@ -222,6 +222,24 @@ under `.build/evidence/`, with no desktop session bus. The default is offscreen;
 coverage, and `STARC_TRACK_CHANGES_CASE=original-added` selects the original
 six-case reproduction. Neither mode establishes physical desktop/GPU behavior.
 
+`./tools/check-review-comments.sh` checks comment insertion through the production
+screenplay editor and a live comments-panel model, in both selection directions.
+Selections that only touch a comment or highlight must stay separate comments;
+selections that overlap, contain or bridge comment threads must continue those
+threads without changing their messages. It also covers author/color differences,
+replies and resolved threads, emphasis fragments, multiple paragraphs, comments on
+highlighted text, and highlight/revision controls. Every panel row's text, messages,
+color and resolved state, the editor's per-character marks, message metadata,
+byte-exact one-step Undo/Redo, a shifted anchor, coordinator saves and fresh-process
+database/editor/panel reopening are checked, with an independent check of the
+saved XML anchors. Profiles, stories and logs are disposable under
+`.build/evidence/`; no desktop session bus or real account is used. The default is
+offscreen. On a private Xvfb display, set `STARC_REVIEW_COMMENTS_PLATFORM=xcb`;
+`STARC_REVIEW_COMMENTS_CASE=adjacent` selects the original two-direction
+reproduction and `STARC_REVIEW_COMMENTS_SCREENSHOTS=1` retains editor screenshots.
+These are injected editor/model actions; toolbar input and physical desktop/GPU
+behavior are separate evidence.
+
 `./tools/check-save-as-safety.sh` exercises Save As through the real coordinator
 with disposable native stories, ordinary shutdown and fresh-process reopening.
 It covers existing and absent locked destinations, replacement approval/cancellation,
