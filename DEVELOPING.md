@@ -256,7 +256,13 @@ the current editor and lock until the writer approves and any requested save
 succeeds. Fresh processes reopen every result and compare script,
 emphasis, review annotations and document identities. All files, profiles and
 fake credentials are disposable; the GitHub API is a loopback mock server and
-the session bus is absent. The default is offscreen; on a private Xvfb display,
+the session bus is absent. Lock-opening cases also cover both stale dialog
+buttons after a competing file event and edits, competing locked requests,
+ordinary close with unsaved edits, live-lock refusal and a current accepted or
+rejected question. They retain invalidated dialog widgets to deliberately emit
+late responses, verify exact held locks and unopened database bytes, and check
+Undo/Redo, Save, fresh reopen and lock release.
+The default is offscreen; on a private Xvfb display,
 `STARC_SAVE_FAILURE_PLATFORM=xcb STARC_SAVE_FAILURE_SCREENSHOTS=1` adds native
 window evidence. Actions use Qt signals and dialog responses.
 

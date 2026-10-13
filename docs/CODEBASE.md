@@ -34,6 +34,14 @@ while a save question is active cannot bypass it or replace its callback.
 Already-guarded story-list/cloud callbacks call the private opening method after
 approval, avoiding a second guard while their question is disappearing.
 
+An opening lock question owns the failed attempt's lock separately from the live
+story's lock. Closing or switching a story disables and disconnects that question
+before it disappears, including a competing request while no story is open.
+Late responses are ignored by dialog identity. A current **Ignore and open**
+response removes only its attempted stale lock and uses public `openProject`, so
+it passes through the unsaved-edit guard and must acquire the destination lock
+again before loading. A lock still held by another live instance is retained.
+
 `kApplicationOpenLastStoryKey` defaults to false. The settings checkbox persists
 it without a runtime project-switch handler. `goToEditCurrentProject` records
 `kApplicationLastStoryPathKey` only after loading succeeds, using the local story's

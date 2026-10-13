@@ -537,7 +537,7 @@ plugin. That audit timeout is not the pre-fix regression evidence above.
 
 ## 6. An old lock dialog can crash a different, modified story
 
-- [ ] **P1 — confirmed through a real application file-open event.**
+- [x] **P1 — fixed 2026-10-13; verified with competing file-open events, late dialog responses and fresh reopening.**
 
 **Location:**
 [application_manager.cpp](src/core/management_layer/application_manager.cpp),
@@ -570,6 +570,50 @@ Cover competing OS requests and edits before answering either dialog button.
 `.build/evidence/audit2-20261013/stale-lock/`. Earlier harness attempts that failed
 before reaching the lock callback remain in `verified-run/` and `verified-run2/`.
 The confirmed run aborted; it is not ordinary-close evidence.
+
+**Resolution (2026-10-13):** Lock questions now own the failed opening attempt's
+lock separately from the current story's acquired lock. Closing or switching
+stories invalidates, disconnects and disables the old question before its hide
+animation, even when no story is currently open. A dialog-identity check also
+rejects a response delivered after invalidation. A current **Ignore and open**
+response operates only on its own attempted lock and uses public `openProject`,
+which applies the unsaved-edit guard and reacquires the destination lock.
+
+The regression first reproduced the original assertion with real
+`QFileOpenEvent` objects and unsaved text in the real screenplay editor. Eight
+new cases now cover both stale buttons after a competing unlocked request and
+edits, a close/save question, both stale buttons after a newer locked request,
+current acceptance/rejection, and refusal to remove a live lock. Invalidated
+dialog widgets are retained in the test so late signals are deliberately
+delivered. Cases verify dirty state, exact lock bytes, byte-exact unopened
+databases, Undo/Redo, Save, ordinary shutdown and released locks. Fresh processes
+compare exact screenplay/emphasis/review XML and every document identity.
+
+`./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, Bash syntax,
+ShellCheck and `git diff --check` passed. The eight lock cases with
+`STARC_SAVE_FAILURE_CASES` passed **16 ordinary process exits** offscreen.
+The complete `./tools/check-save-failure.sh` passed **58 ordinary process exits**
+on a private Xvfb/XCB display with
+`STARC_SAVE_FAILURE_PLATFORM=xcb STARC_SAVE_FAILURE_SCREENSHOTS=1`, including
+29 fresh reopen checks and the existing save, rollback, Retry, close, GitHub
+replacement and external-request cases. Native editor screenshots were inspected.
+All profiles and stories were disposable; lock holders were same-process
+`QLockFile` objects, the GitHub server was loopback-only, and the desktop session
+bus was absent. Actions used Qt signals/dialog responses; physical desktop/GPU,
+production-executable keyboard interaction, release builds and other operating
+systems remain unexercised.
+
+Passing evidence: [offscreen lock cases](.build/evidence/save-failure-2Xh5sw/),
+[complete native suite](.build/evidence/save-failure-MpswYS/), and
+[build/native runner logs](.build/evidence/issue6-lock-dialog/).
+The new [pre-fix abort](.build/evidence/save-failure-YZdGRS/) is retained.
+The [initial fixed-code run](.build/evidence/save-failure-KYu33G/) exposed a
+fixture assumption: successful opening runs the existing database-version
+upgrade, including SQLite BLOB-to-TEXT storage changes and version records.
+Successful opens therefore check exact screenplay bytes and identities;
+unopened targets still require whole-file equality. The sandbox's refused Xvfb
+socket launch is retained separately from the successful native run.
+Issues 7–14 remain open.
 
 ## 7. Track Changes physically deletes original text depending on selection direction
 

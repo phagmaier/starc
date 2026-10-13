@@ -27,6 +27,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileOpenEvent>
+#include <QLockFile>
 #include <QPointer>
 #include <QScreen>
 #include <QSettings>
@@ -73,7 +74,7 @@ Dialog* dialogWithText(const QString& _text)
 {
     for (auto candidate : QApplication::allWidgets()) {
         auto dialog = qobject_cast<Dialog*>(candidate);
-        if (!dialog || !dialog->isVisible()) {
+        if (!dialog || !dialog->isVisible() || !dialog->isEnabled()) {
             continue;
         }
         for (auto label : dialog->findChildren<AbstractLabel*>()) {
@@ -225,6 +226,136 @@ int saveQuestionCount()
     }
     return count;
 }
+
+void lockOpen(Application& _app, ManagementLayer::ApplicationManager* _manager,
+              const QString& _root, const QString& _mode, const QByteArray& _original)
+{
+    const auto path = _root + "/story.starc";
+    const auto target = _root + "/target.starc";
+    const auto other = _root + "/other.starc";
+    auto window = widget<Ui::ApplicationView>();
+    require(QFile::copy(path, target), "prepare a disposable locked story");
+    retain(_root + "/target.xml", _original);
+    QLockFile occupied(target + ".lock");
+    occupied.setStaleLockTime(0);
+    require(occupied.tryLock(), "another instance holds the target lock");
+    const auto targetBytes = fileBytes(target);
+    const auto targetLockBytes = fileBytes(target + ".lock");
+    fileOpen(_app, target);
+    waitFor([] { return dialogWithText("already open in another copy") != nullptr; });
+    QPointer<Dialog> oldQuestion = dialogWithText("already open in another copy");
+    // Retain the widget past its hide animation so every stale case deliberately delivers a
+    // late response. Production still disables/disconnects it and normally deletes it.
+    QObject::disconnect(oldQuestion, &Dialog::disappeared, oldQuestion, &Dialog::deleteLater);
+    screenshot(_root, "lock-question");
+    const Dialog::ButtonInfo accept{ 1, "Ignore and open", Dialog::AcceptButton };
+    const Dialog::ButtonInfo reject{ 0, "OK", Dialog::RejectButton };
+    const auto response = _mode.endsWith("reject") ? reject : accept;
+
+    if (_mode.startsWith("lock-open-superseded")) {
+        require(QFile::copy(path, other), "prepare a second locked story");
+        retain(_root + "/other.xml", _original);
+        QLockFile newer(other + ".lock");
+        newer.setStaleLockTime(0);
+        require(newer.tryLock(), "hold the newer request's lock");
+        const auto newerLockBytes = fileBytes(other + ".lock");
+        fileOpen(_app, other);
+        waitFor([&] {
+            auto question = dialogWithText("already open in another copy");
+            return question && question != oldQuestion;
+        });
+        QPointer<Dialog> newQuestion = dialogWithText("already open in another copy");
+        require(newQuestion && newQuestion != oldQuestion,
+                "a competing locked request replaces the old question");
+        if (oldQuestion) {
+            oldQuestion->finished(response);
+        }
+        require(fileBytes(target + ".lock") == targetLockBytes
+                    && fileBytes(other + ".lock") == newerLockBytes && newQuestion
+                    && newQuestion->isEnabled(),
+                "either stale response preserves both locks and the newer question");
+        newer.unlock();
+        newQuestion->finished(accept);
+        waitFor([&] { return DatabaseLayer::Database::currentFile() == other; });
+        require(script() == _original, "the newer accepted request opens its own story");
+        retain(_root + "/expected.xml", _original);
+    } else if (_mode == "lock-open-accept" || _mode == "lock-open-reject") {
+        occupied.unlock();
+        oldQuestion->finished(response);
+        if (_mode == "lock-open-accept") {
+            waitFor([&] { return DatabaseLayer::Database::currentFile() == target; });
+            require(script() == _original && QFile::exists(target + ".lock"),
+                    "a current accepted question acquires and opens the original target");
+        } else {
+            require(!QFile::exists(target + ".lock") && _manager->openProject(path),
+                    "rejecting a current question leaves the target unopened");
+        }
+        retain(_root + "/expected.xml", _original);
+    } else {
+        if (_mode == "lock-open-held") {
+            oldQuestion->finished(accept);
+            require(fileBytes(target + ".lock") == targetLockBytes,
+                    "Ignore cannot remove another live instance's lock");
+            waitFor([&] {
+                auto question = dialogWithText("already open in another copy");
+                return question && question != oldQuestion && question->isEnabled();
+            });
+            oldQuestion->deleteLater();
+            oldQuestion = dialogWithText("already open in another copy");
+            QObject::disconnect(oldQuestion, &Dialog::disappeared, oldQuestion,
+                                &Dialog::deleteLater);
+        }
+        fileOpen(_app, path);
+        require(DatabaseLayer::Database::currentFile() == path && QFile::exists(path + ".lock"),
+                "an OS request opens a different unlocked story");
+        const auto currentLockBytes = fileBytes(path + ".lock");
+        auto edit = openEditor();
+        edit->moveCursor(QTextCursor::End);
+        edit->insertPlainText(" UNSAVED_MARKER");
+        waitFor([&] { return window->isWindowModified(); });
+        if (_mode == "lock-open-close") {
+            window->close();
+            waitFor([] { return saveQuestionCount() == 1; });
+        }
+        require(oldQuestion, "retained stale dialog survives to exercise its late response");
+        oldQuestion->finished(response);
+        require(DatabaseLayer::Database::currentFile() == path && window->isWindowModified()
+                    && edit->toPlainText().contains("UNSAVED_MARKER")
+                    && fileBytes(path + ".lock") == currentLockBytes
+                    && fileBytes(target + ".lock") == targetLockBytes
+                    && fileBytes(target) == targetBytes,
+                "either stale response retains live edits, dirty state and both exact locks");
+        require(!oldQuestion->isEnabled(), "the old question is disabled after the story changes");
+        if (_mode == "lock-open-close") {
+            require(saveQuestionCount() == 1, "stale response cannot bypass the close question");
+            answer("Save changes?", { 0, "Cancel", Dialog::RejectButton });
+        } else {
+            require(saveQuestionCount() == 0, "stale response does not request a story switch");
+        }
+        edit->undo();
+        require(!edit->toPlainText().contains("UNSAVED_MARKER"), "Undo survives stale response");
+        edit->redo();
+        require(edit->toPlainText().contains("UNSAVED_MARKER"), "Redo restores preserved edits");
+        screenshot(_root, "lock-invalidated-edits");
+        save();
+        require(!window->isWindowModified(), "the newer story still saves successfully");
+        retain(_root + "/expected.xml", script());
+    }
+    if (occupied.isLocked()) {
+        require(fileBytes(target + ".lock") == targetLockBytes,
+                "original target lock remains byte-exact until its owner unlocks");
+    }
+    if (_mode == "lock-open-accept") {
+        // A genuine open performs the existing application-version database upgrade. Its
+        // SQLite storage can change; the script bytes and document identities must survive.
+        require(persistedScript(target) == _original,
+                "accepted open preserves exact screenplay and annotation bytes");
+    } else {
+        require(fileBytes(target) == targetBytes, "unopened target remains byte-exact");
+    }
+    oldQuestion->deleteLater();
+    window->close();
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -290,6 +421,20 @@ int main(int argc, char** argv)
                 }
                 require(targetIds == ids, "event target keeps every original document identity");
             }
+            if (QFile::exists(root + "/other.xml")) {
+                require(manager->openProject(root + "/other.starc"),
+                        "fresh process opens the newer locked request's story");
+                require(script() == fileBytes(root + "/other.xml"),
+                        "newer request retains exact screenplay and annotations after reopening");
+                query = DatabaseLayer::Database::query();
+                require(query.exec("SELECT uuid FROM documents ORDER BY uuid"),
+                        "read newer request's document identities");
+                QByteArray otherIds;
+                while (query.next()) {
+                    otherIds += query.value(0).toString().toUtf8() + '\n';
+                }
+                require(otherIds == ids, "newer request preserves every document identity");
+            }
             window->close();
             return;
         }
@@ -338,6 +483,11 @@ int main(int argc, char** argv)
             ids += query.value(0).toString().toUtf8() + '\n';
         }
         retain(root + "/identities.txt", ids);
+
+        if (mode.startsWith("lock-open-")) {
+            lockOpen(app, manager, root, mode, original);
+            return;
+        }
 
         if (fileEvent) {
             require(QFile::copy(path, target), "prepare another disposable story for file events");
@@ -600,6 +750,10 @@ int main(int argc, char** argv)
     const auto result = app.exec();
     require(result == 0 && !QFile::exists(path + ".lock"),
             "ordinary exit zero releases the story lock");
+    if (mode.startsWith("lock-open-") || mode == "reopen") {
+        require(!QFile::exists(target + ".lock") && !QFile::exists(root + "/other.starc.lock"),
+                "ordinary shutdown releases locks from all competing requests");
+    }
     std::puts("PASS: save failure regression");
     return result;
 }

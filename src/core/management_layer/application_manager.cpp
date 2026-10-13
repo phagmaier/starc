@@ -354,6 +354,7 @@ public:
     } lastContent;
     Ui::ConnectionStatusToolBar* connectionStatus = nullptr;
     QPointer<Dialog> saveChangesDialog;
+    QPointer<Dialog> openLockDialog;
 
     /**
      * @brief Построитель плагинов редакторов
@@ -1619,35 +1620,45 @@ bool ApplicationManager::Implementation::tryLockProject(const QString& _path,
 bool ApplicationManager::Implementation::tryLockProjectOnOpen(const QString& _path)
 {
     const QFileInfo projectFileInfo(_path);
-    lockFile.reset(new QLockFile(
+    QScopedPointer<QLockFile> attemptedLock(new QLockFile(
         QString("%1/%2.lock").arg(projectFileInfo.absolutePath(), projectFileInfo.fileName())));
-    if (!lockFile->tryLock()) {
+    if (!attemptedLock->tryLock()) {
         //
         // В некоторых случаях, после падения приложения (особенно в маке), файл блокировки не
         // освобождается, т.к. названия процессов совпадают, поэтому для кейса с открытием документа
         // даём возможность форсировать открытие путём удаления протухшего файла
         //
         auto dialog = new Dialog(applicationView->topLevelWidget());
+        openLockDialog = dialog;
         dialog->setContentMaximumWidth(Ui::DesignSystem::dialog().normalWidth());
-        dialog->showDialog({},
+        dialog->showDialog({ },
                            tr("This file can't be open at this moment, because it is already open "
                               "in another copy of the application."),
                            { { 0, StandardDialog::generateOkTerm(), Dialog::RejectButton },
                              { 1, tr("Ignore and open"), Dialog::AcceptButton } });
         connect(dialog, &Dialog::finished, q,
-                [this, dialog, _path](const Dialog::ButtonInfo& _presedButton) {
+                [this, dialog = QPointer<Dialog>(dialog), _path,
+                 attemptedLock = std::shared_ptr<QLockFile>(attemptedLock.take())](
+                    const Dialog::ButtonInfo& _pressedButton) {
+                    // A later open/create/close can supersede this asynchronous question.
+                    // Never touch the current story's lock or reopen from a stale response.
+                    if (!dialog || openLockDialog != dialog) {
+                        return;
+                    }
+                    openLockDialog.clear();
+                    dialog->setEnabled(false);
                     dialog->hideDialog();
-                    if (_presedButton.type == Dialog::AcceptButton) {
-                        lockFile->removeStaleLockFile();
-                        lockFile.reset();
-                        openProject(_path);
+                    if (_pressedButton.type == Dialog::AcceptButton) {
+                        attemptedLock->removeStaleLockFile();
+                        q->openProject(_path);
                     }
                 });
         QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
         return false;
     }
 
-    lockFile->setStaleLockTime(0);
+    attemptedLock->setStaleLockTime(0);
+    lockFile.reset(attemptedLock.take());
     return true;
 }
 
@@ -1894,6 +1905,16 @@ bool ApplicationManager::Implementation::goToEditCurrentProject(bool _afterProje
 void ApplicationManager::Implementation::closeCurrentProject()
 {
     Log::info("Closing current project");
+
+    // This also runs before opening a story when there is no current project. Disable the
+    // old question before its hide animation; already queued responses check its identity.
+    if (openLockDialog) {
+        auto dialog = openLockDialog;
+        openLockDialog.clear();
+        QObject::disconnect(dialog, nullptr, q, nullptr);
+        dialog->setEnabled(false);
+        dialog->hideDialog();
+    }
 
     if (projectsManager->currentProject() == nullptr) {
         Log::warning("Current project is not valid. Skip closing.");

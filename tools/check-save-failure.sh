@@ -38,7 +38,7 @@ run_case() {
     fi
     printf 'PASS: %s (ordinary exit 0)\n' "$mode"
 }
-for mode in ${STARC_SAVE_FAILURE_CASES:-close-retry close-dismiss close-discard commit-retry commit-dismiss commit-discard rollback-retry rollback-dismiss rollback-discard switch-failure sync-failure sync-success file-open-save file-open-cancel file-open-discard file-open-clean file-open-same file-open-repeated file-open-menu file-open-failure file-open-commit}; do
+for mode in ${STARC_SAVE_FAILURE_CASES:-close-retry close-dismiss close-discard commit-retry commit-dismiss commit-discard rollback-retry rollback-dismiss rollback-discard switch-failure sync-failure sync-success file-open-save file-open-cancel file-open-discard file-open-clean file-open-same file-open-repeated file-open-menu file-open-failure file-open-commit lock-open-stale-accept lock-open-stale-reject lock-open-close lock-open-superseded-accept lock-open-superseded-reject lock-open-accept lock-open-reject lock-open-held}; do
     if [[ $mode == sync-* ]]; then
         mkdir -p "$EVIDENCE/$mode"
         python3 "$ROOT/tests/github_mock_server.py" "$EVIDENCE/$mode/repository" \
@@ -55,7 +55,7 @@ for mode in ${STARC_SAVE_FAILURE_CASES:-close-retry close-dismiss close-discard 
         export STARC_GITHUB_API_URL="http://127.0.0.1:$PORT"
     fi
     marker=1
-    [[ $mode != close-discard && $mode != commit-discard && $mode != rollback-discard && $mode != sync-success && $mode != file-open-discard && $mode != file-open-clean ]] || marker=0
+    [[ $mode != close-discard && $mode != commit-discard && $mode != rollback-discard && $mode != sync-success && $mode != file-open-discard && $mode != file-open-clean && $mode != lock-open-accept && $mode != lock-open-reject && $mode != lock-open-superseded-* ]] || marker=0
     run_case "$mode" "$EVIDENCE/$mode" "$marker"
     run_case reopen "$EVIDENCE/$mode" "$marker"
     if [[ $mode == sync-* ]]; then
