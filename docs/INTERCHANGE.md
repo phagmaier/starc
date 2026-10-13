@@ -21,6 +21,18 @@ freshly import with the production information settings, rather than being
 replaced with Fountain text. The default information setting hides scene numbers;
 the direct format checks separately enable number export.
 
+`emphasis-review.fountain` combines emphasis and review notes in the same
+paragraph, including multiple spans/notes and styled dialogue. It checks both
+supported internal XML child orders and native annotation persistence. A second
+process checks the saved UUIDs, complete serialized bytes, text, styles and review
+coverage again. Contiguous formatting fragments count as one review range only
+when all review metadata matches, including the complete comment list.
+Full annotated Fountain export/reimport is still affected by
+[issue 13](../ISSUES2.md#13-fountain-escaping-shifts-a-review-note-onto-the-wrong-text),
+including duplicate comments across emphasis fragments. This fixture's export
+explicitly disables reviews and verifies that omission; the original annotated
+script crosses native save/reopen without filtering.
+
 Ordinary source saves accept only `.fountain`, `.txt`, `.fdx` and `.fdxt` (case
 insensitive). Other destinations are refused before opening a file for writing.
 Directly opened import-only formats, including DOCX, PDF and Markdown, ask for a

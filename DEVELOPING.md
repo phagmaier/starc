@@ -269,7 +269,10 @@ evidence. All runs and logs remain under `.build/evidence/`.
 
 `./tools/check-screenplay-interchange.sh` adds independent Fountain/FDX fixtures,
 ordered paragraph/text/emphasis/number checks, fresh imports, and explicit model
-serialization plus project save/reopen. It also checks the exported syntax/XML
+serialization plus project save/reopen. Combined Fountain emphasis/review notes
+also cross a separate-process native reopen with exact XML/UUID and annotation
+coverage checks. Their export explicitly excludes reviews while `ISSUES2.md`
+issue 13 remains open. It also checks the exported syntax/XML
 with Python, input failures, options, and unchanged fixture hashes. See
 [docs/INTERCHANGE.md](docs/INTERCHANGE.md) for exact normalization, intentional
 loss and remaining limits. It uses a new disposable profile/project and an

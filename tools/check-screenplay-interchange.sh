@@ -29,6 +29,7 @@ export STARC_PROFILE_DIR="$EVIDENCE/profile"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
 printf 'XDG_DOCUMENTS_DIR="%s"\n' "$EVIDENCE/profile/documents" > "$XDG_CONFIG_HOME/user-dirs.dirs"
 export QT_QPA_PLATFORM=offscreen
+export QT_FORCE_STDERR_LOGGING=1
 export LD_LIBRARY_PATH="$OUTPUT:$OUTPUT/libs:$OUTPUT/plugins${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 python3 - "$ROOT/tests/fixtures/interchange" "$EVIDENCE" <<'PY'
 import hashlib
@@ -44,10 +45,16 @@ if ! "$EVIDENCE/interchange-test" "$EVIDENCE/checks" "$ROOT/tests/fixtures/inter
     cat "$EVIDENCE/test.log" >&2
     exit 1
 fi
+if ! "$EVIDENCE/interchange-test" "$EVIDENCE/checks" "$ROOT/tests/fixtures/interchange" reopen \
+    > "$EVIDENCE/reopen.log" 2>&1; then
+    cat "$EVIDENCE/reopen.log" >&2
+    exit 1
+fi
 if ! python3 "$ROOT/tests/check_interchange_exports.py" "$EVIDENCE" \
     "$ROOT/tests/fixtures/interchange" >> "$EVIDENCE/test.log" 2>&1; then
     cat "$EVIDENCE/test.log" >&2
     exit 1
 fi
 cat "$EVIDENCE/test.log"
+cat "$EVIDENCE/reopen.log"
 printf 'Evidence: %s\n' "$EVIDENCE"

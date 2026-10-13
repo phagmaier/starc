@@ -966,7 +966,7 @@ and is not counted as ordinary shutdown.
 
 ## 11. Fountain emphasis plus a review note crashes import
 
-- [ ] **P1 — confirmed by real application startup and a retained backtrace.**
+- [x] **P1 — fixed 2026-10-13; verified through import, native save/reopen and production application startup.**
 
 **Locations:**
 [abstract_fountain_importer.cpp](src/corelib/business_layer/import/abstract_fountain_importer.cpp),
@@ -1010,6 +1010,57 @@ behavior has not been exercised.
 retained core under `.build/evidence/audit2-interchange/`.
 The passing authored interchange fixture did not combine these features in the
 same paragraph; both features are within the documented Fountain support scope.
+
+**Resolution (2026-10-13):** The paragraph reader consumes formatting and review
+sections in either supported order before advancing to resource/custom content
+and the next paragraph. Fountain's `v`, `fms`, `rms` order and the serializer's
+`v`, `rms`, `fms` order both retain their data. The paragraph-type assertion remains
+in place; unread review metadata is not discarded or treated as a paragraph.
+
+`./tools/check-screenplay-interchange.sh` now includes an independent combined
+fixture: the reported forced-Action reproducer, emphasis-only and review-only
+controls, multiple styled spans and two notes, styled dialogue, combined bold and
+italic, underline, and a final styled paragraph with a note. Exact text,
+per-character styles, comments and review ranges are checked through the actual
+import/project managers, explicit serialization and native SQLite save/reopen.
+A separate process reopens the original combined screenplay and a filtered fresh
+import, checking document UUIDs and exact saved XML before binding the editor.
+The semantic oracle joins only contiguous fragments with identical complete
+review metadata, because the editor splits a thread at formatting boundaries;
+it retains exact coverage and distinct comments. Independent Python checks
+verify both XML child orders, authored styles, anchors, comment metadata,
+unchanged fixture hashes and exported syntax.
+
+Four production-executable launches on a private Xvfb/XCB display passed: the
+minimal reproducer, emphasis-only, review-only and multiple-span/note sources.
+Each reached the project screen, exited ordinarily through Ctrl+Q and **Don't
+save**, released its source lock and left the original Fountain bytes unchanged.
+These are import/startup checks; the native screenshots show the project screen
+and expected source-format/keyring dialogs, not a full desktop editor exercise.
+
+Full annotated Fountain export/reimport remains affected by the separate issue 13
+path. The combined regression exposed duplicated notes across emphasis fragments
+as well as misplaced anchors; that failed run is retained and described below.
+The passing combined fixture exports with reviews explicitly disabled and checks
+that intended omission alongside unchanged text/styles. This is not credited as
+an annotated Fountain round trip. The original combined annotations are checked
+without filtering through native persistence. Issues 12–14 remain open.
+
+`./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, the expanded
+interchange check, screenplay scope check, changed-source formatting, Bash
+syntax, ShellCheck, Python compilation and `git diff --check` passed. Evidence:
+[interchange](.build/evidence/screenplay-interchange-QfilAM/),
+[scope](.build/evidence/screenplay-scope-6xIVc5/),
+[production startup](.build/evidence/fountain-review-fix/native-mlyhursb/),
+and [builds and earlier attempts](.build/evidence/fountain-review-fix/).
+The pre-fix regression aborted in [JsHAz9](.build/evidence/screenplay-interchange-JsHAz9/).
+Earlier attempts retain the exporter failure, a review-fragment comparison that
+initially counted the same thread repeatedly, an independent XML oracle that
+initially omitted the internal HTML-escaping layer, blocked Xvfb sockets, and an
+initial production-close probe that did not answer the existing Save question.
+Linux debug, offscreen and private Xvfb evidence only; release, physical
+desktop/GPU and other operating systems remain unexercised. No user story,
+external repository or desktop keyring was used.
 
 ## 12. Fountain export/reimport changes literal brackets and backslashes into syntax
 
@@ -1079,6 +1130,17 @@ review spans alongside text, including multiple escapes and emphasis runs.
 [the escaped-star comment case](.build/evidence/audit2-interchange/case-comment-after-escaped-star/checks/).
 The probe used actual export/fresh-import paths; no physical desktop or full
 application database-reopen claim is made.
+
+**Supplemental observation while fixing issue 11 (2026-10-13):** Emphasis also
+changes output positions before review insertion. A single review range is split
+into formatting fragments in the text document; the Fountain exporter inserts
+the same comment once for each fragment at those original offsets. The combined
+fixture exported `A [[Check clue]]**bo[[Check clue]]ld** c[[Check clue]]lue.`
+from `A **bold** clue.[[Check clue]]`. Fresh import produced invalid style ranges.
+The failed comparison and exact output remain in
+[RwQFi1](.build/evidence/screenplay-interchange-RwQFi1/).
+Issue 11's reader fix does not repair this exporter path. Resolution here must
+also avoid duplicated comments and preserve styles alongside exact review spans.
 
 ## 14. Fountain export loses forced Action types and changes their content
 

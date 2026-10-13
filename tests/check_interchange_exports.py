@@ -1,5 +1,6 @@
 """Independent wire-format assertions; never use the application's importer as the oracle."""
 import hashlib
+import html
 import json
 from pathlib import Path
 import sys
@@ -55,6 +56,68 @@ notes = (checks / "notes-dual-export.fountain").read_text()
 assert "A clue[[Check café & <tag>]]." in notes, "review note spelling/anchor"
 assert "/* Private note */" in notes, "inline note delimiter"
 assert "ALICE\nLeft voice.\n\nBOB ^\nRight voice." in notes, "dual dialogue spelling/order"
+
+# Check both supported child orders independently. Do not use a successful parse
+# alone as evidence that either the notes or the emphasis survived.
+combined_expected = [
+    ("INT. ROOM - DAY", [], []),
+    ("A bold clue.", [(2, 4, 1)], []),
+    ("A clue.", [], [(0, 7, "Review only")]),
+    ("A bold clue.", [(2, 4, 1)], [(0, 12, "Check clue")]),
+    ("The red box and blue key waits.", [(4, 3, 1), (16, 4, 2)],
+     [(0, 24, "First note"), (24, 6, "Second café & <tag>")]),
+    ("MARA", [], []),
+    ("A quiet bold answer.", [(2, 5, 4), (8, 4, 1)], [(0, 20, "Check answer")]),
+    ("Final urgent clue.", [(6, 6, 3), (13, 4, 4)], [(0, 18, "Final note")]),
+]
+for name, child_order in [("emphasis-review-raw.xml", ["v", "fms", "rms"]),
+                          ("emphasis-review-serialized.xml", ["v", "rms", "fms"])]:
+    tree = ET.parse(checks / name)
+    paragraphs = [element for element in tree.iter() if element.find("v") is not None]
+    assert len(paragraphs) == len(combined_expected), name
+    for paragraph, (text, spans, reviews) in zip(paragraphs, combined_expected):
+        assert paragraph.findtext("v") == text, (name, text)
+        actual_styles = [0] * len(text)
+        for span in paragraph.findall("fms/fm"):
+            start, length = int(span.attrib["from"]), int(span.attrib["length"])
+            assert 0 <= start <= start + length <= len(text), (name, span.attrib)
+            bits = ("bold" in span.attrib) + 2 * ("italic" in span.attrib) + 4 * ("underline" in span.attrib)
+            for position in range(start, start + length):
+                actual_styles[position] |= bits
+        expected_styles = [0] * len(text)
+        for start, length, bits in spans:
+            expected_styles[start:start + length] = [bits] * length
+        assert actual_styles == expected_styles, (name, text, actual_styles)
+        # Internal CDATA holds HTML-escaped comment content, unlike wire-format
+        # Fountain. Decode that documented layer after parsing the XML.
+        actual_reviews = [(int(mark.attrib["from"]), int(mark.attrib["length"]), html.unescape(mark.findtext("c")))
+                          for mark in paragraph.findall("rms/rm")]
+        assert actual_reviews == reviews, (name, text, actual_reviews)
+        for mark in paragraph.findall("rms/rm"):
+            assert mark.attrib["bgcolor"].lower() == "#ffd302" and "done" not in mark.attrib
+            assert mark.find("c").attrib["author"] == "fountain author"
+            assert mark.find("c").attrib["date"] and len(mark.findall("c")) == 1
+        if spans and reviews:
+            assert [child.tag for child in paragraph] == child_order, (name, list(paragraph))
+
+# This deliberately excludes reviews while issue 13's exporter offsets remain
+# open. Native annotation persistence above is checked without that filtering.
+combined_filtered = """INT. ROOM - DAY #1#
+
+A **bold** clue.
+
+A clue.
+
+A **bold** clue.
+
+The **red** box and *blue* key waits.
+
+MARA
+A _quiet_ **bold** answer.
+
+Final ***urgent*** _clue_.
+"""
+assert (checks / "emphasis-review-export.fountain").read_text() == combined_filtered
 
 
 def check_fdx(name, expected, numbers, emphasis):

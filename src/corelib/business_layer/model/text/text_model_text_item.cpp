@@ -160,96 +160,102 @@ void TextModelTextItem::Implementation::readXml(QXmlStreamReader& _contentReader
         currentTag = xml::readNextElement(_contentReader); // next
     }
 
-    if (currentTag == xml::kReviewMarksTag) {
-        do {
-            currentTag = xml::readNextElement(_contentReader);
-
-            //
-            // Прекращаем обработку, если дошли до конца редакторских заметок
-            //
-            if (currentTag == xml::kReviewMarksTag && _contentReader.isEndElement()) {
+    // Fountain imports place formats before review marks; saved model XML uses the
+    // reverse order. Consume both supported sections before leaving the paragraph.
+    while (!_contentReader.atEnd()
+           && (currentTag == xml::kReviewMarksTag || currentTag == xml::kFormatsTag)) {
+        if (currentTag == xml::kReviewMarksTag) {
+            do {
                 currentTag = xml::readNextElement(_contentReader);
-                break;
-            }
-            //
-            // Считываем заметки
-            //
-            else if (currentTag == xml::kReviewMarkTag) {
-                const auto reviewMarkAttributes = _contentReader.attributes();
-                ReviewMark reviewMark;
-                reviewMark.from = reviewMarkAttributes.value(xml::kFromAttribute).toInt();
-                reviewMark.length = reviewMarkAttributes.value(xml::kLengthAttribute).toInt();
-                if (reviewMarkAttributes.hasAttribute(xml::kColorAttribute)) {
-                    reviewMark.textColor
-                        = reviewMarkAttributes.value(xml::kColorAttribute).toString();
-                }
-                if (reviewMarkAttributes.hasAttribute(xml::kBackgroundColorAttribute)) {
-                    reviewMark.backgroundColor
-                        = reviewMarkAttributes.value(xml::kBackgroundColorAttribute).toString();
-                }
-                reviewMark.isDone = reviewMarkAttributes.hasAttribute(xml::kDoneAttribute);
 
-                do {
+                //
+                // Прекращаем обработку, если дошли до конца редакторских заметок
+                //
+                if (currentTag == xml::kReviewMarksTag && _contentReader.isEndElement()) {
                     currentTag = xml::readNextElement(_contentReader);
-                    if (currentTag != xml::kCommentTag) {
-                        break;
+                    break;
+                }
+                //
+                // Считываем заметки
+                //
+                else if (currentTag == xml::kReviewMarkTag) {
+                    const auto reviewMarkAttributes = _contentReader.attributes();
+                    ReviewMark reviewMark;
+                    reviewMark.from = reviewMarkAttributes.value(xml::kFromAttribute).toInt();
+                    reviewMark.length = reviewMarkAttributes.value(xml::kLengthAttribute).toInt();
+                    if (reviewMarkAttributes.hasAttribute(xml::kColorAttribute)) {
+                        reviewMark.textColor
+                            = reviewMarkAttributes.value(xml::kColorAttribute).toString();
+                    }
+                    if (reviewMarkAttributes.hasAttribute(xml::kBackgroundColorAttribute)) {
+                        reviewMark.backgroundColor
+                            = reviewMarkAttributes.value(xml::kBackgroundColorAttribute).toString();
+                    }
+                    reviewMark.isDone = reviewMarkAttributes.hasAttribute(xml::kDoneAttribute);
+
+                    do {
+                        currentTag = xml::readNextElement(_contentReader);
+                        if (currentTag != xml::kCommentTag) {
+                            break;
+                        }
+
+                        const auto commentAttributes = _contentReader.attributes();
+                        reviewMark.comments.append(
+                            { TextHelper::fromHtmlEscaped(
+                                  commentAttributes.value(xml::kAuthorAttribute).toString()),
+                              TextHelper::fromHtmlEscaped(
+                                  commentAttributes.value(xml::kEmailAttribute).toString()),
+                              commentAttributes.value(xml::kDateAttribute).toString(),
+                              TextHelper::fromHtmlEscaped(
+                                  xml::readContent(_contentReader).toString()),
+                              commentAttributes.hasAttribute(xml::kIsCommentEditedAttribute),
+                              commentAttributes.hasAttribute(xml::kIsCommentRevisionAttribute),
+                              commentAttributes.hasAttribute(xml::kIsCommentAdditionAttribute),
+                              commentAttributes.hasAttribute(xml::kIsCommentRemovalAttribute) });
+
+                        xml::readNextElement(_contentReader); // end
+                    } while (!_contentReader.atEnd());
+
+                    reviewMarks.append(reviewMark);
+                }
+            } while (!_contentReader.atEnd());
+        }
+
+        if (currentTag == xml::kFormatsTag) {
+            do {
+                currentTag = xml::readNextElement(_contentReader);
+
+                //
+                // Прекращаем обработку, если дошли до конца форматов
+                //
+                if (currentTag == xml::kFormatsTag && _contentReader.isEndElement()) {
+                    currentTag = xml::readNextElement(_contentReader);
+                    break;
+                }
+
+                else if (currentTag == xml::kFormatTag) {
+                    const auto formatAttributes = _contentReader.attributes();
+                    TextFormat format;
+                    format.from = formatAttributes.value(xml::kFromAttribute).toInt();
+                    format.length = formatAttributes.value(xml::kLengthAttribute).toInt();
+                    format.isBold = formatAttributes.hasAttribute(xml::kBoldAttribute);
+                    format.isItalic = formatAttributes.hasAttribute(xml::kItalicAttribute);
+                    format.isUnderline = formatAttributes.hasAttribute(xml::kUnderlineAttribute);
+                    format.isStrikethrough
+                        = formatAttributes.hasAttribute(xml::kStrikethroughAttribute);
+                    if (formatAttributes.hasAttribute(xml::kFontFamilyAttribute)
+                        && formatAttributes.hasAttribute(xml::kFontSizeAttribute)) {
+                        format.font.family
+                            = formatAttributes.value(xml::kFontFamilyAttribute).toString();
+                        format.font.size = formatAttributes.value(xml::kFontSizeAttribute).toInt();
                     }
 
-                    const auto commentAttributes = _contentReader.attributes();
-                    reviewMark.comments.append(
-                        { TextHelper::fromHtmlEscaped(
-                              commentAttributes.value(xml::kAuthorAttribute).toString()),
-                          TextHelper::fromHtmlEscaped(
-                              commentAttributes.value(xml::kEmailAttribute).toString()),
-                          commentAttributes.value(xml::kDateAttribute).toString(),
-                          TextHelper::fromHtmlEscaped(xml::readContent(_contentReader).toString()),
-                          commentAttributes.hasAttribute(xml::kIsCommentEditedAttribute),
-                          commentAttributes.hasAttribute(xml::kIsCommentRevisionAttribute),
-                          commentAttributes.hasAttribute(xml::kIsCommentAdditionAttribute),
-                          commentAttributes.hasAttribute(xml::kIsCommentRemovalAttribute) });
-
-                    xml::readNextElement(_contentReader); // end
-                } while (!_contentReader.atEnd());
-
-                reviewMarks.append(reviewMark);
-            }
-        } while (!_contentReader.atEnd());
-    }
-
-    if (currentTag == xml::kFormatsTag) {
-        do {
-            currentTag = xml::readNextElement(_contentReader);
-
-            //
-            // Прекращаем обработку, если дошли до конца форматов
-            //
-            if (currentTag == xml::kFormatsTag && _contentReader.isEndElement()) {
-                currentTag = xml::readNextElement(_contentReader);
-                break;
-            }
-
-            else if (currentTag == xml::kFormatTag) {
-                const auto formatAttributes = _contentReader.attributes();
-                TextFormat format;
-                format.from = formatAttributes.value(xml::kFromAttribute).toInt();
-                format.length = formatAttributes.value(xml::kLengthAttribute).toInt();
-                format.isBold = formatAttributes.hasAttribute(xml::kBoldAttribute);
-                format.isItalic = formatAttributes.hasAttribute(xml::kItalicAttribute);
-                format.isUnderline = formatAttributes.hasAttribute(xml::kUnderlineAttribute);
-                format.isStrikethrough
-                    = formatAttributes.hasAttribute(xml::kStrikethroughAttribute);
-                if (formatAttributes.hasAttribute(xml::kFontFamilyAttribute)
-                    && formatAttributes.hasAttribute(xml::kFontSizeAttribute)) {
-                    format.font.family
-                        = formatAttributes.value(xml::kFontFamilyAttribute).toString();
-                    format.font.size = formatAttributes.value(xml::kFontSizeAttribute).toInt();
+                    formats.append(format);
                 }
 
-                formats.append(format);
-            }
-
-            xml::readNextElement(_contentReader); // end
-        } while (!_contentReader.atEnd());
+                xml::readNextElement(_contentReader); // end
+            } while (!_contentReader.atEnd());
+        }
     }
 
     if (currentTag == xml::kResourceMarksTag) {

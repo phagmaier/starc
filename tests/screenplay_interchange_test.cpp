@@ -66,6 +66,7 @@ struct Row {
     QVector<Emphasis> emphasis = {};
     QString column = "none";
     QStringList comments = {};
+    QVector<QPair<int, int>> reviewRanges = {};
 };
 struct Expected {
     QVector<Row> rows;
@@ -81,8 +82,12 @@ QJsonObject rowJson(const Row& row)
         for (int i = from; i < from + span.text.size(); ++i)
             styles[i] = QChar('0' + span.bits);
     }
+    QJsonArray ranges;
+    for (const auto& range : row.reviewRanges)
+        ranges.append(QJsonArray{ range.first, range.second });
     return { { "type", row.type }, { "text", row.text }, { "styles", styles },
-             { "column", row.column }, { "comments", QJsonArray::fromStringList(row.comments) } };
+             { "column", row.column }, { "comments", QJsonArray::fromStringList(row.comments) },
+             { "reviewRanges", ranges } };
 }
 
 QJsonObject expectedJson(const Expected& expected)
@@ -118,11 +123,28 @@ void collect(TextModelItem* item, QJsonArray& rows, QStringList& numbers)
                 styles[i] = QChar('0' + (styles[i].digitValue() | bits));
         }
         QStringList comments;
+        QJsonArray reviewRanges;
+        // The editor stores one review thread as contiguous QTextBlock format
+        // fragments. Normalize only identical complete review metadata across
+        // adjacent fragments, retaining exact coverage and distinct comments.
+        QVector<TextModelTextItem::ReviewMark> threads;
         for (const auto& mark : text->reviewMarks()) {
             require(mark.from >= 0 && mark.length >= 0
                         && mark.from + mark.length <= value.size(), "valid review range");
+            if (!threads.isEmpty() && threads.last().end() == mark.from
+                && threads.last().textColor == mark.textColor
+                && threads.last().backgroundColor == mark.backgroundColor
+                && threads.last().isDone == mark.isDone
+                && threads.last().comments == mark.comments) {
+                threads.last().length += mark.length;
+            } else {
+                threads.append(mark);
+            }
+        }
+        for (const auto& mark : threads) {
             for (const auto& comment : mark.comments)
                 comments.append(comment.text);
+            reviewRanges.append(QJsonArray{ mark.from, mark.length });
         }
         const auto column = !text->isInFirstColumn().has_value() ? "none"
             : (*text->isInFirstColumn() ? "left" : "right");
@@ -135,7 +157,8 @@ void collect(TextModelItem* item, QJsonArray& rows, QStringList& numbers)
         for (const auto& line : value.split('\n')) {
             rows.append(QJsonObject{ { "type", toString(text->paragraphType()) },
                 { "text", line }, { "styles", styles.mid(offset, line.size()) },
-                { "column", column }, { "comments", QJsonArray::fromStringList(comments) } });
+                { "column", column }, { "comments", QJsonArray::fromStringList(comments) },
+                { "reviewRanges", reviewRanges } });
             offset += line.size() + 1;
         }
     }
@@ -183,7 +206,7 @@ const Expected fdx{
 };
 const Expected notes{
     { { "scene_heading", "INT. STUDIO - DAY" },
-      { "action", "A clue.", {}, "none", { "Check café & <tag>" } },
+      { "action", "A clue.", {}, "none", { "Check café & <tag>" }, { { 0, 6 } } },
       { "inline_note", "Private note" },
       { "character", "ALICE", {}, "left" }, { "dialogue", "Left voice.", {}, "left" },
       { "character", "BOB", {}, "right" }, { "dialogue", "Right voice.", {}, "right" },
@@ -195,6 +218,19 @@ const Expected authoredModel{
       { "character", "ADA" }, { "parenthetical", "listening" },
       { "dialogue", "One café." }, { "dialogue", "Two Ω." },
       { "transition", "FADE TO:" } }, { "41C" }
+};
+const Expected emphasisReview{
+    { { "scene_heading", "INT. ROOM - DAY" },
+      { "action", "A bold clue.", { { "bold", 1 } } },
+      { "action", "A clue.", {}, "none", { "Review only" }, { { 0, 7 } } },
+      { "action", "A bold clue.", { { "bold", 1 } }, "none", { "Check clue" }, { { 0, 12 } } },
+      { "action", "The red box and blue key waits.", { { "red", 1 }, { "blue", 2 } }, "none",
+        { "First note", "Second café & <tag>" }, { { 0, 24 }, { 24, 6 } } },
+      { "character", "MARA" },
+      { "dialogue", "A quiet bold answer.", { { "quiet", 4 }, { "bold", 1 } }, "none",
+        { "Check answer" }, { { 0, 20 } } },
+      { "action", "Final urgent clue.", { { "urgent", 3 }, { "clue", 4 } }, "none",
+        { "Final note" }, { { 0, 18 } } } }, { "1" }
 };
 
 void inputFailures(const QString& root, const QString& fixtures)
@@ -254,7 +290,8 @@ int main(int argc, char** argv)
     app.setApplicationName("Screenplay interchange regression");
     app.setOrganizationName("Disposable tests");
     app.setApplicationVersion("0.8.4");
-    require(argc == 3, "evidence and fixture directory arguments");
+    require(argc == 3 || (argc == 4 && QByteArray(argv[3]) == "reopen"),
+            "evidence and fixture directory arguments, optional fresh-process reopen");
     const QString root = QString::fromLocal8Bit(argv[1]);
     const QString fixtures = QString::fromLocal8Bit(argv[2]);
     for (const auto font : { ":/fonts/roboto-regular", ":/fonts/materialdesignicons",
@@ -300,6 +337,31 @@ int main(int argc, char** argv)
         require(false, "imported story has screenplay text");
         return QUuid();
     };
+    if (argc == 4) {
+        const auto identities = QJsonDocument::fromJson(read(root + "/emphasis-review-identities.json")).array();
+        require(identities.size() == 2, "two retained emphasis/review screenplays");
+        for (const auto& identity : identities) {
+            const auto record = identity.toObject();
+            const QUuid uuid(record.value("uuid").toString());
+            const auto label = record.value("label").toString();
+            require(storage->document(uuid)->content() == read(root + "/" + label + "-serialized.xml"),
+                    "fresh-process exact serialized bytes and UUID: " + label);
+            auto expected = emphasisReview;
+            if (label == "emphasis-review-fresh") {
+                for (auto& row : expected.rows) {
+                    row.comments.clear();
+                    row.reviewRanges.clear();
+                }
+            }
+            check(select(uuid), expected, root + "/" + label + "-process-reopened.json");
+        }
+        manager.closeCurrentProject(projectPath);
+        storage->clear();
+        DatabaseLayer::Database::closeCurrentFile();
+        std::puts("PASS: fresh-process emphasis/review reopening retains exact XML, UUIDs, text, styles, notes and anchors");
+        return 0;
+    }
+    QJsonArray emphasisReviewIdentities;
     const auto persist = [&](const QUuid& uuid, const Expected& expected, const QString& label) {
         auto model = select(uuid);
         model->saveChanges(); // Explicit model -> serialized DocumentObject boundary.
@@ -316,9 +378,11 @@ int main(int argc, char** argv)
         manager.loadCurrentProject(&project);
         require(storage->document(uuid)->content() == bytes, "exact serialized bytes after database reopen");
         check(select(uuid), expected, root + "/" + label + "-reopened.json");
+        if (label == "emphasis-review" || label == "emphasis-review-fresh")
+            emphasisReviewIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
     };
     const auto run = [&](const QString& name, const QString& input, const Expected& expected,
-                         bool asFdx) {
+                         bool asFdx, bool includeReviewMarks = true) {
         const auto original = read(input);
         importer.importScreenplay(input, false);
         const auto uuid = scriptUuid();
@@ -329,7 +393,7 @@ int main(int argc, char** argv)
         options.templateId = "world_cp";
         options.includeTitlePage = false;
         options.includeInlineNotes = true;
-        options.includeReviewMarks = true;
+        options.includeReviewMarks = includeReviewMarks;
         options.showScenesNumbers = true;
         options.filePath = root + "/" + name + (asFdx ? "-export.fdx" : "-export.fountain");
         if (asFdx)
@@ -340,11 +404,27 @@ int main(int argc, char** argv)
         importer.importScreenplay(options.filePath, false);
         const auto fresh = scriptUuid();
         require(fresh != uuid, "fresh imported model identity");
-        check(select(fresh), expected, root + "/" + name + "-fresh.json");
-        persist(fresh, expected, name + "-fresh");
+        auto exportedExpected = expected;
+        if (!includeReviewMarks) {
+            for (auto& row : exportedExpected.rows) {
+                row.comments.clear();
+                row.reviewRanges.clear();
+            }
+        }
+        check(select(fresh), exportedExpected, root + "/" + name + "-fresh.json");
+        persist(fresh, exportedExpected, name + "-fresh");
         return uuid;
     };
     run("fountain", fixtures + "/authored.fountain", fountain, false);
+    ImportOptions emphasisOptions;
+    emphasisOptions.filePath = fixtures + "/emphasis-review.fountain";
+    const auto rawEmphasis = ScreenplayFountainImporter().importScreenplays(emphasisOptions);
+    require(rawEmphasis.size() == 1, "combined emphasis/review raw import");
+    write(root + "/emphasis-review-raw.xml", rawEmphasis.first().text.toUtf8());
+    // Combined annotations must survive native persistence. Full annotated Fountain
+    // round trips remain governed by the separate exporter-offset defect (ISSUES2 #13).
+    // Its explicitly filtered export still preserves every character and emphasis run.
+    run("emphasis-review", fixtures + "/emphasis-review.fountain", emphasisReview, false, false);
     const auto fdxUuid = run("fdx", fixtures + "/authored.fdx", fdx, true);
     // Ordinary saves of a shadow project use this convenience route. The destination's
     // extension must select FDX, rather than replacing an FDX file with Fountain text.
@@ -370,6 +450,7 @@ int main(int argc, char** argv)
     auto filteredExpected = notes;
     filteredExpected.rows.removeAt(2);
     filteredExpected.rows[1].comments.clear();
+    filteredExpected.rows[1].reviewRanges.clear();
     importer.importScreenplay(filtered.filePath, false);
     check(select(scriptUuid()), filteredExpected, root + "/notes-filtered.json");
     // FDX currently exports two-column dialogue as ordinary sequential paragraphs, and does
@@ -458,6 +539,7 @@ int main(int argc, char** argv)
         persist(fresh, authoredModel, asFdx ? "model-fdx" : "model-fountain");
     }
     inputFailures(root, fixtures);
+    write(root + "/emphasis-review-identities.json", QJsonDocument(emphasisReviewIdentities).toJson());
     manager.closeCurrentProject(projectPath);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
