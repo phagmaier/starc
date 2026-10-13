@@ -16,6 +16,23 @@ This is a starting map, not an exhaustive dependency inventory. The routes below
 
 `src/core` contains managers and application views. `src/corelib` contains reusable business models, text documents, storage, and UI components. `src/interfaces` defines the interfaces used across plugin boundaries. `src/3rd_party` contains dependencies with their own licensing and build constraints.
 
+Optional startup reopening lives in `ApplicationManager::Implementation::openStartupProject`.
+`exec` queues initialization and story-list loading, then queues the single startup
+opening decision. Public `openProject` calls from startup file events are buffered
+until that decision; explicit requests take precedence and never fall back on
+failure. First-run onboarding completes before a pending explicit request opens;
+automatic reopening applies to profiles already configured when startup began.
+Repeated startup callbacks cannot repeat the automatic attempt.
+
+`kApplicationOpenLastStoryKey` defaults to false. The settings checkbox persists
+it without a runtime project-switch handler. `goToEditCurrentProject` records
+`kApplicationLastStoryPathKey` only after loading succeeds, using the local story's
+absolute `path()` rather than its shadow `realPath()`. Creation and Save As share
+this route. Missing/unreadable sources, failed imports/database loads and refused
+locks leave the remembered path intact. Existing lock and read-only policies
+still apply. `tools/check-startup-last-story.sh` exercises this coordinator with
+disposable profiles, successive processes and ordinary close.
+
 ## Screenplay editing
 
 | Change you want | Start here |

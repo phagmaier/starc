@@ -1492,3 +1492,108 @@ owner's projects were not exercised. Capitalized ordinary words and names
 inside longer running-text names remain ambiguous and require the writer's
 choice. Act/sequence titles remain excluded. Script Undo still leaves the
 character document's new name in place, as documented above.
+
+## Optional last-story startup
+
+Implemented 2026-10-12, starting from clean `dev` at `e190c63f`.
+Application settings, under User interface, now offer **Open the last story on
+startup**, disabled by default. `application/open-last-story` and
+`application/last-story-path` use the existing application settings storage,
+including its encoded keys and ordinary sync/close persistence.
+
+The remembered path is the absolute source path of the most recently
+successfully opened or created local story, even while the option is disabled.
+A successful Save As opens its new target and records that target. Fountain/FDX
+stories record their source path, never the temporary internal shadow database.
+Missing, unreadable, unsupported, malformed, corrupt, newer-version or refused
+locked files do not replace a valid remembered path. The remembered path stays
+stored when a file is unavailable, allowing one attempt on a later startup.
+
+Initialization still loads the story list before choosing onboarding or normal
+content. Startup opening is queued after initialization, with one consumed
+decision per application manager. File requests arriving before or during that
+initialization are buffered; an explicit request takes precedence over automatic
+reopening and never falls back if it fails. Repeated callbacks/`exec` calls and
+duplicate file events do not load another copy. First-run onboarding remains
+visible and completes before a pending explicit request opens. Automatic
+reopening applies only to profiles already configured when startup began.
+
+Automatic opening shares the ordinary coordinator, including lock refusal and
+the existing Ignore and open choice, read-only editing and project loading.
+It verifies source availability before creating a shadow database, checks the
+existing newer-version policy, and treats failed imports/database loads as
+failures. A failed automatic attempt leaves the story list usable. Project,
+backup and recovery storage policies are unchanged. Toggling the checkbox only
+persists a preference for startup; it does not switch the current story.
+The checkbox participates in the existing settings theme, and programmatic
+population blocks its change signal.
+
+Validation:
+
+- `./build/dev.sh doctor`: exit 0; no desktop display inherited. No optional
+  private modules or translation tools were installed.
+- `JOBS=4 ./build/dev.sh build debug`: exit 0, including the final checkbox
+  theme correction. Existing warnings in unchanged code remain.
+- `./tools/check-startup-last-story.sh`: exit 0, 25 process launches using the
+  real `Application`/`ApplicationManager`, isolated `STARC_PROFILE_DIR` profiles
+  and disposable stories. Covers defaults and disk persistence, successful
+  creation/open/Save As and failed operations, disabled/enabled/explicit/unavailable
+  successive launches, early/queued/duplicate file events, repeated startup,
+  onboarding and a pending explicit file, held locks, read-only editor policy,
+  Fountain/FDX source paths and later automatic source imports. Every process
+  completed ordinary shutdown with exit 0 and released its owned story lock.
+  Reopened `.starc` script XML is byte-exact, and the live editor model retains
+  Unicode text, emphasis and the review comment. Rejected corrupt, unsupported,
+  malformed and newer-version sources retain their SHA-256 hashes.
+- `python3 .build/evidence/startup-last-story-2026-10-12/visible_check.py`:
+  exit 0, the same 25 cases on an automatically allocated private Xvfb display
+  with `STARC_STARTUP_PLATFORM=xcb STARC_STARTUP_SCREENSHOTS=1`. Native window
+  screenshots were inspected; the checkbox label and checked state render
+  correctly. Qt signals/dialog responses drive this regression. Reimported
+  sources can acquire pending editor changes after rendering; the existing
+  ordinary-close Save question is answered through its dialog.
+- `python3 .build/evidence/startup-last-story-2026-10-12/binary_check.py`:
+  exit 0, nine launches of the production executable through
+  `STARC_PROFILE_DIR=<disposable profile> ./build/dev.sh run debug [file]` on
+  private Xvfb. Two successive enabled, disabled, explicit-override and
+  unavailable-story launches, plus a failed explicit request, had the expected
+  screen/open count. All nine Ctrl+Q exits were 0, with no fallback on failure,
+  no missing-file creation and exact saved script/annotation bytes.
+- `./tools/check-screenplay-interchange.sh`: exit 0 on the final file-opening
+  implementation, including independent Fountain/FDX syntax, XML, styles,
+  serialization/save/reopen and fixture hashes.
+- `./tools/check-screenplay-scope.sh`: exit 0 after the final implementation,
+  including keyboard editing, Undo/Redo, pagination, exports, retained project
+  data and the existing character-rename regressions.
+- Changed-code formatting with `src/.clang-format`, Bash syntax, ShellCheck
+  and `git diff --check`: passed.
+
+Evidence: `.build/evidence/startup-last-story-2026-10-12/` retains doctor/build
+logs, all attempted regression logs and the native orchestration/capture tools.
+Final focused offscreen: `.build/evidence/startup-last-story-X1jkwa/`;
+final native matrix/screenshots: `.build/evidence/startup-last-story-1wjM4o/`;
+final production launches: the `binary-launches-fi21xv9o/` directory under the
+main evidence root. Final full scope: `.build/evidence/screenplay-scope-nLPjA6/`;
+interchange: `.build/evidence/screenplay-interchange-ANHQIv/`.
+
+Earlier failed probes remain separate: missing enum includes/incorrect widget
+class names in compile probes; a configured fixture with no saved geometry
+(`hsaJJt`, `MYoOcu`); a new-project query before the first save (`f68ecJ`);
+an assertion during the story-list animation (`P2NZrE`); source XML queried
+before serialization (`E0rUV1`); Save As selection while the filename field had
+focus (`CnQ18U`, `uOCqTV`); a newer-version fixture whose UPDATE affected no row
+(`NODnkG`); and native screenshot/close probes before accounting for the active
+page and existing source Save question (`icXPUc`, `EECQZJ`). These names refer
+to `startup-last-story-*` directories under `.build/evidence/`. The Save As
+probe now clears filename focus and verifies the selected target before
+acceptance; it does not use repeated acceptance or slower input to hide the
+problem. Native screenshot inspection also caught the initial missing checkbox
+theme registration; the final regression checks its text/background colors.
+
+Limits: Linux debug, offscreen and private Xvfb evidence; no physical desktop/GPU,
+macOS OS-level file events, Windows, release build or real user projects were
+exercised. The native profiles deliberately have no D-Bus/keyring provider,
+so expected GitHub credential warnings can appear in screenshots; no credential
+or remote repository was used. Fountain/FDX retain their existing interchange
+limits, including source-format annotation losses documented above. This item
+changes neither those formats nor recovery/backup policy.

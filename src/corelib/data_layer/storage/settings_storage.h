@@ -50,6 +50,10 @@ const QString kApplicationScaleFactorKey = kApplicationGroupKey + "/scale-factor
 const QString kApplicationDensityKey = kApplicationGroupKey + "/density";
 // состояние и геометрия основного окна приложения
 const QString kApplicationViewStateKey = kApplicationGroupKey + "-view/";
+// Reopen the last successfully opened local story on a configured startup
+const QString kApplicationOpenLastStoryKey = kApplicationGroupKey + "/open-last-story";
+// Meaningful source path, including Fountain/FDX sources rather than their shadow databases
+const QString kApplicationLastStoryPathKey = kApplicationGroupKey + "/last-story-path";
 // включено ли автосохранение
 const QString kApplicationUseAutoSaveKey = kApplicationGroupKey + "/autosave";
 // включено ли сохранение резервных копий

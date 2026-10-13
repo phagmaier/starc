@@ -133,6 +133,16 @@ After a debug build, run `./tools/check-writing-session-storage.sh` for the
 focused writing-statistics storage regression. It uses an isolated profile and
 retains compile/test logs under `.build/evidence/`.
 
+`./tools/check-startup-last-story.sh` checks the optional last-story startup setting
+through the real application coordinator and application file events. It covers
+default/persisted settings, onboarding, successful creation/open/Save As, failure
+and lock handling, source-file paths, annotated script reopening and ordinary
+shutdown across successive processes. It uses disposable `STARC_PROFILE_DIR`
+profiles and retains all logs under `.build/evidence/`. The default is offscreen;
+`STARC_STARTUP_PLATFORM=xcb STARC_STARTUP_SCREENSHOTS=1` on a private Xvfb display
+adds native window screenshots. Test actions use Qt signals and dialog responses;
+production executable and desktop keyboard checks are separate evidence.
+
 `./tools/check-screenplay-scope.sh` checks the screenplay-only scope: creation
 choices and settings offer no retired format, the real screenplay editor handles
 typing, Enter/Tab transitions, Undo/Redo and pagination, the Fountain, FDX, DOCX

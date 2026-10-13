@@ -233,6 +233,7 @@ public:
     // ... Save changes & backups
     //
     H6Label* applicationSaveAndBackupTitle = nullptr;
+    CheckBox* openLastStory = nullptr;
     CheckBox* autoSave = nullptr;
     CheckBox* saveBackups = nullptr;
     TextField* backupsFolderPath = nullptr;
@@ -437,6 +438,7 @@ SettingsView::Implementation::Implementation(QWidget* _parent)
     , scaleFactorBigInfo(new Body2Label(applicationCard))
     , isCompact(new CheckBox(applicationCard))
     , applicationSaveAndBackupTitle(new H6Label(applicationCard))
+    , openLastStory(new CheckBox(applicationCard))
     , autoSave(new CheckBox(applicationCard))
     , saveBackups(new CheckBox(applicationCard))
     , backupsFolderPath(new TextField(applicationCard))
@@ -648,6 +650,7 @@ void SettingsView::Implementation::initApplicationCard()
         applicationCardLayout->addLayout(layout, itemIndex++, 0);
     }
     applicationCardLayout->addWidget(isCompact, itemIndex++, 0);
+    applicationCardLayout->addWidget(openLastStory, itemIndex++, 0);
     //
     // ... сохранение и бэкапы
     //
@@ -1118,6 +1121,8 @@ SettingsView::SettingsView(QWidget* _parent)
     });
     connect(d->isCompact, &CheckBox::checkedChanged, this,
             [this](bool _checked) { emit applicationDensityChanged(_checked ? 2 : 0); });
+    connect(d->openLastStory, &CheckBox::checkedChanged, this,
+            &SettingsView::applicationOpenLastStoryChanged);
     connect(d->autoSave, &CheckBox::checkedChanged, this,
             &SettingsView::applicationUseAutoSaveChanged);
     connect(d->saveBackups, &CheckBox::checkedChanged, this,
@@ -1765,6 +1770,12 @@ void SettingsView::setApplicationDensity(int _density)
     d->isCompact->setChecked(_density > 0);
 }
 
+void SettingsView::setApplicationOpenLastStory(bool _open)
+{
+    const QSignalBlocker blocker(d->openLastStory);
+    d->openLastStory->setChecked(_open);
+}
+
 void SettingsView::setApplicationUseAutoSave(bool _use)
 {
     d->autoSave->setChecked(_use);
@@ -2257,6 +2268,9 @@ void SettingsView::updateTranslations()
     d->scaleFactorSmallInfo->setText(tr("small"));
     d->scaleFactorBigInfo->setText(tr("big"));
     d->isCompact->setText(tr("Make application interface compact"));
+    d->openLastStory->setText(tr("Open the last story on startup"));
+    d->openLastStory->setToolTip(tr("Reopen the last successfully opened or created local story "
+                                    "the next time you start the application."));
     d->applicationSaveAndBackupTitle->setText(tr("Save changes & backups"));
     d->autoSave->setText(tr("Automatically save changes as soon as possible"));
     d->autoSave->setToolTip(
@@ -2677,6 +2691,7 @@ void SettingsView::designSystemChangeEvent(DesignSystemChangeEvent* _event)
 
     for (auto checkBox : std::vector<Widget*>{
              d->isCompact,
+             d->openLastStory,
              d->autoSave,
              d->saveBackups,
              d->gitHubSyncUploadOnExit,

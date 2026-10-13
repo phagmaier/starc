@@ -102,6 +102,8 @@ SettingsStorage::Implementation::Implementation()
         "323740ffffff2ab177f8f8f2272b34f8f8f222262ef8f8f2ec3740f8f8f2000000f8f8f2272b34f8f8f2");
     defaultSettings.insert(kApplicationScaleFactorKey, 1.0);
     defaultSettings.insert(kApplicationDensityKey, 0);
+    defaultSettings.insert(kApplicationOpenLastStoryKey, false);
+    defaultSettings.insert(kApplicationLastStoryPathKey, QString());
     defaultSettings.insert(kApplicationUseAutoSaveKey, true);
     defaultSettings.insert(kApplicationSaveBackupsKey, true);
     defaultSettings.insert(kApplicationBackupsFolderKey,

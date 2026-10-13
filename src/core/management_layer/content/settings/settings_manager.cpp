@@ -126,6 +126,8 @@ void SettingsManager::Implementation::loadApplicationSettings()
     view->setApplicationScaleFactor(
         settingsValue(DataStorageLayer::kApplicationScaleFactorKey).toReal());
     view->setApplicationDensity(settingsValue(DataStorageLayer::kApplicationDensityKey).toInt());
+    view->setApplicationOpenLastStory(
+        settingsValue(DataStorageLayer::kApplicationOpenLastStoryKey).toBool());
     view->setApplicationUseAutoSave(
         settingsValue(DataStorageLayer::kApplicationUseAutoSaveKey).toBool());
     view->setApplicationSaveBackups(
@@ -643,6 +645,9 @@ SettingsManager::SettingsManager(QObject* _parent, QWidget* _parentWidget,
             &SettingsManager::setApplicationScaleFactor);
     connect(d->view, &Ui::SettingsView::applicationDensityChanged, this,
             &SettingsManager::setApplicationDensity);
+    connect(d->view, &Ui::SettingsView::applicationOpenLastStoryChanged, this, [](bool _open) {
+        setSettingsValue(DataStorageLayer::kApplicationOpenLastStoryKey, _open);
+    });
     connect(d->view, &Ui::SettingsView::applicationUseAutoSaveChanged, this,
             &SettingsManager::setApplicationUseAutoSave);
     connect(d->view, &Ui::SettingsView::applicationSaveBackupsChanged, this,

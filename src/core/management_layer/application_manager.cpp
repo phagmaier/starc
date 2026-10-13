@@ -78,6 +78,7 @@
 #include <QScopedPointer>
 #include <QShortcut>
 #include <QSoundEffect>
+#include <QSqlQuery>
 #include <QStandardPaths>
 #include <QStyleFactory>
 #include <QSysInfo>
@@ -156,6 +157,7 @@ public:
      * @brief Показать контент приложения
      */
     void showContent();
+    void openStartupProject();
 
     /**
      * @brief Показать меню приложения
@@ -281,7 +283,7 @@ public:
     /**
      * @brief Перейти к редактированию текущего проекта
      */
-    void goToEditCurrentProject(bool _afterProjectCreation, const QString& _importFilePath);
+    bool goToEditCurrentProject(bool _afterProjectCreation, const QString& _importFilePath);
 
     /**
      * @brief Закрыть текущий проект
@@ -384,6 +386,11 @@ public:
      * @brief Состояние приложения в данный момент
      */
     ApplicationState state = ApplicationState::Initializing;
+
+    bool startupScheduled = false;
+    bool startupOpenPending = true;
+    bool startupRestoreAllowed = false;
+    QString startupFilePath;
 
 private:
     template<typename Manager>
@@ -681,6 +688,28 @@ void ApplicationManager::Implementation::showContent()
         // ... а затем уже отобразить
         //
         showProjects();
+    }
+}
+
+void ApplicationManager::Implementation::openStartupProject()
+{
+    // Keep onboarding visible. Its completion retries the pending explicit request.
+    if (!startupOpenPending
+        || !settingsValue(DataStorageLayer::kApplicationConfiguredKey).toBool()) {
+        return;
+    }
+
+    // Consume before opening: failures, repeated callbacks and file events cannot trigger
+    // another automatic attempt. An explicit request never falls back to the remembered story.
+    startupOpenPending = false;
+    if (!startupFilePath.isEmpty()) {
+        openProject(startupFilePath);
+    } else if (startupRestoreAllowed
+               && settingsValue(DataStorageLayer::kApplicationOpenLastStoryKey).toBool()) {
+        const auto path = settingsValue(DataStorageLayer::kApplicationLastStoryPathKey).toString();
+        if (!path.isEmpty() && !openProject(path)) {
+            showProjects();
+        }
     }
 }
 
@@ -1308,8 +1337,14 @@ void ApplicationManager::Implementation::createLocalProject(const QString& _proj
         //
         // ... а затем копируем исходный файл
         //
-        QFile::copy(QDir::toNativeSeparators(_importFilePath),
-                    QDir::toNativeSeparators(_projectPath));
+        if (!QFile::copy(QDir::toNativeSeparators(_importFilePath),
+                         QDir::toNativeSeparators(_projectPath))) {
+            lockFile.reset();
+            StandardDialog::information(applicationView, tr("Create project error"),
+                                        tr("The source story could not be copied."));
+            showProjects();
+            return;
+        }
     }
     //
     // ... создаём новую базу данных в файле и делаем её текущим проектом
@@ -1324,7 +1359,10 @@ void ApplicationManager::Implementation::createLocalProject(const QString& _proj
     // ... перейдём к редактированию
     //
     constexpr auto afterProjectCreation = true;
-    goToEditCurrentProject(afterProjectCreation, _importFilePath);
+    if (!goToEditCurrentProject(afterProjectCreation, _importFilePath)) {
+        closeCurrentProject();
+        showProjects();
+    }
 }
 
 void ApplicationManager::Implementation::openProject()
@@ -1345,9 +1383,23 @@ bool ApplicationManager::Implementation::openProject(const QString& _path)
         return false;
     }
 
+    // Opening an unavailable source must not create an empty project or shadow story.
+    const QFileInfo source(_path);
+    QFile sourceFile(_path);
+    if (!source.isFile() || !sourceFile.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    sourceFile.close();
+
     if (projectsManager->currentProject() != nullptr
-        && projectsManager->currentProject()->path() == _path) {
+        && QFileInfo(projectsManager->currentProject()->path()) == source) {
         showProject();
+        return false;
+    }
+
+    if (_path.endsWith(ExtensionHelper::starc(), Qt::CaseInsensitive)
+        && !DatabaseLayer::Database::canOpenFile(_path)) {
+        StandardDialog::information(applicationView, { }, DatabaseLayer::Database::openFileError());
         return false;
     }
 
@@ -1394,7 +1446,11 @@ bool ApplicationManager::Implementation::openProject(const QString& _path)
     // ... перейдём к редактированию
     //
     constexpr auto afterProjectCreation = false;
-    goToEditCurrentProject(afterProjectCreation, importFilePath);
+    if (!goToEditCurrentProject(afterProjectCreation, importFilePath)) {
+        closeCurrentProject();
+        showProjects();
+        return false;
+    }
 
     return true;
 }
@@ -1450,10 +1506,21 @@ bool ApplicationManager::Implementation::tryLockProjectOnOpen(const QString& _pa
     return true;
 }
 
-void ApplicationManager::Implementation::goToEditCurrentProject(bool _afterProjectCreation,
+bool ApplicationManager::Implementation::goToEditCurrentProject(bool _afterProjectCreation,
                                                                 const QString& _importFilePath)
 {
     state = ApplicationState::ProjectLoading;
+
+    // Verify the database before requesting models. Failed opens must not be remembered.
+    {
+        auto query = DatabaseLayer::Database::query();
+        if (!query.exec("SELECT count(*) FROM documents") || !query.next()) {
+            StandardDialog::information(applicationView, tr("Open story error"),
+                                        tr("The story could not be loaded. Please check the file "
+                                           "and its permissions."));
+            return false;
+        }
+    }
 
     //
     // Установим заголовок
@@ -1505,7 +1572,16 @@ void ApplicationManager::Implementation::goToEditCurrentProject(bool _afterProje
     // При необходимости импортируем данные из заданного файла
     //
     if (shouldPerformImport) {
+        bool imported = false;
+        const auto connection = connect(importManager.data(), &ImportManager::screenplayImported, q,
+                                        [&imported] { imported = true; });
         importManager->importScreenplay(_importFilePath);
+        QObject::disconnect(connection);
+        if (!imported) {
+            StandardDialog::information(applicationView, tr("Open story error"),
+                                        tr("The source screenplay could not be imported."));
+            return false;
+        }
 
         //
         // ... а после импорта пробуем повторно восстановить состояние,
@@ -1657,6 +1733,15 @@ void ApplicationManager::Implementation::goToEditCurrentProject(bool _afterProje
     }
     qDebug() << qUtf8Printable(model.document()->content());
 #endif
+
+    if (!DatabaseLayer::Database::hasError() || currentProject->isReadOnly()) {
+        if (currentProject->isLocal()) {
+            setSettingsValue(DataStorageLayer::kApplicationLastStoryPathKey,
+                             QFileInfo(currentProject->path()).absoluteFilePath());
+        }
+        return true;
+    }
+    return false;
 }
 
 void ApplicationManager::Implementation::closeCurrentProject()
@@ -2041,6 +2126,15 @@ QString ApplicationManager::logFilePath() const
 
 void ApplicationManager::exec(const QString& _fileToOpenPath)
 {
+    if (d->startupScheduled) {
+        return;
+    }
+    d->startupScheduled = true;
+    d->startupRestoreAllowed = settingsValue(DataStorageLayer::kApplicationConfiguredKey).toBool();
+    if (d->startupFilePath.isEmpty()) {
+        d->startupFilePath = _fileToOpenPath;
+    }
+
     Log::info("Starting the application");
 
     //
@@ -2085,7 +2179,7 @@ void ApplicationManager::exec(const QString& _fileToOpenPath)
     //
     QMetaObject::invokeMethod(
         this,
-        [this, _fileToOpenPath] {
+        [this] {
             Log::info("Make startup checks");
 
 #ifdef CLOUD_SERVICE_MANAGER
@@ -2106,11 +2200,6 @@ void ApplicationManager::exec(const QString& _fileToOpenPath)
             d->showContent();
 
             //
-            // Открыть заданный проект
-            //
-            openProject(_fileToOpenPath);
-
-            //
             // Проверяем словари проверки орфографии
             //
             d->settingsManager->validateSpellCheckerDictionaries();
@@ -2127,12 +2216,23 @@ void ApplicationManager::exec(const QString& _fileToOpenPath)
             if (settingsValue(DataStorageLayer::kApplicationConfiguredKey).toBool()) {
                 d->gitHubSyncManager->checkOnStart();
             }
+
+            // Allow startup file-open events to arrive after initialization and before
+            // selecting the automatic target. All opening uses the same one-shot route.
+            QMetaObject::invokeMethod(
+                this, [this] { d->openStartupProject(); }, Qt::QueuedConnection);
         },
         Qt::QueuedConnection);
 }
 
 bool ApplicationManager::openProject(const QString& _path)
 {
+    if (d->startupOpenPending) {
+        if (!_path.isEmpty()) {
+            d->startupFilePath = _path;
+        }
+        return false;
+    }
     return d->openProject(_path);
 }
 
@@ -2335,6 +2435,7 @@ void ApplicationManager::initConnections()
         // левая панель будет занимать весь экран
         //
         QTimer::singleShot(duration, this, [this, _sync] {
+            d->openStartupProject();
             setSettingsValues(DataStorageLayer::kApplicationViewStateKey,
                               d->applicationView->saveState());
 

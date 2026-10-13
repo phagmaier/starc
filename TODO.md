@@ -202,4 +202,12 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   view. Done 2026-10-11: our own plugin shows the six public reports as tables
   and the two public plots. Reports are recomputed when Statistics is selected;
   Refresh updates a view kept open beside the script. No new dependencies.
-- [ ] **Open the last story on startup**, as an option.
+- [x] **Open the last story on startup**, as an option.
+  - Done 2026-10-12: application setting, disabled by default. Successful local
+    creation/open/Save As remembers the source path; Fountain/FDX never remember
+    their temporary database. Explicit startup requests take precedence, with
+    no fallback on failure. Onboarding, locks and read-only behavior remain.
+  - Debug build, focused startup checks, full screenplay and interchange checks
+    passed. Private Xvfb covered successive launches and ordinary shutdown;
+    `.starc` script text and annotations survived byte-exact reopening.
+    See `docs/PROJECT.md` for semantics, commands, evidence and limits.

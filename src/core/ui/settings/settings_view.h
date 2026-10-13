@@ -45,6 +45,7 @@ public:
     //
     void setApplicationScaleFactor(qreal _scaleFactor);
     void setApplicationDensity(int _density);
+    void setApplicationOpenLastStory(bool _open);
     void setApplicationUseAutoSave(bool _use);
     void setApplicationSaveBackups(bool _save);
     void setApplicationBackupsFolder(const QString& _path);
@@ -129,6 +130,7 @@ signals:
     void customThemeHashPasted(const DesignSystem::Color& _color);
     void applicationScaleFactorChanged(qreal _scaleFactor);
     void applicationDensityChanged(int _density);
+    void applicationOpenLastStoryChanged(bool _open);
     void applicationUseAutoSaveChanged(bool _use);
     void applicationSaveBackupsChanged(bool _save);
     void applicationBackupsFolderChanged(const QString& _path);
