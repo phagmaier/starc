@@ -148,18 +148,71 @@ images of each other.
 
 | Area | Start here | Notes |
 | --- | --- | --- |
-| Pages | [CharacterInformationManager](../src/core/management_layer/plugins/character_information/character_information_manager.h), [LocationInformationManager](../src/core/management_layer/plugins/location_information/location_information_manager.h) and the view next to each | Description and notes are written to the model as they are typed. The name is applied on Enter, or when the field is left for another one, by `Implementation::rename`. |
+| Pages | [CharacterInformationManager](../src/core/management_layer/plugins/character_information/character_information_manager.h), [LocationInformationManager](../src/core/management_layer/plugins/location_information/location_information_manager.h) and the view next to each | Description and notes are written to the model as they are typed. The name is applied on Enter, or when the field is left for another one, by `Implementation::rename`. The location page sets the name itself. The character page hands it to `CharacterModel::requestRename`, because a character rename may have a question to ask first. |
 | Stored data | [CharacterModel](../src/corelib/business_layer/model/characters/character_model.h), [LocationModel](../src/corelib/business_layer/model/locations/location_model.h) | Description is `oneSentenceDescription`, notes are `longDescription`. Every other upstream field (age, gender, role, photos, relations and so on) is read and written back unchanged; the pages have no fields for them. |
-| What a rename does | the `characterNameChanged` and `locationNameChanged` connections in the `ProjectManager` constructor | Upstream code: replaces the name in every screenplay of the project and removes the renamed document when another one has the new name. |
+| What a rename does | the `characterNameChanged` and `locationNameChanged` connections in the `ProjectManager` constructor | Upstream code: replaces the name in every screenplay of the project and removes the renamed document when another one has the new name. For a character the replacement is `ScreenplayTextModel::updateCharacterName`, described below. |
+| What a character rename asks | `ProjectManager::Implementation::renameCharacter`, reached from the page through `ProjectModelsFacade::characterRenameRequested` | Counts the mentions in every screenplay text, asks once if there are any, and calls `CharacterModel::setName` after the answer. |
 | Names to check against | `ProjectManager::showView` passes the project's `CharactersModel`/`LocationsModel` through `IDocumentManager::configureModelProcessing` | The page refuses an empty name and the name of another character or location, so the removal above cannot be reached from it. Without the collection it renames nothing. |
 | The two groups | `ProjectManager::Implementation::showNoEditorPage`, `ProjectView::showDocumentsGroupPage` | "Characters" and "Locations" have no editor (the relations and map plugins are private). Selecting one shows a short explanation instead of the no-editor notice. |
 
 Names are kept in capitals, like the ones collected from the script, and the
-collections compare names that way. A character rename also rewrites the name
-where it appears as a whole word in action and dialogue, in any letter case; a
-character called WILL or MAY is therefore risky to rename this way. That
-replacement is upstream's. One Undo in the script takes it back out of the
-script; the character keeps the new name.
+collections compare names that way.
+
+### Renaming a character
+
+`ScreenplayTextModel::updateCharacterName(old, new, withMentions)` changes three
+kinds of paragraph:
+
+1. a scene-characters list that contains the name: that entry, exactly;
+2. a character cue whose parsed name is the old name;
+3. only with `withMentions`: the mentions of the character in running text.
+
+The first two are upstream's and always happen. The third was upstream's too,
+without a condition, in every paragraph and in any letter case, so renaming WILL
+turned "I will go" into "I Bill go", the cue YOUNG WILL into YOUNG BILL and the
+heading INT. WILL'S BAR - DAY into INT. BILL'S BAR - DAY, while the lists still
+said YOUNG WILL and WILL'S BAR. Now:
+
+- A mention is the name as a whole word whose first letter is not lowercase.
+  "Will" and "WILL" are mentions of WILL; "will" never is. A mention in capitals
+  becomes the new name in capitals, any other one the new name with each word
+  capitalised ("Will" to "Bill").
+- Mentions are looked for in running text only. `isRunningText` in
+  `screenplay_text_model.cpp` lists the paragraph types: action, dialogue,
+  parenthetical, lyrics, shot, transition, beat, inline note and unformatted
+  text. Scene headings, character cues and scene-characters lists are left out
+  because the locations and characters of the project are collected from them;
+  another name that contains the renamed one has to stay as the lists have it.
+  Act and sequence headings and footers are titles and are left out as well.
+- `characterMentions` in the same file is the one matcher for counting
+  (`characterMentionsCount`) and for renaming, so the number the writer is asked
+  about is the number of places that change.
+
+"Will you come?" cannot be told apart from the name, so the writer decides.
+`renameCharacter` counts the mentions in every screenplay text of the project,
+drafts included. With none it renames at once. Otherwise it asks one question
+for the whole project, with the number, and two answers: "Leave the text" or
+"Rename in the text too".
+
+- Nothing is renamed while the question is open. The character document, its
+  cues and, if chosen, the mentions change together after the answer, with one
+  `updateCharacterName` call per screenplay. That is one Undo step in each
+  script; the character keeps the new name after it.
+- Every answer renames the character and its cues. "Leave the text" is the
+  dialog's reject button, so Escape and a click outside the card choose it. No
+  button is bound to Enter, which the writer has just pressed to confirm the
+  name.
+- The name field loses the focus to the question and enters its name once more.
+  A request that arrives while a question is open is ignored.
+- Closing the project hides an open question and renames nothing.
+
+Only the page asks. `CharacterModel::setName` is also reached from `applyPatch`
+(undo or redo of the character document, applied remote changes) and from
+document creation. Those go straight to the `characterNameChanged` connection,
+which renames cues and scene-characters lists and leaves the mentions alone;
+creation has no old name and returns early. The writer's choice reaches the
+connection through `Implementation::isCharacterRenamedWithMentions`, which is
+set only while `setName` runs for that answer.
 
 For a location the same connection renames the locations nested in it
 ("HOUSE - KITCHEN" under "HOUSE"). A nested location has a part of its own after
@@ -176,8 +229,12 @@ project keeps them.
 `checkCharacterAndLocationPages` in `tests/screenplay_scope_test.cpp` types a
 script, drives both pages by key events and checks the script, the refused
 names, the nested locations and the stored documents through save and reopen.
-The rename connections are lambdas, which the code graph does not list as
-callers; find them with `rg`.
+For the character rename it types a second screenplay around a character called
+WILL and answers the question with its real buttons, Escape and a click outside
+it; the dialog is a child of the host widget given to `ProjectManager`. A
+passing run leaves `project/rename-mentions-fixture.starc`, the project as it
+is before that rename. The rename connections are lambdas, which the code graph
+does not list as callers; find them with `rg`.
 
 ## Retired formats
 

@@ -46,7 +46,13 @@ public:
     /**
      * @brief Обновить имя персонажа
      */
-    void updateCharacterName(const QString& _oldName, const QString& _newName) override;
+    void updateCharacterName(const QString& _oldName, const QString& _newName,
+                             bool _withMentions) override;
+
+    /**
+     * @brief How many times the running text mentions the character
+     */
+    int characterMentionsCount(const QString& _name) const override;
 
     /**
      * @brief Получить список реплик персонажа

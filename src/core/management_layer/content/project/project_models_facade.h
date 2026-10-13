@@ -144,6 +144,11 @@ signals:
                               const QString& _newName);
 
     /**
+     * @brief The writer asks to rename the character on its page
+     */
+    void characterRenameRequested(BusinessLayer::AbstractModel* _character, const QString& _name);
+
+    /**
      * @brief Запрос на обновление списка всех реплик персонажа
      */
     void characterDialoguesUpdateRequested(BusinessLayer::AbstractModel* _model);

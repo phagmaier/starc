@@ -166,7 +166,11 @@ void CharacterInformationManager::Implementation::rename(BusinessLayer::Characte
         }
     }
 
-    _character->setName(name);
+    //
+    // The project applies the name: the screenplays name the character too, and it asks first
+    // when their text mentions the character
+    //
+    _character->requestRename(name);
 }
 
 

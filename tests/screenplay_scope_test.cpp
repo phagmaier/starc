@@ -45,6 +45,7 @@
 #include <ui/widgets/button/button.h>
 #include <ui/widgets/check_box/check_box.h>
 #include <ui/widgets/combo_box/combo_box.h>
+#include <ui/widgets/dialog/dialog.h>
 #include <ui/widgets/drawer/drawer.h>
 #include <ui/widgets/image/image_card.h>
 #include <ui/widgets/label/label.h>
@@ -65,6 +66,7 @@
 #include <QKeyEvent>
 #include <QLocale>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QScopedPointer>
 #include <QSettings>
@@ -828,6 +830,50 @@ void checkCharacterAndLocationPages(const QString& _evidence)
         QApplication::processEvents();
     };
 
+    // What a rename asks when the text of the script mentions the character: the questions
+    // that are open, what one says, and the ways to answer it. Its buttons are, in this order,
+    // "Leave the text" and "Rename in the text too".
+    const auto questions = [&] {
+        QApplication::processEvents();
+        QVector<Dialog*> open;
+        for (auto dialog : host->findChildren<Dialog*>()) {
+            if (!dialog->isHidden()) {
+                open.append(dialog);
+            }
+        }
+        return open;
+    };
+    const auto question = [&]() -> Dialog* {
+        const auto open = questions();
+        return open.size() == 1 ? open.constFirst() : nullptr;
+    };
+    const auto questionText = [](Dialog* _question) {
+        QStringList texts;
+        for (auto label : _question->findChildren<AbstractLabel*>()) {
+            texts.append(label->text());
+        }
+        return texts.join("\n");
+    };
+    enum Answer { LeaveText, RenameInText };
+    const auto answer = [](Dialog* _question, Answer _answer) {
+        const auto buttons = _question->findChildren<Button*>();
+        if (buttons.size() != 2) {
+            return false;
+        }
+        buttons[_answer]->click();
+        QApplication::processEvents();
+        return true;
+    };
+    const auto clickOutside = [&](Dialog* _question) {
+        // A click that only brings the application forward is ignored for a second.
+        pause(1100);
+        const QPoint corner(_question->width() - 5, _question->height() - 5);
+        QMouseEvent press(QEvent::MouseButtonPress, corner, _question->mapToGlobal(corner),
+                          Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(_question, &press);
+        QApplication::processEvents();
+    };
+
     // What an existing project holds is shown, and the details the page has no fields for
     // stay in the document when the page changes it.
     auto fields = fieldsOf(danaUuid, "Ui::CharacterInformationView");
@@ -876,7 +922,21 @@ void checkCharacterAndLocationPages(const QString& _evidence)
                 && script() == scriptBefore,
             "typing a name renames nothing yet");
     key(fields[0], Qt::Key_Return, "\r");
+    // The action and a dialogue line name Alice too, so the rename asks before it changes
+    // anything. Told to rename in the text too, it changes the whole script, which it used to
+    // do without asking.
+    auto asked = question();
+    require(asked && questionText(asked).contains("ALICE")
+                && questionText(asked).contains("ALICIA")
+                && questionText(asked).contains("2 times"),
+            "Enter asks about the two mentions of the character first");
     save();
+    require(alice->name() == "ALICE" && structure->itemForUuid(aliceUuid)->name() == "ALICE"
+                && script() == scriptBefore,
+            "nothing is renamed while the question is open");
+    require(answer(asked, RenameInText), "answer: rename in the text too");
+    save();
+    require(question() == nullptr, "answered question closes");
     require(alice->name() == "ALICIA" && fields[0]->text() == "ALICIA"
                 && fields[0]->error().isEmpty()
                 && structure->itemForUuid(aliceUuid)->name() == "ALICIA",
@@ -885,7 +945,7 @@ void checkCharacterAndLocationPages(const QString& _evidence)
                 && script().contains("Alicia greets Bob.") && script().contains("Hello Alicia.")
                 && !script().contains("Alice") && script().count("BOB") == 2
                 && script().contains("Hello Bob."),
-            "renaming a character renames it in the screenplay");
+            "renaming a character with its mentions renames it all through the screenplay");
     require(members(Type::Characters) == QStringList({ "ALICIA", "BOB", "DANA" })
                 && alice->oneSentenceDescription() == "A retired pilot.",
             "renamed character stays one document with its description");
@@ -922,11 +982,19 @@ void checkCharacterAndLocationPages(const QString& _evidence)
     require(alice->name() == "ALICIA" && fields[0]->text() == "Alicia Grey",
             "name being typed survives a window switch unapplied");
     leave(fields[0], Qt::TabFocusReason);
+    // Asked in the same way. Told to leave the text, it renames the cues and keeps the two
+    // mentions as they are written; it used to turn them into "Alicia Grey" unasked.
+    asked = question();
+    require(asked && questionText(asked).contains("2 times"),
+            "leaving the name field for another one asks about the mentions too");
+    require(answer(asked, LeaveText), "answer: leave the text");
     save();
     require(alice->name() == "ALICIA GREY" && fields[0]->text() == "ALICIA GREY"
-                && script().count("ALICIA GREY") == 2
-                && script().contains("Alicia Grey greets Bob."),
+                && script().count("ALICIA GREY") == 2,
             "leaving the name field for another one renames the character");
+    require(script().contains("Alicia greets Bob.") && script().contains("Hello Alicia.")
+                && !script().contains("Alicia Grey"),
+            "mentions the writer leaves stay as they are written");
 
     // A page that may not be changed locks its fields and applies no name.
     auto characterPage = dynamic_cast<Ui::IDocumentView*>(panel->currentEditor());
@@ -1088,16 +1156,20 @@ void checkCharacterAndLocationPages(const QString& _evidence)
     save();
     unchanged("opening pages does not rewrite project documents");
 
-    // What a rename did to the screenplay is one Undo step of the script. The character
-    // itself keeps the new name.
+    // What a rename did to the screenplay, cues and mentions together, is one Undo step of the
+    // script. The character itself keeps the new name.
     fields = fieldsOf(bobUuid, "Ui::CharacterInformationView");
     const auto scriptWithBob = script();
     enter(fields[0], "Rob");
     key(fields[0], Qt::Key_Return, "\r");
+    asked = question();
+    require(asked && questionText(asked).contains("2 times")
+                && answer(asked, RenameInText),
+            "second rename asks about its two mentions and is told to rename them");
     save();
     require(script().count("ROB") == 2 && !script().contains("BOB")
-                && script().contains("greets Rob."),
-            "second rename reaches the screenplay");
+                && script().contains("greets Rob.") && script().contains("Hello Rob."),
+            "second rename reaches the cues and the mentions of the screenplay");
     select(scriptUuid);
     edit = screenplayEdit(scriptUuid);
     require(edit, "screenplay editor after renaming");
@@ -1107,9 +1179,256 @@ void checkCharacterAndLocationPages(const QString& _evidence)
     save();
     require(script() == scriptWithBob && edit->toPlainText().count("BOB") == 2
                 && !edit->toPlainText().contains("ROB"),
-            "script Undo takes the rename back out of the screenplay");
+            "one script Undo takes the renamed cues and mentions back out of the screenplay");
     require(structure->itemForUuid(bobUuid)->name() == "ROB",
             "character keeps its new name after the script Undo");
+
+    // A name that is an ordinary word as well. The cues of the character and the lists of
+    // scene characters are renamed without a question. The mentions in the running text are
+    // the writer's choice, asked once for all screenplays of the project, because "Will you
+    // come?" can't be told apart from the name. A lowercase "will" is never a mention, and
+    // neither the cue of another character (YOUNG WILL) nor a scene heading (WILL'S BAR) is
+    // rewritten: the characters and locations of the project are collected from those.
+    using Paragraph = BusinessLayer::TextParagraphType;
+    auto mentionsStory
+        = structure->itemForIndex(structure->addDocument(Type::Screenplay, "Mentions script"));
+    require(mentionsStory, "mentions fixture screenplay");
+    const auto mentionsUuid = childOfType(mentionsStory, Type::ScreenplayText)->uuid();
+    select(mentionsUuid);
+    edit = screenplayEdit(mentionsUuid);
+    require(edit, "mentions fixture uses real screenplay editor");
+    paragraph(Paragraph::SceneHeading, "INT. WILL'S BAR - DAY");
+    paragraph(Paragraph::SceneCharacters, "WILL, YOUNG WILL");
+    paragraph(Paragraph::Action, "Will smiles. WILL pours a drink.");
+    paragraph(Paragraph::Character, "WILL");
+    paragraph(Paragraph::Parenthetical, "to Will");
+    paragraph(Paragraph::Dialogue, "I will go.");
+    paragraph(Paragraph::Character, "YOUNG WILL");
+    paragraph(Paragraph::Dialogue, "Will you come?");
+    // The first screenplay mentions the character too.
+    select(scriptUuid);
+    edit = screenplayEdit(scriptUuid);
+    require(edit, "first screenplay takes another line");
+    edit->moveCursor(QTextCursor::End);
+    paragraph(Paragraph::Action, "Will waits outside.");
+    save();
+    const auto stored = [](const char* _type, const QString& _text) {
+        return QString("<%1><v><![CDATA[%2]]></v></%1>").arg(_type, _text);
+    };
+    const auto mentions = [&] { return text(mentionsUuid); };
+    const auto firstTyped = script();
+    const auto mentionsTyped = mentions();
+    for (const auto& paragraphXml :
+         { stored("scene_heading", "INT. WILL'S BAR - DAY"),
+           stored("scene_characters", "WILL, YOUNG WILL"),
+           stored("action", "Will smiles. WILL pours a drink."), stored("character", "WILL"),
+           stored("parenthetical", "to Will"), stored("dialogue", "I will go."),
+           stored("character", "YOUNG WILL"), stored("dialogue", "Will you come?") }) {
+        require(mentionsTyped.contains(paragraphXml), "mentions fixture is stored as typed");
+    }
+    require(firstTyped.contains(stored("action", "Will waits outside.")),
+            "first screenplay stores the added mention");
+    // What renaming WILL to BILL has to leave: with the cues only, and with the mentions too.
+    auto mentionsWithCues = mentionsTyped;
+    mentionsWithCues.replace(stored("character", "WILL"), stored("character", "BILL"));
+    mentionsWithCues.replace(stored("scene_characters", "WILL, YOUNG WILL"),
+                             stored("scene_characters", "BILL, YOUNG WILL"));
+    auto mentionsRenamed = mentionsWithCues;
+    mentionsRenamed.replace(stored("action", "Will smiles. WILL pours a drink."),
+                            stored("action", "Bill smiles. BILL pours a drink."));
+    mentionsRenamed.replace(stored("parenthetical", "to Will"), stored("parenthetical", "to Bill"));
+    mentionsRenamed.replace(stored("dialogue", "Will you come?"),
+                            stored("dialogue", "Bill you come?"));
+    auto firstRenamed = firstTyped;
+    firstRenamed.replace(stored("action", "Will waits outside."),
+                         stored("action", "Bill waits outside."));
+    // The other character and the location keep their names in the lists and in the script.
+    const auto otherNamesKept = [&] {
+        const auto characters = members(Type::Characters);
+        const auto locations = members(Type::Locations);
+        return characters.contains("YOUNG WILL") && !characters.contains("YOUNG BILL")
+            && locations.contains("WILL'S BAR") && !locations.contains("BILL'S BAR")
+            && mentions().contains(stored("character", "YOUNG WILL"))
+            && mentions().contains(stored("scene_heading", "INT. WILL'S BAR - DAY"));
+    };
+    const auto willUuid = member(Type::Characters, "WILL");
+    require(!willUuid.isNull() && otherNamesKept(),
+            "WILL, YOUNG WILL and WILL'S BAR are collected from the script");
+    fields = fieldsOf(willUuid, "Ui::CharacterInformationView");
+    auto will = qobject_cast<BusinessLayer::CharacterModel*>(current);
+    require(will && will->name() == "WILL", "page of the character named like a word");
+    const auto characterNamed = [&](const QString& _name) {
+        return will->name() == _name && fields[0]->text() == _name
+            && structure->itemForUuid(willUuid)->name() == _name;
+    };
+    const auto nothingRenamed = [&] {
+        return will->name() == "WILL" && structure->itemForUuid(willUuid)->name() == "WILL"
+            && mentions() == mentionsTyped && script() == firstTyped;
+    };
+    const auto askToRename = [&](const QString& _name) {
+        enter(fields[0], _name);
+        key(fields[0], Qt::Key_Return, "\r");
+        return question();
+    };
+
+    // Every way of closing the question without choosing renames the cues and leaves the text.
+    for (const auto dismissal : { "a click outside the question", "Escape" }) {
+        std::printf("-- question closed by %s\n", dismissal);
+        asked = askToRename("bill");
+        require(asked && questionText(asked).contains("WILL")
+                    && questionText(asked).contains("BILL")
+                    && questionText(asked).contains("5 times"),
+                "renaming asks once, with the number of mentions in all screenplays");
+        if (QLatin1String(dismissal) == QLatin1String("Escape")) {
+            key(asked, Qt::Key_Escape);
+        } else {
+            save();
+            require(nothingRenamed(), "nothing is renamed before the question is answered");
+            // The field loses the focus to the question and enters its name once more.
+            leave(fields[0], Qt::OtherFocusReason);
+            require(questions().size() == 1 && nothingRenamed(),
+                    "name entered again while the question is open asks nothing more");
+            // Enter, pressed once more after confirming the name, chooses nothing.
+            key(asked, Qt::Key_Return, "\r");
+            require(question() == asked && nothingRenamed(), "Enter does not answer the question");
+            clickOutside(asked);
+        }
+        save();
+        require(questions().isEmpty(), "question closes");
+        require(characterNamed("BILL") && !members(Type::Characters).contains("WILL"),
+                "closing the question renames the character");
+        require(mentions() == mentionsWithCues && script() == firstTyped,
+                "closing the question renames cues and scene characters and leaves the mentions");
+        require(otherNamesKept(),
+                "another character's cue and the scene heading still match their list entries");
+        // The text doesn't mention BILL, so the way back asks nothing.
+        require(askToRename("will") == nullptr && questions().isEmpty() && characterNamed("WILL"),
+                "a name the text doesn't mention is renamed without a question");
+        save();
+        require(mentions() == mentionsTyped && script() == firstTyped,
+                "renaming back restores the typed script");
+    }
+
+    // Told to rename in the text too, the rename changes the mentions of every screenplay.
+    asked = askToRename("bill");
+    require(asked && questionText(asked).contains("5 times")
+                && answer(asked, RenameInText),
+            "the same question, answered: rename in the text too");
+    save();
+    require(questions().isEmpty() && characterNamed("BILL"),
+            "answering renames the character");
+    if (mentions() != mentionsRenamed || script() != firstRenamed) {
+        std::fprintf(stderr, "expected [%s] found [%s]\n", qPrintable(mentionsRenamed),
+                     qPrintable(mentions()));
+    }
+    require(mentions() == mentionsRenamed && script() == firstRenamed,
+            "mentions are renamed in every screenplay, capitals staying capitals");
+    require(mentions().contains(stored("dialogue", "I will go.")),
+            "a lowercase word is never taken for the name");
+    require(otherNamesKept(),
+            "renaming the mentions leaves another character's cue and the scene heading alone");
+    const auto named = [](const QString& _script) {
+        return _script.count("will", Qt::CaseInsensitive);
+    };
+    require(named(mentionsWithCues) + named(firstTyped) - named(mentions()) - named(script()) == 5,
+            "the number asked about is the number of mentions renamed");
+
+    // One Undo in each screenplay takes its cues and mentions back out together.
+    select(mentionsUuid);
+    edit = screenplayEdit(mentionsUuid);
+    require(edit && edit->toPlainText().contains("Bill you come?")
+                && edit->toPlainText().contains("I will go."),
+            "open screenplay editor shows the renamed mentions");
+    edit->undo();
+    save();
+    require(mentions() == mentionsTyped && script() == firstRenamed,
+            "one script Undo takes cues and mentions back out of that screenplay");
+    select(scriptUuid);
+    edit = screenplayEdit(scriptUuid);
+    require(edit, "first screenplay editor after renaming the mentions");
+    edit->undo();
+    save();
+    require(script() == firstTyped, "one Undo in the other screenplay takes its mention back");
+    require(structure->itemForUuid(willUuid)->name() == "BILL",
+            "renamed character keeps its name after both script Undos");
+
+    // A name applied without the page, the way a stored change applies it, asks nothing and
+    // leaves the mentions, also right after a rename that was told to change them. First the
+    // character goes back to the name its script uses again.
+    will->setName("WILL");
+    save();
+    require(questions().isEmpty() && nothingRenamed(),
+            "character goes back to the name of its script");
+    will->setName("BILL");
+    require(questions().isEmpty(), "a name set without the page asks nothing");
+    save();
+    require(mentions() == mentionsWithCues && script() == firstTyped && otherNamesKept(),
+            "a name set without the page renames cues only");
+    will->setName("WILL");
+    save();
+    require(nothingRenamed(), "the name set back without the page restores the typed script");
+
+    // A question that is still open when the project closes goes away and renames nothing.
+    fields = fieldsOf(willUuid, "Ui::CharacterInformationView");
+    asked = askToRename("bill");
+    require(asked, "question before the project closes");
+    save();
+    manager.closeCurrentProject(path);
+    // Its buttons can still be reached while it fades.
+    require(answer(asked, RenameInText), "answer to a question of a closed project");
+    storage->clear();
+    DatabaseLayer::Database::closeCurrentFile();
+    // The project as it is before the rename, kept for trying the application by hand.
+    const QString fixture = _evidence + "/rename-mentions-fixture.starc";
+    QFile::remove(fixture);
+    require(QFile::copy(path, fixture), "keep the project of the mentioned character");
+    DatabaseLayer::Database::setCurrentFile(path);
+    manager.loadCurrentProject(&project);
+    pause(500);
+    fields = fieldsOf(willUuid, "Ui::CharacterInformationView");
+    will = qobject_cast<BusinessLayer::CharacterModel*>(current);
+    require(will && questions().isEmpty() && nothingRenamed() && fields[0]->text() == "WILL",
+            "answer to a question of a closed project renames nothing");
+    asked = askToRename("bill");
+    require(asked, "second question before the project closes");
+    save();
+    reopen();
+    pause(500);
+    require(questions().isEmpty(), "question goes away with its project");
+    fields = fieldsOf(willUuid, "Ui::CharacterInformationView");
+    will = qobject_cast<BusinessLayer::CharacterModel*>(current);
+    require(will && nothingRenamed() && fields[0]->text() == "WILL",
+            "closing the project with the question open renames nothing");
+
+    // The next rename asks again, and the Leave the text button answers like the other two.
+    std::printf("-- question closed by the Leave the text button\n");
+    asked = askToRename("bill");
+    require(asked && questionText(asked).contains("5 times")
+                && answer(asked, LeaveText),
+            "rename after reopening asks again and is told to leave the text");
+    save();
+    require(questions().isEmpty() && characterNamed("BILL") && mentions() == mentionsWithCues
+                && script() == firstTyped && otherNamesKept(),
+            "leaving the text renames cues and scene characters only");
+
+    // A single mention is asked about in the singular.
+    select(scriptUuid);
+    edit = screenplayEdit(scriptUuid);
+    require(edit, "first screenplay takes a line about another character");
+    edit->moveCursor(QTextCursor::End);
+    paragraph(Paragraph::Action, "Dana waves.");
+    save();
+    fields = fieldsOf(danaUuid, "Ui::CharacterInformationView");
+    enter(fields[0], "dina");
+    key(fields[0], Qt::Key_Return, "\r");
+    asked = question();
+    require(asked && questionText(asked).contains("1 time")
+                && !questionText(asked).contains("1 times") && answer(asked, LeaveText),
+            "a single mention is asked about in the singular");
+    save();
+    require(structure->itemForUuid(danaUuid)->name() == "DINA"
+                && script().contains(stored("action", "Dana waves.")),
+            "the single mention stays as the writer chose");
     manager.closeCurrentProject(path);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
@@ -2026,5 +2345,6 @@ int main(int argc, char** argv)
               "contains, "
               "notifications UI absent with retained update metadata, "
               "cover UI retired with exact legacy image preservation, "
-              "character and location pages with guarded renaming");
+              "character and location pages with guarded renaming, "
+              "character mentions renamed only when the writer chooses to");
 }

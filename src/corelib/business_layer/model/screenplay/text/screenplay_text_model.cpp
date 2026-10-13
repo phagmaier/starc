@@ -16,6 +16,7 @@
 #include <data_layer/storage/storage_facade.h>
 #include <utils/helpers/text_helper.h>
 #include <utils/logging.h>
+#include <utils/shugar.h>
 
 #include <QRegularExpression>
 #include <QStringListModel>
@@ -26,7 +27,58 @@ namespace BusinessLayer {
 
 namespace {
 const char* kMimeType = "application/x-starc/screenplay/text/item";
+
+/**
+ * @brief Whether paragraphs of the type are running text, where a character can be mentioned.
+ *        Scene headings, character cues and scene characters are not: the locations and the
+ *        characters of the project are collected from them, so a name inside another name
+ *        (YOUNG WILL, WILL'S BAR) has to stay as it is there. Act and sequence headings are
+ *        titles and aren't searched either
+ */
+bool isRunningText(TextParagraphType _type)
+{
+    switch (_type) {
+    case TextParagraphType::Action:
+    case TextParagraphType::Dialogue:
+    case TextParagraphType::Parenthetical:
+    case TextParagraphType::Lyrics:
+    case TextParagraphType::Shot:
+    case TextParagraphType::Transition:
+    case TextParagraphType::BeatHeading:
+    case TextParagraphType::InlineNote:
+    case TextParagraphType::UnformattedText:
+        return true;
+
+    default:
+        return false;
+    }
 }
+
+/**
+ * @brief The mentions of the character in the text: its name as a whole word that doesn't begin
+ *        with a lowercase letter, so the "will" of "I will go" isn't taken for WILL.
+ *        The mentions are counted and renamed from this one list, so the two always agree
+ * @note The name should be in capitals
+ */
+QVector<QRegularExpressionMatch> characterMentions(const QString& _text, const QString& _name)
+{
+    QVector<QRegularExpressionMatch> mentions;
+    if (_name.isEmpty() || !_text.contains(_name, Qt::CaseInsensitive)) {
+        return mentions;
+    }
+
+    const QRegularExpression nameMatcher(QString("\\b(%1)\\b").arg(TextHelper::toRxEscaped(_name)),
+                                         QRegularExpression::CaseInsensitiveOption);
+    auto match = nameMatcher.globalMatch(_text);
+    while (match.hasNext()) {
+        const auto mention = match.next();
+        if (!mention.captured().at(0).isLower()) {
+            mentions.append(mention);
+        }
+    }
+    return mentions;
+}
+} // namespace
 
 class ScreenplayTextModel::Implementation
 {
@@ -235,11 +287,12 @@ ScreenplayDictionariesModel* ScreenplayTextModel::dictionariesModel() const
     return d->dictionariesModel;
 }
 
-void ScreenplayTextModel::updateCharacterName(const QString& _oldName, const QString& _newName)
+void ScreenplayTextModel::updateCharacterName(const QString& _oldName, const QString& _newName,
+                                              bool _withMentions)
 {
     const auto oldName = TextHelper::smartToUpper(_oldName);
     std::function<void(const TextModelItem*)> updateCharacterBlock;
-    updateCharacterBlock = [this, oldName, _newName,
+    updateCharacterBlock = [this, oldName, _newName, _withMentions,
                             &updateCharacterBlock](const TextModelItem* _item) {
         for (int childIndex = 0; childIndex < _item->childCount(); ++childIndex) {
             auto childItem = _item->childAt(childIndex);
@@ -288,26 +341,26 @@ void ScreenplayTextModel::updateCharacterName(const QString& _oldName, const QSt
                     text.prepend(_newName);
                     textItem->setText(text);
                     updateItem(textItem);
-                } else if (textItem->text().contains(oldName, Qt::CaseInsensitive)) {
+                } else if (_withMentions && isRunningText(textItem->paragraphType())) {
                     auto text = textItem->text();
-                    const QRegularExpression nameMatcher(
-                        QString("\\b(%1)\\b").arg(TextHelper::toRxEscaped(oldName)),
-                        QRegularExpression::CaseInsensitiveOption);
-                    auto match = nameMatcher.match(text);
-                    while (match.hasMatch()) {
-                        text.remove(match.capturedStart(), match.capturedLength());
-                        const auto capturedName = match.captured();
+                    const auto mentions = characterMentions(text, oldName);
+                    //
+                    // From the last mention to the first one, so the positions of the ones
+                    // that aren't renamed yet stay valid. A name written in capitals stays
+                    // in capitals, any other one is written as a name
+                    //
+                    for (const auto& mention : reversed(mentions)) {
                         const auto capitalizeEveryWord = true;
-                        const auto newName = capturedName == oldName
+                        const auto newName = mention.captured() == oldName
                             ? TextHelper::smartToUpper(_newName)
                             : TextHelper::toSentenceCase(_newName, capitalizeEveryWord);
-                        text.insert(match.capturedStart(), newName);
-
-                        match = nameMatcher.match(text, match.capturedStart() + _newName.length());
+                        text.replace(mention.capturedStart(), mention.capturedLength(), newName);
                     }
 
-                    textItem->setText(text);
-                    updateItem(textItem);
+                    if (!mentions.isEmpty()) {
+                        textItem->setText(text);
+                        updateItem(textItem);
+                    }
                 }
                 break;
             }
@@ -321,6 +374,38 @@ void ScreenplayTextModel::updateCharacterName(const QString& _oldName, const QSt
     beginChangeRows();
     updateCharacterBlock(d->rootItem());
     endChangeRows();
+}
+
+int ScreenplayTextModel::characterMentionsCount(const QString& _name) const
+{
+    const auto name = TextHelper::smartToUpper(_name);
+    int mentionsCount = 0;
+    std::function<void(const TextModelItem*)> countMentions;
+    countMentions = [&name, &mentionsCount, &countMentions](const TextModelItem* _item) {
+        for (int childIndex = 0; childIndex < _item->childCount(); ++childIndex) {
+            auto childItem = _item->childAt(childIndex);
+            switch (childItem->type()) {
+            case TextModelItemType::Folder:
+            case TextModelItemType::Group: {
+                countMentions(childItem);
+                break;
+            }
+
+            case TextModelItemType::Text: {
+                auto textItem = static_cast<ScreenplayTextModelTextItem*>(childItem);
+                if (isRunningText(textItem->paragraphType())) {
+                    mentionsCount += characterMentions(textItem->text(), name).size();
+                }
+                break;
+            }
+
+            default:
+                break;
+            }
+        }
+    };
+    countMentions(d->rootItem());
+    return mentionsCount;
 }
 
 QVector<QModelIndex> ScreenplayTextModel::characterDialogues(const QString& _name) const

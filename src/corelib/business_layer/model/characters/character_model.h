@@ -73,6 +73,12 @@ public:
     QString name() const;
     void setName(const QString& _name);
     Q_SIGNAL void nameChanged(const QString& _newName, const QString& _oldName);
+    /**
+     * @brief Rename the character as the writer asks for on its page. The project applies the
+     *        name, because the screenplays name the character too and their text may mention it
+     */
+    void requestRename(const QString& _name);
+    Q_SIGNAL void renameRequested(const QString& _name);
     QString documentName() const override;
     void setDocumentName(const QString& _name) override;
 

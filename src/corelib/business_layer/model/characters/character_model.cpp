@@ -380,6 +380,11 @@ void CharacterModel::setName(const QString& _name)
     emit nameChanged(newName, oldName);
 }
 
+void CharacterModel::requestRename(const QString& _name)
+{
+    emit renameRequested(_name);
+}
+
 QString CharacterModel::documentName() const
 {
     return name();

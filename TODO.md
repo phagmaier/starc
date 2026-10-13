@@ -55,6 +55,32 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - All requested regressions and private Xvfb save/reopen/normal-close checks
     passed. FDX sequential dual dialogue/comment loss and other format limits
     are explicit in `docs/INTERCHANGE.md`; evidence is in `docs/PROJECT.md`.
+- [x] **Make renaming a character safe for the script.** Renaming WILL to BILL
+  on the character page turned "I will go" into "I Bill go" all through the
+  screenplay, without a question.
+  - Done 2026-10-12: a lowercase word is never taken for the name. Cues and
+    scene-character lists are renamed as before. When the running text also
+    names the character ("Will smiles."), the page asks once for the whole
+    project, with the number of mentions: "Leave the text" or "Rename in the
+    text too". "Will you come?" cannot be told apart from the name, which is
+    why it asks. Escape and a click outside the question leave the text; the
+    character and its cues are renamed either way.
+  - Nothing is renamed until the question is answered, then everything at
+    once: still one Undo step in each script. A name applied without the page
+    (a stored change) asks nothing and leaves the mentions.
+  - Fixed on the way, reproduced first: the replacement also rewrote another
+    character's cue (YOUNG WILL to YOUNG BILL) and a scene heading (INT. WILL'S
+    BAR), which then disagreed with the Characters and Locations lists.
+    Mentions are looked for in running text only; `docs/CODEBASE.md` lists the
+    paragraph types.
+  - Debug build, all six regressions (81 more check lines; eleven guards each
+    shown to fail without its fix) and private Xvfb rename/answer/save/quit/
+    reopen checks on five disposable copies passed; all eight Ctrl+Q exits
+    were 0.
+  - Limits: act and sequence headings are not searched. A capitalised ordinary
+    word ("Will you come?") is counted as a mention, so the writer has to look
+    before choosing to rename the text. A project with several screenplays
+    takes one Undo in each. See `docs/PROJECT.md`.
 
 ## Cut
 
@@ -157,11 +183,14 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
   - Debug build, all six regressions (127 new checks, each guard shown to fail
     without its fix) and private Xvfb create/edit/rename/save/reopen/split-view
     checks passed; the recorded Ctrl+Q exits were 0.
-  - Limits: a rename also replaces the name as a whole word in action and
-    dialogue (upstream's behaviour), so a character called WILL or MAY is risky
-    to rename; one Undo in the script puts the script back. A story opened
-    straight from a Fountain or FDX file keeps the renames but not the
-    descriptions and notes; a `.starc` story keeps both. See `docs/PROJECT.md`.
+  - Limits: a story opened straight from a Fountain or FDX file keeps the
+    renames but not the descriptions and notes; a `.starc` story keeps both.
+    One Undo in the script puts the script back after a rename. See
+    `docs/PROJECT.md`.
+  - Corrected 2026-10-12: this line used to warn that a character called WILL
+    or MAY was risky to rename, because the name was replaced as a whole word
+    in action and dialogue in any letter case. That is fixed, see "Make
+    renaming a character safe for the script" under Fix.
 - [x] **Scene and character report** to stand in for the missing Statistics
   view. Done 2026-10-11: our own plugin shows the six public reports as tables
   and the two public plots. Reports are recomputed when Statistics is selected;

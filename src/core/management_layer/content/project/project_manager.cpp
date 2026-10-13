@@ -55,6 +55,7 @@
 #include <QApplication>
 #include <QDateTime>
 #include <QHBoxLayout>
+#include <QScopedValueRollback>
 #include <QSet>
 #include <QShortcut>
 #include <QTimer>
@@ -304,6 +305,13 @@ public:
     void findAllCharacters();
 
     /**
+     * @brief Rename the character as the writer asked for on its page. The cues are always
+     *        renamed; if the running text of the screenplays mentions the character, the writer
+     *        is asked first, whether the mentions should be renamed too
+     */
+    void renameCharacter(BusinessLayer::CharacterModel* _character, const QString& _name);
+
+    /**
      * @brief Найти все локации
      */
     void findAllLocations();
@@ -418,6 +426,17 @@ public:
      * @brief Диалог добавления нового документа
      */
     QPointer<Ui::CreateDocumentDialog> createDocumentDialog;
+
+    /**
+     * @brief The open question about the mentions of a character that is being renamed
+     */
+    QPointer<Dialog> characterMentionsQuestion;
+
+    /**
+     * @brief Whether the mentions of the character in the running text are renamed together with
+     *        its cues. Set only while a name the writer chose that for is being applied
+     */
+    bool isCharacterRenamedWithMentions = false;
 
     /**
      * @brief Модели списка документов
@@ -1895,6 +1914,82 @@ void ProjectManager::Implementation::findAllCharacters()
     QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
 }
 
+void ProjectManager::Implementation::renameCharacter(BusinessLayer::CharacterModel* _character,
+                                                     const QString& _name)
+{
+    //
+    // The name field loses the focus to the question and enters its name once more, while that
+    // name is still to be decided on
+    //
+    if (_character == nullptr || !characterMentionsQuestion.isNull()) {
+        return;
+    }
+
+    //
+    // Count the mentions in all the screenplays of the project, the way they would be renamed
+    //
+    int mentionsCount = 0;
+    const auto screenplayModels
+        = modelsFacade.modelsFor(Domain::DocumentObjectType::ScreenplayText);
+    for (auto model : screenplayModels) {
+        auto screenplay = qobject_cast<BusinessLayer::ScreenplayTextModel*>(model);
+        mentionsCount += screenplay->characterMentionsCount(_character->name());
+    }
+    if (mentionsCount == 0) {
+        _character->setName(_name);
+        return;
+    }
+
+    //
+    // A mention can't be told apart from an ordinary word that is written the same way ("Will
+    // you come?"), so the writer decides. Nothing is renamed before the answer; every answer
+    // renames the character with its cues, and closing the question leaves the mentions
+    //
+    auto question = tr("The cues of %1 become %2 either way.").arg(_character->name(), _name);
+    question.append("\n\n");
+    //
+    // ... two plain sentences, because the English catalog has no plural forms for a new one
+    //
+    question.append(mentionsCount == 1
+                        ? tr("The name also appears 1 time in the running text (action, "
+                             "dialogue and the like).")
+                        : tr("The name also appears %1 times in the running text (action, "
+                             "dialogue and the like).")
+                              .arg(mentionsCount));
+    question.append(' ');
+    question.append(tr("Lowercase words are not counted, but an ordinary word that starts a "
+                       "sentence is."));
+    const int kLeaveMentionsButtonId = 0;
+    const int kRenameMentionsButtonId = 1;
+    auto dialog = new Dialog(topLevelWidget);
+    characterMentionsQuestion = dialog;
+    dialog->showDialog(
+        tr("Rename it in the text too?"), question,
+        { { kLeaveMentionsButtonId, tr("Leave the text"), Dialog::RejectButton },
+          { kRenameMentionsButtonId, tr("Rename in the text too"), Dialog::NormalButton } });
+    const QPointer<BusinessLayer::CharacterModel> character = _character;
+    auto applyName = [this, dialog, character, _name](const Dialog::ButtonInfo& _buttonInfo) {
+        dialog->hideDialog();
+        characterMentionsQuestion.clear();
+
+        //
+        // The project was closed while the question was open
+        //
+        if (character.isNull()) {
+            return;
+        }
+
+        //
+        // The screenplays are changed in one go, which is one step to undo in each of them
+        //
+        QScopedValueRollback renameWithMentionsRollback(isCharacterRenamedWithMentions,
+                                                        _buttonInfo.id == kRenameMentionsButtonId);
+        character->setName(_name);
+    };
+    QObject::connect(dialog, &Dialog::finished, dialog, applyName);
+    QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
+}
+
 void ProjectManager::Implementation::findAllLocations()
 {
     //
@@ -2934,12 +3029,16 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                 //
                 // Найти все модели где может встречаться персонаж и заменить в них его имя со
                 // старого на новое
+                // ... the mentions in the running text only follow, when the writer chose that
+                //     for the name being applied; a name set in another way (a patch) asks
+                //     nothing and leaves them
                 //
                 const auto screenplayModels
                     = d->modelsFacade.modelsFor(Domain::DocumentObjectType::ScreenplayText);
                 for (auto model : screenplayModels) {
                     auto screenplay = qobject_cast<BusinessLayer::ScreenplayTextModel*>(model);
-                    screenplay->updateCharacterName(_oldName, _newName);
+                    screenplay->updateCharacterName(_oldName, _newName,
+                                                    d->isCharacterRenamedWithMentions);
                 }
 
                 //
@@ -2971,6 +3070,10 @@ ProjectManager::ProjectManager(QObject* _parent, QWidget* _parentWidget,
                         d->setCurrentIndex(itemIndex);
                     }
                 }
+            });
+    connect(&d->modelsFacade, &ProjectModelsFacade::characterRenameRequested, this,
+            [this](BusinessLayer::AbstractModel* _character, const QString& _name) {
+                d->renameCharacter(qobject_cast<BusinessLayer::CharacterModel*>(_character), _name);
             });
     connect(&d->modelsFacade, &ProjectModelsFacade::characterDialoguesUpdateRequested, this,
             [this](BusinessLayer::AbstractModel* _character) {
@@ -3462,6 +3565,14 @@ void ProjectManager::restoreCurrentProjectState(const QString& _path)
 
 void ProjectManager::closeCurrentProject(const QString& _path)
 {
+    //
+    // A question about a character of this project has nothing to rename anymore
+    //
+    if (!d->characterMentionsQuestion.isNull()) {
+        d->characterMentionsQuestion->hideDialog();
+        d->characterMentionsQuestion.clear();
+    }
+
     //
     // Сохранить состояние дерева
     //

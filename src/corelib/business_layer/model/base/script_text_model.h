@@ -46,8 +46,17 @@ public:
 
     /**
      * @brief Обновить имя персонажа
+     * @note The cues of the character and the lists of scene characters are always renamed,
+     *       the mentions of the character in the running text only when asked for
      */
-    virtual void updateCharacterName(const QString& _oldName, const QString& _newName) = 0;
+    virtual void updateCharacterName(const QString& _oldName, const QString& _newName,
+                                     bool _withMentions) = 0;
+
+    /**
+     * @brief How many times the running text mentions the character: exactly the places that
+     *        renaming the character with its mentions changes
+     */
+    virtual int characterMentionsCount(const QString& _name) const = 0;
 
     /**
      * @brief Получить список реплик персонажа

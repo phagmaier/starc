@@ -1238,3 +1238,182 @@ Limits:
   (`ProjectManager::Implementation::switchViews`, present on `master`). Recycle-bin
   pages, right-to-left layout, other platforms, release packaging and the owner's
   projects were not exercised.
+
+## Character renaming that asks about mentions
+
+Completed 2026-10-12, as the "Make renaming a character safe for the script"
+item under Fix. It supersedes the first limit listed in the section above:
+renaming a character no longer rewrites ordinary words.
+
+Upstream's rename replaced the name wherever it stood as a whole word, in any
+letter case and in every paragraph. Observed with the unchanged code on a typed
+script, renaming WILL to BILL gave "I Bill go.", "Bill you come?", the cue
+YOUNG BILL and the heading INT. BILL'S BAR - DAY, while Characters still listed
+YOUNG WILL and Locations still listed WILL'S BAR.
+
+What a rename does now:
+
+1. A lowercase word is never a mention. "I will go" stays; "Will" and "WILL"
+   are mentions and keep upstream's case mapping ("Bill", "BILL").
+2. Cues and scene-character lists are renamed without a question, as before.
+   Mentions are the writer's choice. If the running text of any screenplay in
+   the project names the character, the page asks once, with the number of
+   mentions: "Leave the text" or "Rename in the text too". With no mentions it
+   asks nothing. "Will you come?" cannot be told apart from the name, which is
+   why this is asked and not guessed; the question says that an ordinary word
+   starting a sentence is counted.
+3. Mentions are looked for in running text only: action, dialogue,
+   parenthetical, lyrics, shot, transition, beat, inline note and unformatted
+   text. Scene headings, cues and scene-character lists feed the Locations and
+   Characters lists and are not searched, so YOUNG WILL and WILL'S BAR stay as
+   the lists have them. Act and sequence headings and footers are not searched
+   either.
+
+Decisions made while building it, each within the agreed design:
+
+- The question is asked before anything is renamed, not after the character has
+  its new name. The page hands the name to `CharacterModel::requestRename`;
+  `ProjectManager::Implementation::renameCharacter` counts, asks, and calls
+  `setName` after the answer. Asking after `setName` would leave the character
+  renamed and its cues not for as long as the question is open, and a save,
+  crash or quit in that time would store the character split in two. This way
+  an unanswered question means no rename at all.
+- Every answer renames the character and its cues. "Leave the text" is the
+  dialog's reject button, so Escape and a click outside the card choose it;
+  neither cancels the rename.
+- No button is bound to Enter. The writer has just pressed Enter to confirm the
+  name, and a repeated key press should not choose to rewrite the text. Tab
+  reaches the buttons.
+- Only the page asks. `setName` is also reached from `applyPatch` (undo or redo
+  of the character document, applied remote changes) and from document
+  creation. Those rename cues and scene-character lists, ask nothing and leave
+  mentions alone. Upstream replaced mentions there too.
+- Counting and renaming use one matcher (`characterMentions`) on the same
+  paragraph types and the same screenplay texts, so the number shown is the
+  number of places changed. Mentions are found in the paragraph as it is and
+  replaced from the last to the first; upstream searched again after each
+  replacement.
+- The message is built from plain sentences, one for "1 time" and one for
+  "%1 times", because the English catalog cannot be regenerated for a new
+  plural form.
+
+Undo: a rename is still one Undo step in a script, cues and mentions together,
+because the script is changed in one call after the answer. Each screenplay has
+its own history, so a project with two screenplays takes one Undo in each. The
+character keeps its new name after the script Undo, as before.
+
+Evidence:
+
+- Reproduction before any change: a probe in the scope check typed the second
+  screenplay described below through the real editor and renamed WILL to BILL
+  on the page, on the unchanged build. It stopped at "the cue of another
+  character is left alone"; its dump shows the damaged lines quoted above, so
+  the cue and heading problem, which came from reading the code, is real.
+- `./build/dev.sh doctor` and `JOBS=4 ./build/dev.sh build debug`: passed. The
+  only warnings in a changed file are two unused parameters of an upstream
+  lambda in `project_manager.cpp`, present before.
+- `./tools/check-screenplay-scope.sh`: passed, 12,818 check lines against
+  12,737 before. The three old assertions that expected mentions to be renamed
+  unasked now answer the question: ALICE to ALICIA "Rename in the text too"
+  (two mentions, all renamed), ALICIA to ALICIA GREY "Leave the text" (cues
+  renamed, "Alicia greets Bob." kept), BOB to ROB "Rename in the text too" and
+  then one script Undo. New checks type a second screenplay with the heading
+  INT. WILL'S BAR - DAY, the scene characters "WILL, YOUNG WILL", "Will smiles.
+  WILL pours a drink.", a WILL cue, the parenthetical "to Will", "I will go.", a
+  YOUNG WILL cue and "Will you come?", plus "Will waits outside." in the first
+  screenplay. They require: the question once, with "5 times" for both
+  screenplays; nothing renamed while it is open; no second question when the
+  field loses focus to it; Enter answering nothing; a click outside, Escape and
+  "Leave the text" each renaming the character, its cue and its scene-characters
+  entry and nothing else, compared against the exact stored XML; no question
+  when the text does not mention the name; "Rename in the text too" changing
+  exactly the five mentions, with "I will go.", the YOUNG WILL cue, the heading
+  and both list entries untouched; one Undo per screenplay restoring it exactly;
+  a name set without the page asking nothing and leaving the mentions; a
+  question left open when the project closes going away and renaming nothing;
+  and "1 time" for a single mention.
+- Each guard fails without its fix. One was removed at a time, the build and
+  the scope check were run, and the source was restored:
+  the lowercase test (count check fails), the paragraph-type limit of the
+  replacement (YOUNG BILL and BILL'S BAR come back), the same limit of the count
+  (count check), the answer passed to the replacement ("mentions the writer
+  leaves stay as they are written"), the ignored repeated request ("asks nothing
+  more"), "Leave the text" as reject button ("question closes"), no button on
+  Enter ("Enter does not answer the question"), the check for a closed project
+  (segmentation fault after "question before the project closes"), hiding the
+  question on close ("question goes away with its project"), the no-mentions
+  shortcut ("renamed without a question"), and resetting the choice after the
+  rename ("a name set without the page renames cues only").
+- `check-screenplay-interchange.sh`, `check-backup-retention.sh`,
+  `check-project-sync.sh`, `check-writing-session-storage.sh` and
+  `check-github-credential-storage.sh`: passed on the final build.
+- The actual application on private Xvfb, with no network, on copies of the
+  project the scope check leaves before the rename
+  (`rename-mentions-fixture.starc`). Copy A: WILL renamed to "bill" with Enter;
+  the question showed the title "Rename it in the text too?", "The cues of WILL
+  become BILL either way.", "5 times" and both buttons, and the navigator still
+  said WILL; "Rename in the text too" by mouse; the editor showed the renamed
+  script; Ctrl+S, Ctrl+Q. Copy B: the same with "Leave the text". Both stored
+  projects passed SQLite's integrity check and held exactly the expected lines,
+  and a fresh start showed them again and changed nothing. Copy C: a click
+  outside the card renamed the cues only; renaming back to WILL asked nothing;
+  renaming again with the mentions and one Ctrl+Z in the editor put the whole
+  script back, cue and mentions. Copy D: a second Enter at the question did
+  nothing; Ctrl+Q with the question open closed the application and the stored
+  project still had WILL everywhere. Copy E: Tab, Tab, Enter chose "Rename in
+  the text too" with the same result as copy A. All eight Ctrl+Q exits,
+  including the first-run profile setup, were `0`.
+- Changed-code formatting (local `{ }` rewrites not applied) and
+  `git diff --check` passed. The rename routes were traced in source with `rg`:
+  the graph lists no caller for `updateCharacterName` and only `applyPatch` and
+  `setDocumentName` for `CharacterModel::setName`; `project_manager.cpp`,
+  `screenplay_text_model.cpp`, `abstract_model.cpp` and the test are partly
+  indexed.
+
+Evidence: `.build/evidence/character-rename-mentions-2026-10-12/` holds the
+reproduction, build, regression and mutation logs (`logs/`) and the
+screenshots, application logs, exit codes, dumps and disposable projects
+(`ui/`). Regressions on the final build: `.build/evidence/screenplay-scope-Uh5u3x/`,
+`.build/evidence/screenplay-interchange-lx4c5i/`,
+`.build/evidence/backup-retention-hpYn5m/`, `.build/evidence/project-sync-1N0Je5/`,
+`.build/evidence/writing-session-storage-ylZ1sY/` and
+`.build/evidence/github-credentials-JTFzr5/`. Failed runs kept:
+`screenplay-scope-xWrEzI` (the reproduction), `screenplay-scope-osSJPG` (a wrong
+expectation of a new check: a closed question takes a moment to fade), and the
+mutation runs named in `logs/m01` to `m11`. `logs/invalid-stale-library/` holds
+a first attempt at four of them that proved nothing: the driver restored a
+source file with its old timestamp, so the build kept the previous mutation.
+Those four were repeated after the driver was corrected.
+
+Limits:
+
+- A capitalised ordinary word is counted and, if the writer chooses, renamed:
+  "Will you come?" becomes "Bill you come?". The question says so, but the
+  writer has to look at the script before choosing.
+- A mention of another character whose name contains the renamed one ("Young
+  Will enters.") counts as a mention of WILL.
+- Act and sequence headings and footers are not searched.
+- The whole-word test is upstream's and knows only unaccented letters, digits
+  and the underscore as parts of a word, so a name that begins or ends with
+  another letter (ZOË, ÉMILE) is not found in running text: its mentions are
+  neither counted nor renamed. A name that begins with a digit (2ND COP) is
+  counted in lowercase too.
+- The three cases above were checked with the expression on its own, in a
+  small Qt program (`logs/13-matcher-edge-cases.log`), not through the
+  application.
+- Replacing a name with one of another length does not move bold, italic or
+  review marks that follow it in the paragraph. That is upstream's `setText`,
+  unchanged, and applied to cues and mentions before as well. Not run.
+- A name applied by a patch was exercised through a direct `setName` call, not
+  through a stored change or a remote one; the cloud client is absent from
+  this checkout and the character page has no Undo control.
+- The question belongs to the main window. A page opened with "Open in new
+  window" was not tried; by the code its question appears in the main window.
+- After a script Undo the character keeps the new name while that script has
+  the old cue again, as before this change.
+- The new strings are not in the English catalog and need none.
+- Linux debug, offscreen and private Xvfb only, on a private bus without a
+  keyring provider; its expected startup warning was dismissed and no
+  credentials were edited. Escape and the "1 time" wording were checked
+  offscreen only. Other platforms, release packaging, right-to-left layout and
+  the owner's projects were not exercised.
