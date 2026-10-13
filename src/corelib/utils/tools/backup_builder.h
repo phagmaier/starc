@@ -27,6 +27,10 @@ struct CORE_LIBRARY_EXPORT BackupResult {
  * copy on each of the last 30 local calendar days, including today. The selections
  * overlap. Legacy names without a source-path identity and unrecognized files are
  * left alone. Moving/renaming a source starts a new family; its old copies remain.
+ * SQLite sources are copied under a read transaction, preserving one committed
+ * generation and exact database bytes. WAL-mode databases are refused without
+ * publication or pruning because a single-file copy cannot include their WAL.
+ * Non-database sources (such as Fountain) retain their ordinary byte-copy route.
  */
 CORE_LIBRARY_EXPORT extern BackupResult save(const QString& _filePath, const QString& _backupDir,
                                              const QString& _newName, int _maximumBackups);

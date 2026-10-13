@@ -7,7 +7,12 @@
 #include <QLockFile>
 #include <QRegularExpression>
 #include <QSet>
+#include <QSqlDatabase>
+#include <QSqlError>
+#include <QSqlQuery>
 #include <QTemporaryFile>
+#include <QUuid>
+#include <QVariant>
 
 #include <algorithm>
 #include <limits>
@@ -23,6 +28,54 @@ struct Snapshot {
     QString timestamp;
     QDate date;
     qint64 sequence = 0;
+};
+
+// Keep SQLite's shared read lock until the last source byte has been copied.
+// The backup-family lock alone does not prevent a normal Save from committing.
+class DatabaseReadLock
+{
+public:
+    ~DatabaseReadLock()
+    {
+        if (m_connectionName.isEmpty()) {
+            return;
+        }
+        m_database.close();
+        m_database = QSqlDatabase();
+        QSqlDatabase::removeDatabase(m_connectionName);
+    }
+
+    QString acquire(const QString& _path)
+    {
+        m_connectionName = QStringLiteral("backup_") + QUuid::createUuid().toString(QUuid::Id128);
+        m_database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_connectionName);
+        m_database.setDatabaseName(_path);
+        m_database.setConnectOptions(QStringLiteral("QSQLITE_OPEN_READONLY"));
+        if (!m_database.open() || !m_database.transaction()) {
+            return m_database.lastError().text();
+        }
+        QSqlQuery query(m_database);
+        // BEGIN is deferred: an actual read is required to acquire the shared lock.
+        if (!query.exec(QStringLiteral("SELECT count(*) FROM sqlite_master")) || !query.next()) {
+            return query.lastError().text();
+        }
+        query.finish();
+        if (!query.exec(QStringLiteral("PRAGMA journal_mode")) || !query.next()) {
+            return query.lastError().text();
+        }
+        // WAL readers do not freeze the main file, and committed pages may live only
+        // in the WAL. Refuse rather than publish an incomplete recovery copy. The
+        // application's own databases use rollback journaling.
+        if (query.value(0).toString() == QLatin1String("wal")) {
+            return QObject::tr("SQLite WAL mode can't be copied safely as a single file.",
+                               "BackupBuilder");
+        }
+        return { };
+    }
+
+private:
+    QString m_connectionName;
+    QSqlDatabase m_database;
 };
 } // namespace
 
@@ -114,11 +167,27 @@ BackupBuilder::BackupResult BackupBuilder::saveAt(const QString& _filePath,
     // writes, flushes or publication leave every existing recovery copy untouched.
     QFile source(_filePath);
     QTemporaryFile temporary(directory.filePath(".backup-XXXXXX.tmp"));
-    if (!sourceInfo.isFile() || !source.open(QIODevice::ReadOnly) || !temporary.open()) {
+    if (!sourceInfo.isFile() || !source.open(QIODevice::ReadOnly | QIODevice::Unbuffered)
+        || !temporary.open()) {
         return failure(
             QObject::tr("Can't copy project \"%1\" to backups folder \"%2\": %3", "BackupBuilder")
                 .arg(_filePath, _backupDir,
                      source.isOpen() ? temporary.errorString() : source.errorString()));
+    }
+    const auto header = source.read(16);
+    if (source.error() != QFileDevice::NoError || !source.seek(0)) {
+        return failure(QObject::tr("Can't complete backup of \"%1\": %2", "BackupBuilder")
+                           .arg(_filePath, source.errorString()));
+    }
+    // Read again from zero under the lock. Unbuffered I/O prevents pre-lock bytes
+    // from being reused, and the descriptor stays open until copying is complete.
+    DatabaseReadLock databaseLock;
+    if (header == QByteArray("SQLite format 3\0", 16)) {
+        const auto error = databaseLock.acquire(sourceInfo.absoluteFilePath());
+        if (!error.isEmpty()) {
+            return failure(QObject::tr("Can't complete backup of \"%1\": %2", "BackupBuilder")
+                               .arg(_filePath, error));
+        }
     }
     while (!source.atEnd()) {
         const auto bytes = source.read(64 * 1024);
@@ -130,6 +199,9 @@ BackupBuilder::BackupResult BackupBuilder::saveAt(const QString& _filePath,
                                         : temporary.errorString()));
         }
     }
+    // No more source reads occur after this close. On POSIX it can release the
+    // operating-system shared lock, so never close/reopen the file during copying.
+    source.close();
     if (!temporary.flush()) {
         return failure(QObject::tr("Can't flush backup of \"%1\": %2", "BackupBuilder")
                            .arg(_filePath, temporary.errorString()));

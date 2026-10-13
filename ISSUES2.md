@@ -231,7 +231,7 @@ UTF-8 document bytes. Final runs assert that each requested fault actually fired
 
 ## 3. Background backups can publish a mixture of two saved generations
 
-- [ ] **P1 — confirmed with the production backup builder and concurrent SQLite commit.**
+- [x] **P1 — fixed 2026-10-13; verified with competing SQLite writers and exact recovery bytes.**
 
 **Locations:**
 [backup_builder.cpp](src/corelib/utils/tools/backup_builder.cpp), raw copy at
@@ -268,6 +268,63 @@ published databases under `backup-race-fixture/`, and `backup-race.cpp` in
 not its incidence during normal typing.
 [Supplemental findings](.build/evidence/audit2-persistence/findings.md) contain
 fresh-directory replay commands.
+
+**Resolution (2026-10-13):** SQLite backups now use a private, read-only connection
+and hold a read transaction across the entire source-file copy. An actual schema
+read acquires SQLite's shared lock before copying, so a later Save cannot change
+database pages until the copy is complete. Source reads are unbuffered and restart
+at byte zero under the lock, preventing pre-lock buffered bytes from contaminating
+the snapshot. Connections and locks are released on success and failure. Plain
+source files retain their exact byte-copy route. Existing snapshot names,
+non-overwriting publication and retention rules remain in use.
+
+The application uses SQLite rollback journaling. WAL-mode databases are explicitly
+refused without publication or pruning: their committed content can reside outside
+the main file and a read transaction does not freeze that file. This is a safe
+backup refusal, not WAL backup support. No database is converted or rewritten.
+See SQLite's [locking contract](https://sqlite.org/lockingv3.html).
+
+`./tools/check-backup-consistency.sh` passed deliberate overlapping saves in
+DELETE, TRUNCATE and PERSIST modes. The production worker pauses after its first
+64 KiB read; another process cannot acquire an exclusive lock and a same-process
+Save cannot commit until copying finishes. Save then succeeds. The first recovery
+copy matches the entire old committed database byte for byte; the next copy
+matches the new one. Restored documents, annotations, history patches, IDs and
+opaque legacy data have exact authored bytes. An independent Python process
+reopens all twelve source/recovery files and checks complete generations, schema
+data and SQLite integrity. The existing retention check also restores a real
+screenplay through the editor and verifies its serialized bytes after save/reopen.
+
+Failure checks cover WAL refusal, an unreadable SQLite source and a genuine
+32 KiB kernel file-size limit during native-database staging. Failed backups leave
+existing recovery copies and the source unchanged, clean their temporary
+files, and release the read lock. A subsequent Save and backup succeed; only that
+successful publication permits pruning. The new concurrency regression fails
+against the original builder: both writers proceed during copying and the
+published file contains mixed A/B generations. The original audit reproduction
+was also replayed before the fix and reproduced its reported byte counts.
+
+`./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, the new consistency
+check, `./tools/check-backup-retention.sh`, `./tools/check-project-sync.sh`, Bash
+syntax, ShellCheck, changed-code formatting and `git diff --check` passed. Sync
+used only a disposable localhost mock repository and injected credentials. Its
+first run could not create the sandboxed loopback socket; the permitted rerun
+passed. Runtime fixtures were disposable; editor checks used offscreen Qt.
+Desktop/GPU behavior, release builds, other operating systems and power-loss
+durability remain unexercised. WAL backup support is outside this fix.
+Issues 4–14 remain open.
+
+Passing evidence: [consistency and failure checks](.build/evidence/backup-consistency-nIHOdx/),
+[retention and real screenplay restoration](.build/evidence/backup-retention-qVk66L/),
+[shared sync caller](.build/evidence/project-sync-j7e7Ud/),
+and [debug build](.build/evidence/backup-consistency-build.log).
+[Original-builder regression failure](.build/evidence/backup-consistency-baseline-KfkRmS/)
+and [original audit replay](.build/evidence/backup-race-before-hldyKs/) remain.
+Earlier harness failures remain in the other `backup-consistency-*` directories:
+the first expected a native error code absent from Qt's COMMIT error, the Python
+annotation oracle initially included an extra terminal NUL, and the short-write
+test first lacked the C++ signal header. Their final checks passed without timing
+delays or relaxed generation assertions.
 
 ## 4. An automatic SQLite rollback makes Save/Retry permanently fail
 

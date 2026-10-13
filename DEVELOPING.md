@@ -133,6 +133,15 @@ After a debug build, run `./tools/check-writing-session-storage.sh` for the
 focused writing-statistics storage regression. It uses an isolated profile and
 retains compile/test logs under `.build/evidence/`.
 
+`./tools/check-backup-consistency.sh` checks native database copies during a
+deliberately overlapping Save, using the production builder in a worker thread.
+It verifies SQLite locks against same-process and separate-process writers,
+exact committed database/document/history bytes, fresh-process recovery,
+failure cleanup and safe WAL refusal. `./tools/check-backup-retention.sh` covers
+retention and real screenplay restoration through save/reopen. Both use
+disposable data and retain their logs under `.build/evidence/`; neither establishes
+physical-desktop or power-loss durability evidence.
+
 `./tools/check-startup-last-story.sh` checks the optional last-story startup setting
 through the real application coordinator and application file events. It covers
 default/persisted settings, onboarding, successful creation/open/Save As, failure
