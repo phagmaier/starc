@@ -23,6 +23,7 @@
 #include <utils/logging.h>
 
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QSet>
 
 namespace ManagementLayer {
@@ -69,16 +70,9 @@ ImportManager::Implementation::Implementation(ImportManager* _parent, QWidget* _
 {
 }
 
-void ImportManager::Implementation::showImportDialogFor(const QStringList& _paths)
+bool ImportManager::canImportScreenplay(const QString& _filePath)
 {
-    //
-    // Формат MS DOC не поддерживается, он отображается только для того, чтобы пользователи
-    // не теряли свои файлы
-    //
-    QStringList docFiles;
-    QStringList otherFiles;
-    QStringList filesToImport;
-    const QSet<QString> supportedFileTypes = {
+    static const QSet<QString> supportedFileTypes = {
         ExtensionHelper::kitScenarist(),
         ExtensionHelper::finalDraft(),
         ExtensionHelper::finalDraftTemplate(),
@@ -92,11 +86,23 @@ void ImportManager::Implementation::showImportDialogFor(const QStringList& _path
         ExtensionHelper::plainText(),
         ExtensionHelper::pdf(),
     };
+    return supportedFileTypes.contains(QFileInfo(_filePath).suffix().toLower());
+}
+
+void ImportManager::Implementation::showImportDialogFor(const QStringList& _paths)
+{
+    //
+    // Формат MS DOC не поддерживается, он отображается только для того, чтобы пользователи
+    // не теряли свои файлы
+    //
+    QStringList docFiles;
+    QStringList otherFiles;
+    QStringList filesToImport;
     for (const auto& path : _paths) {
         const auto fileExtension = path.split('.').constLast().toLower();
         if (fileExtension == ExtensionHelper::msOfficeBinary()) {
             docFiles.append(path);
-        } else if (supportedFileTypes.contains(fileExtension)) {
+        } else if (ImportManager::canImportScreenplay(path)) {
             filesToImport.append(path);
         } else {
             otherFiles.append(path);

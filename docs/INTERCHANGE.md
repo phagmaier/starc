@@ -21,6 +21,15 @@ freshly import with the production information settings, rather than being
 replaced with Fountain text. The default information setting hides scene numbers;
 the direct format checks separately enable number export.
 
+Ordinary source saves accept only `.fountain`, `.txt`, `.fdx` and `.fdxt` (case
+insensitive). Other destinations are refused before opening a file for writing.
+Directly opened import-only formats, including DOCX, PDF and Markdown, ask for a
+new `.starc` story destination before editing. Their source files are never saved
+back through the Fountain fallback. `check-import-only-sources.sh` exercises the
+coordinator, complete source-byte preservation and native copy save/reopen. This
+policy does not claim lossless import of every source feature; those original
+bytes stay available separately. Explicit DOCX/PDF exports remain supported.
+
 The serialization boundary is explicit: `AbstractModel::saveChanges()` updates
 the `DocumentObject` before `ProjectManager::saveChanges()` writes it through
 `DocumentStorage`. The test clears the storage cache and closes the database

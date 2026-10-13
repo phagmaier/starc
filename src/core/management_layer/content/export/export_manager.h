@@ -24,6 +24,12 @@ public:
     bool canExportDocument(BusinessLayer::AbstractModel* _model) const;
 
     /**
+     * @brief Whether ordinary screenplay saves can write back to this source format.
+     *        Import-only formats require a native story copy; explicit exports are separate.
+     */
+    static bool canSaveScreenplayToSourceFile(const QString& _filePath);
+
+    /**
      * @brief Экспортировать заданный документ
      */
     void exportDocument(const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models,

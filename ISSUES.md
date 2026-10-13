@@ -2,7 +2,7 @@
 
 Audit date: 2026-10-12 (local time). Reviewed `dev` at `12722c89`; frozen
 upstream reference: `master` at `4b9677db`. No application fixes were made during
-the initial audit. Issues 1–3 have since been completed; issues 4–8 remain open.
+the initial audit. Issues 1–4 have since been completed; issues 5–8 remain open.
 
 Eight defects were confirmed outside the passing regression suite. Existing
 upstream defects are included because they still affect this fork. The source
@@ -228,7 +228,86 @@ Actual `QFileOpenEvent`, application coordinator and editor with injected input,
 offscreen Qt; ordinary exit 0. Physical desktop file association delivery was
 not exercised.
 
-## 4. High: saving a directly opened DOCX overwrites it with Fountain text
+## 4. Completed: saving a directly opened DOCX overwrites it with Fountain text
+
+- [x] **Fixed and verified on 2026-10-12.**
+
+**Resolution:** Directly opened import-only sources now choose a new `.starc`
+destination before editing. This applies to DOCX, PDF, Markdown, RTF, ODT, Celtx,
+Trelby and KIT Scenarist. The source is imported into the native copy and remains
+byte-exact; its changes are saved in that copy. The misleading Keep .DOCX route
+is no longer offered. Canceling or refusing an existing/locked destination keeps
+the current story and its lock. Competing file-open events cannot switch stories
+while the import chooser is active. Startup requests still wait for onboarding.
+
+Ordinary source saves now accept only Fountain/TXT/FDX/FDXT, case insensitive.
+The convenience export route refuses every other suffix before writing, and the
+coordinator refuses unsupported shadow saves without clearing unsaved state.
+Explicit DOCX/PDF exports remain available through the normal export dialog.
+This preserves the source separately; it does not promise lossless import of all
+Word or other source-format features.
+
+**Validation:** `./build/dev.sh doctor`, `make qmake_all` and
+`JOBS=4 ./build/dev.sh build debug` passed. The new
+`./tools/check-import-only-sources.sh` passed all 12 scenarios on private Xvfb:
+startup arguments, actual file-open events, fresh onboarding, Cancel, existing and
+locked destinations, a read-only DOCX, an omitted destination suffix, competing
+events, uppercase DOCX, PDF and Markdown. Including 11 profile-preparation exits
+and 12 fresh-process reopens, all 35 processes exited ordinarily with status 0.
+The copies support Unicode edits, Undo/Redo, emphasis and review annotations;
+reopening compares exact screenplay XML and every document identity.
+
+Independent Python checks confirmed all source hashes, valid DOCX ZIP archives
+and their source-only XML parts, exact native script/identity oracles and released
+locks. Export controls preserved existing bytes for 11 unsupported suffix cases,
+including no suffix, and retained correct Fountain/TXT/FDX/FDXT output selection.
+The 36-case save-failure/file-open and 35-case startup suites also passed on private
+Xvfb. Screenplay scope and independent Fountain/FDX interchange checks passed
+with their documented offscreen boundaries, including explicit DOCX/PDF exports.
+Bash syntax, ShellCheck, Python syntax and `git diff --check` passed.
+
+**Fix evidence:** [doctor](.build/evidence/issue-4-doctor.log),
+[final build](.build/evidence/issue-4-build-2.log),
+[qmake regeneration](.build/evidence/issue-4-qmake-2.log),
+[native runner and related checks](.build/evidence/issue-4-native-de6k6ncv/),
+[35 import lifecycle cases, source hashes and screenshots](.build/evidence/import-only-sources-p5StuC/),
+[36 save cases](.build/evidence/save-failure-MkJ9R1/), and
+[35 startup cases](.build/evidence/startup-last-story-XkOhk7/).
+The new test reproduced the original overwrite before the fix in
+[the retained baseline](.build/evidence/import-only-sources-Y9E295/).
+
+Earlier unsuccessful harness runs are retained. Initial setup attempts had a
+[missing include](.build/evidence/issue-4-baseline.log),
+[unprepared configured-profile geometry](.build/evidence/issue-4-baseline-2.log),
+[the same visibility setup failure](.build/evidence/issue-4-baseline-3.log), and
+[a file event still buffered during startup](.build/evidence/issue-4-baseline-4.log).
+The first fixed-code assertion expected literal rather than
+[Fountain-escaped underscores](.build/evidence/import-only-sources-prwdao/).
+[The unhandled close question](.build/evidence/import-only-sources-obPClu/) and
+[its dirty-state diagnostic](.build/evidence/import-only-sources-CIsSB9/) were
+traced to the first supported export initializing the existing empty title-page
+document. The retained [model-change backtrace](.build/evidence/issue-4-export-diagnosis-ykfu3sc7/gdb.log)
+establishes that cause; the final harness answers Save on ordinary close while
+keeping the exact screenplay/identity reopen assertions. A
+[sandbox-blocked debugger attempt](.build/evidence/issue-4-export-diagnosis-z3uuszvh/)
+is retained separately. The
+[initial existing-destination test](.build/evidence/import-only-sources-xw8VLq/)
+dismissed Qt's confirmation without selecting its Yes button; the corrected
+driver clicks that button. Finally,
+[the first native run](.build/evidence/issue-4-native-i3qwjr91/) reset an already
+completed profile to mimic first launch and hit the pending-versus-persisted
+settings comparison. The final onboarding case uses genuinely fresh settings.
+These failed harness runs are not passing shutdown evidence.
+
+This establishes Linux debug behavior with injected coordinator arguments,
+`QFileOpenEvent` objects and Qt chooser/editor/dialog actions on private XCB
+windows. Screenshots include animation transitions. Physical desktop file
+association delivery, other operating systems, release packages, exhaustive
+storage/concurrency faults and third-party Word application compatibility were
+unexercised. The sync controls used fake credentials, an absent session bus and
+a loopback mock API inside an isolated network.
+
+The original finding and reproduction below are retained for reference.
 
 **Where:** [application_manager.cpp](src/core/management_layer/application_manager.cpp),
 lines 1028–1031 (saving a local shadow project back to its source);

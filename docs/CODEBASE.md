@@ -94,7 +94,22 @@ and export options and selects the format exporter. Both exporters use
 Fountain then uses `AbstractMarkdownExporter::exportTo` and `processBlock`; FDX
 writes typed XML paragraphs. Local shadow-project saves use the manager's
 convenience route: FDX/FDXT destinations select FDX; Fountain/plain-text
-destinations retain Fountain. The focused [interchange check](INTERCHANGE.md)
+destinations retain Fountain. `ExportManager::canSaveScreenplayToSourceFile`
+limits this source-save route to those four suffixes; it refuses every other
+destination before any writing. Explicit format exports use the separate options
+route and remain available.
+
+`ImportManager::canImportScreenplay` shares the import dialog's supported suffixes
+with the coordinator. A direct open of an import-only source (DOCX, PDF, Markdown,
+RTF, ODT, Celtx, Trelby or KIT Scenarist) asks for a new `.starc` destination before
+closing the current story. It uses `createLocalProject` to import the source into
+that native copy, retaining its source bytes and refusing existing files or locks.
+Cancellation keeps the current story. `importCopyPending` prevents competing file
+events from switching stories during the chooser. Such sources never become
+editable shadow projects; the save coordinator also refuses unsupported shadow
+sources without clearing unsaved state.
+
+The focused [interchange check](INTERCHANGE.md)
 exercises these format boundaries and actual project persistence; it records
 FDX's sequential dual-dialogue export and the bounded support policy explicitly.
 

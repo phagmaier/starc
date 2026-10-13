@@ -25,6 +25,11 @@ public:
     ~ImportManager() override;
 
     /**
+     * @brief Whether this source format has a screenplay importer.
+     */
+    static bool canImportScreenplay(const QString& _filePath);
+
+    /**
      * @brief Запустить процесс импорта данных
      */
     void import(const QVector<QString>& _files = {});

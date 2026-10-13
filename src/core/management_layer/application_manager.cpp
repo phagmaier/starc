@@ -76,6 +76,7 @@
 #include <QProcess>
 #include <QRawFont>
 #include <QScopedPointer>
+#include <QScopedValueRollback>
 #include <QShortcut>
 #include <QSoundEffect>
 #include <QSqlQuery>
@@ -392,6 +393,7 @@ public:
 
     bool startupScheduled = false;
     bool startupOpenPending = true;
+    bool importCopyPending = false;
     bool startupRestoreAllowed = false;
     QString startupFilePath;
 
@@ -925,6 +927,15 @@ bool ApplicationManager::Implementation::saveChanges()
         return true;
     }
 
+    if (const auto project = projectsManager->currentProject();
+        project->projectType() == BusinessLayer::ProjectType::LocalShadow
+        && !ExportManager::canSaveScreenplayToSourceFile(project->path())) {
+        StandardDialog::information(applicationView, tr("Saving error"),
+                                    tr("This source format cannot be saved in place. "
+                                       "Your changes have been kept open."));
+        return false;
+    }
+
     Log::info("Save changes triggered");
 
     constexpr int maximumSaveAttempts = 3;
@@ -1386,7 +1397,7 @@ void ApplicationManager::Implementation::openProject()
 
 bool ApplicationManager::Implementation::openProject(const QString& _path)
 {
-    if (_path.isEmpty()) {
+    if (_path.isEmpty() || importCopyPending) {
         return false;
     }
 
@@ -1414,6 +1425,24 @@ bool ApplicationManager::Implementation::openProject(const QString& _path)
         && !DatabaseLayer::Database::canOpenFile(_path)) {
         StandardDialog::information(applicationView, { }, DatabaseLayer::Database::openFileError());
         return false;
+    }
+
+    if (ImportManager::canImportScreenplay(_path)
+        && !ExportManager::canSaveScreenplayToSourceFile(_path)) {
+        // Import-only sources are never editable shadow projects. Choose a native copy before
+        // closing the current story; the creation route refuses existing/locked destinations.
+        QScopedValueRollback<bool> pending(importCopyPending, true);
+        auto destination = QFileDialog::getSaveFileName(
+            applicationView, tr("Import .%1 as a .STARC story").arg(source.suffix().toUpper()),
+            source.absoluteFilePath() + "." + ExtensionHelper::starc(),
+            DialogHelper::starcProjectFilter());
+        if (destination.isEmpty()) {
+            return false;
+        }
+        if (!destination.endsWith("." + ExtensionHelper::starc(), Qt::CaseInsensitive)) {
+            destination += "." + ExtensionHelper::starc();
+        }
+        return createLocalProject(QFileInfo(destination).completeBaseName(), destination, _path);
     }
 
     //
@@ -2243,6 +2272,9 @@ void ApplicationManager::exec(const QString& _fileToOpenPath)
 
 bool ApplicationManager::openProject(const QString& _path)
 {
+    if (d->importCopyPending) {
+        return false;
+    }
     if (d->startupOpenPending) {
         if (!_path.isEmpty()) {
             d->startupFilePath = _path;

@@ -216,6 +216,21 @@ the session bus is absent. The default is offscreen; on a private Xvfb display,
 `STARC_SAVE_FAILURE_PLATFORM=xcb STARC_SAVE_FAILURE_SCREENSHOTS=1` adds native
 window evidence. Actions use Qt signals and dialog responses.
 
+`./tools/check-import-only-sources.sh` checks direct opens of DOCX, PDF and Markdown
+through the real application coordinator. Import-only inputs choose a new `.starc`
+copy before editing; the original file is left byte-exact. Cases cover file
+arguments, actual `QFileOpenEvent` objects, onboarding, cancellation, existing and
+locked destinations, read-only inputs, omitted destination suffixes and competing
+file events during the chooser. Each case prepares a disposable profile through
+onboarding and ordinary close, exercises the open/edit/Save route, then reopens
+in a fresh process. Tests compare exact script/emphasis/review XML and document
+identities; Python also checks all source hashes, retained DOCX ZIP parts and
+released locks. Source-save export controls reject unsupported suffixes while
+retaining Fountain/TXT/FDX/FDXT selection. Explicit DOCX/PDF exports remain covered
+by the screenplay scope check. The default is offscreen;
+`STARC_IMPORT_ONLY_PLATFORM=xcb STARC_IMPORT_ONLY_SCREENSHOTS=1` on private Xvfb
+adds native window screenshots. Chooser/editor actions are injected through Qt.
+
 `./tools/check-github-credential-storage.sh` uses injected asynchronous storage,
 isolated settings, actual settings/onboarding widgets, and the local mock GitHub
 server. It prints a unique evidence directory and its native test command.

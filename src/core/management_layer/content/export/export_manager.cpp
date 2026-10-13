@@ -46,6 +46,7 @@
 
 #include <QDesktopServices>
 #include <QFileDialog>
+#include <QFileInfo>
 
 
 namespace ManagementLayer {
@@ -874,9 +875,19 @@ void ExportManager::exportDocument(
     }
 }
 
+bool ExportManager::canSaveScreenplayToSourceFile(const QString& _filePath)
+{
+    const auto suffix = QFileInfo(_filePath).suffix().toLower();
+    return suffix == ExtensionHelper::fountain() || suffix == ExtensionHelper::plainText()
+        || suffix == ExtensionHelper::finalDraft()
+        || suffix == ExtensionHelper::finalDraftTemplate();
+}
+
 void ExportManager::exportDocument(BusinessLayer::AbstractModel* _model, const QString& _filePath)
 {
-    if (!canExportDocument(_model)) {
+    // This convenience route saves back to an opened source, rather than an explicit export.
+    // Never replace an import-only archive or document with the Fountain fallback.
+    if (!canSaveScreenplayToSourceFile(_filePath) || !canExportDocument(_model)) {
         return;
     }
 
