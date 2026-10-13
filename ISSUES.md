@@ -2,7 +2,7 @@
 
 Audit date: 2026-10-12 (local time). Reviewed `dev` at `12722c89`; frozen
 upstream reference: `master` at `4b9677db`. No application fixes were made during
-the initial audit. Issues 1–7 have since been completed; issue 8 remains open.
+the initial audit. All eight issues have since been completed.
 
 Eight defects were confirmed outside the passing regression suite. Existing
 upstream defects are included because they still affect this fork. The source
@@ -538,7 +538,54 @@ fork's revised nested-location logic.
 **Evidence:** [actual-page/save/reopen reproduction](.build/evidence/audit-location-rename/page-probe.log);
 offscreen Qt, disposable project, exit 0.
 
-## 8. Medium: successful GitHub transfers leave stale sync status and actions
+## 8. Completed: successful GitHub transfers leave stale sync status and actions
+
+- [x] **Fixed and verified on 2026-10-13.**
+
+**Resolution:** Successful uploads and replacement/new-story downloads now use
+one `recordSync` helper to update the persisted link and cached entry together.
+The transferred document fingerprint and remote SHA become both the current
+snapshot and its comparison baseline, and the entry becomes `InSync`. A
+remote-only download also records its new local path. Later saved local edits
+therefore become `LocalChanged`, and the context menu offers the matching action.
+Separate-copy downloads leave the original baseline intact; failed transfers
+cannot record a successful sync.
+
+**Validation:** `./build/dev.sh doctor` and `JOBS=4 ./build/dev.sh build debug`
+passed. The new manager regression reproduced both original failures before the
+fix in separate upload/download runs. `./tools/check-project-sync.sh` now runs
+the real `GitHubSyncManager` in addition to the existing fingerprint/state/client
+checks. It passed unchanged uploads/downloads after repeated own/other-story
+status updates, local edits and actual context-action uploads, remote-only
+downloads and edit/revert, real conflicts and separate-copy downloads, rejected
+uploads, refused replacement downloads, chosen conflict replacement, exact
+remote/local/backup bytes, persisted baselines and a fresh manager reload.
+
+`./tools/check-github-credential-storage.sh` passed its injected asynchronous
+credential and UI/settings checks. `STARC_SAVE_FAILURE_CASES='sync-failure
+sync-success' ./tools/check-save-failure.sh` passed the real application/editor
+replacement refusal and success cases, ordinary shutdown and fresh-process
+reopening with script/annotation/document-identity preservation. Bash syntax,
+ShellCheck, changed-code formatting and `git diff --check` passed.
+
+**Fix evidence:** [doctor](.build/evidence/issue-8-doctor.log),
+[build](.build/evidence/issue-8-build.log),
+[pre-fix upload failure](.build/evidence/project-sync-Cdhdig/),
+[pre-fix download failure](.build/evidence/project-sync-ixvIE3/),
+[sync manager and client regression](.build/evidence/project-sync-EJkaaE/),
+[injected credential regression](.build/evidence/github-credentials-AmmpPk/), and
+[application replacement/save/reopen](.build/evidence/save-failure-NShzm5/).
+The initial test-compilation failure and sandbox-blocked mock-server attempt
+remain in [project-sync-W1qWHb](.build/evidence/project-sync-W1qWHb/) and
+[project-sync-43Th3b](.build/evidence/project-sync-43Th3b/).
+
+This establishes Linux debug behavior with offscreen Qt actions, disposable
+SQLite stories/profiles and a loopback mock API using fake credentials. Real
+GitHub authentication/network behavior, native keyrings, visible desktop/GPU,
+other operating systems and release packages were unexercised. Existing warnings
+in unchanged code remain. No user story or real GitHub repository was used.
+
+The original finding and reproduction below are retained for reference.
 
 **Where:** [github_sync_manager.cpp](src/core/management_layer/content/github_sync/github_sync_manager.cpp),
 lines 717–720 (upload), 834–839 (download), and 1377–1385 (`updateProjectState`).

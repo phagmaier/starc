@@ -201,9 +201,13 @@ with Python, input failures, options, and unchanged fixture hashes. See
 loss and remaining limits. It uses a new disposable profile/project and an
 absent private session-bus address so it cannot contact the desktop keyring.
 
-`./tools/check-project-sync.sh` checks the GitHub story sync logic and client
-the same way. It starts `tests/github_mock_server.py`, a local stand-in for the
-GitHub API, so it needs no account and sends nothing to GitHub. To try the sync
+`./tools/check-project-sync.sh` checks the GitHub story sync logic, client and
+actual sync manager. It covers status/context actions after successful transfers,
+remote-only and separate-copy downloads, genuine conflicts, failed-transfer
+baseline preservation, exact backup bytes and persisted sync baselines. The
+manager uses an isolated offscreen profile and injected fake credentials with
+no desktop session bus. It starts `tests/github_mock_server.py`, a local stand-in
+for the GitHub API, so it needs no account and sends nothing to GitHub. To try the sync
 in the running application without touching a real repository, start that server
 and launch with `STARC_GITHUB_API_URL=http://127.0.0.1:<port>`; its default
 access token is `test-token`.

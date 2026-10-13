@@ -355,6 +355,7 @@ This fork can keep each local story as one file in the root of a private GitHub 
 Rules the code relies on:
 
 - The application rewrites a project file when it is only opened, so file bytes cannot tell whether a story changed. A story counts as changed when the fingerprint of its documents differs from the one remembered at the last sync.
+- Successful uploads and replacement/new-story downloads use `GitHubSyncManager::Implementation::recordSync` to advance both the persisted link and cached snapshot to the transferred fingerprint/SHA. Remote-only entries acquire their local path; failed transfers and separate-copy downloads leave the original baseline intact.
 - A file is uploaded only over the repository version it was last synced with (GitHub refuses the upload otherwise), and downloaded over a local file only if that file has not changed since the last sync. When both changed, nothing is replaced until the user picks a version in the story's context menu.
 - A local version replaced by a download is first copied to the backups folder as `<name> (before GitHub download)_<time>.starc`.
 - A public repository is refused.

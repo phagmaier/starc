@@ -130,6 +130,12 @@ public:
     void loadLinks();
     void saveLinks();
 
+    /**
+     * @brief Keep the persisted link and cached state at the same successful transfer
+     */
+    void recordSync(const QString& _path, const QString& _remoteName, const QByteArray& _sha,
+                    const QByteArray& _fingerprint);
+
     //
     // State of the stories
     //
@@ -267,6 +273,29 @@ void GitHubSyncManager::Implementation::saveLinks()
     }
     setSettingsValue(DataStorageLayer::kGitHubSyncProjectsKey,
                      QJsonDocument(json).toJson(QJsonDocument::Compact).toHex());
+}
+
+void GitHubSyncManager::Implementation::recordSync(const QString& _path, const QString& _remoteName,
+                                                   const QByteArray& _sha,
+                                                   const QByteArray& _fingerprint)
+{
+    links.insert(_path, { _remoteName, _sha, _fingerprint });
+    saveLinks();
+
+    for (auto& entry : entries) {
+        if (entry.remoteName != _remoteName || (!entry.path.isEmpty() && entry.path != _path)) {
+            continue;
+        }
+
+        // A remote-only download now has a local path. Remember the transferred version,
+        // so later local saves compare against it rather than the pre-transfer snapshot.
+        entry.path = _path;
+        entry.snapshot = { _fingerprint, _sha, _fingerprint, _sha };
+        entry.state = ProjectSync::State::InSync;
+        entry.error.clear();
+        entry.remoteChange.clear();
+        break;
+    }
 }
 
 void GitHubSyncManager::Implementation::refresh(
@@ -715,8 +744,7 @@ void GitHubSyncManager::Implementation::upload(const Entry& _entry,
                           return;
                       }
 
-                      links.insert(_entry.path, { _entry.remoteName, _sha, fingerprint.value });
-                      saveLinks();
+                      recordSync(_entry.path, _entry.remoteName, _sha, fingerprint.value);
                       setStatus(_entry.path, BusinessLayer::ProjectSyncStatus::InSync);
                       _callback({});
                   });
@@ -841,9 +869,7 @@ void GitHubSyncManager::Implementation::download(const Entry& _entry, bool _asCo
             if (_asCopy) {
                 project->setSyncStatus(BusinessLayer::ProjectSyncStatus::NotSynced);
             } else {
-                links.insert(path,
-                             { _entry.remoteName, _entry.snapshot.remoteSha, fingerprint.value });
-                saveLinks();
+                recordSync(path, _entry.remoteName, _entry.snapshot.remoteSha, fingerprint.value);
                 project->setSyncStatus(BusinessLayer::ProjectSyncStatus::InSync);
             }
             projectsManager->updateProject(project);
