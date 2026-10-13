@@ -42,6 +42,9 @@ public:
      */
     void escapeCharacters(QString& _paragraph, int _begin, int _end) const;
 
+    void insertMarkup(QString& _paragraph, int _position, const QString& _markup,
+                      bool _belongsToPreviousText) const;
+
     /**
      * @brief Преобразовать разницу в двух форматах в строку, закрывающую формат
      */
@@ -73,6 +76,9 @@ public:
      * @brief Экранируемые символы
      */
     const QSet<QChar> escapedCharacters;
+
+    // Insertion lengths until formatting finishes; then the mapped source boundaries.
+    mutable QVector<int> sourcePositions;
 };
 
 AbstractMarkdownExporter::Implementation::Implementation(AbstractMarkdownExporter* _q,
@@ -80,6 +86,19 @@ AbstractMarkdownExporter::Implementation::Implementation(AbstractMarkdownExporte
     : q(_q)
     , escapedCharacters(_escapedCharacters)
 {
+}
+
+void AbstractMarkdownExporter::Implementation::insertMarkup(QString& _paragraph, int _position,
+                                                            const QString& _markup,
+                                                            bool _belongsToPreviousText) const
+{
+    _paragraph.insert(_position, _markup);
+    // A review ending here follows closing emphasis, but precedes the opening
+    // emphasis or escape prefix belonging to the next source character.
+    const int boundary = _position + (_belongsToPreviousText ? 0 : 1);
+    if (boundary < sourcePositions.size()) {
+        sourcePositions[boundary] += _markup.size();
+    }
 }
 
 int AbstractMarkdownExporter::Implementation::closeFormatIndex(
@@ -171,7 +190,7 @@ void AbstractMarkdownExporter::Implementation::escapeCharacters(QString& _paragr
 {
     for (int index = _end; index >= _begin; --index) {
         if (escapedCharacters.contains(_paragraph[index])) {
-            _paragraph.insert(index, '\\');
+            insertMarkup(_paragraph, index, QString(QLatin1Char('\\')), false);
         }
     }
 }
@@ -387,6 +406,7 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
         }
 
         QString paragraphText = block.text();
+        d->sourcePositions.fill(0, paragraphText.size() + 1);
 
         //
         // При вставке форматных строк будем экранировать специальные символы (начиная с конца),
@@ -428,9 +448,10 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
                 //
                 // Вставляем открывающую форматную строку следующего формата
                 //
-                paragraphText.insert(nextFormatStartIndex,
-                                     d->formatsOpenDiffToString(formats[formatIndex].format,
-                                                                formats[nextFormatIndex].format));
+                d->insertMarkup(paragraphText, nextFormatStartIndex,
+                                d->formatsOpenDiffToString(formats[formatIndex].format,
+                                                           formats[nextFormatIndex].format),
+                                false);
 
                 //
                 // Получаем индекс для вставки закрывающей форматной строки текущего формата
@@ -446,9 +467,10 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
                 //
                 // Вставляем закрывающую форматную строку текущего формата
                 //
-                paragraphText.insert(formatEndIndex,
-                                     d->formatsCloseDiffToString(formats[formatIndex].format,
-                                                                 formats[nextFormatIndex].format));
+                d->insertMarkup(paragraphText, formatEndIndex,
+                                d->formatsCloseDiffToString(formats[formatIndex].format,
+                                                            formats[nextFormatIndex].format),
+                                true);
             }
             //
             // ... а если это последний формат блока, то формируем полностью
@@ -468,7 +490,8 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
                 //
                 // Вставляем закрывающую форматную строку текущего формата
                 //
-                paragraphText.insert(formatEndIndex, d->closeFormatString(formats, formatIndex));
+                d->insertMarkup(paragraphText, formatEndIndex,
+                                d->closeFormatString(formats, formatIndex), true);
             }
 
             //
@@ -505,8 +528,8 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
                 //
                 // Вставляем открывающую форматную строку текущего формата
                 //
-                paragraphText.insert(currentFormatStartIndex,
-                                     d->openFormatString(formats, formatIndex));
+                d->insertMarkup(paragraphText, currentFormatStartIndex,
+                                d->openFormatString(formats, formatIndex), false);
             }
         }
 
@@ -514,6 +537,12 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
         // Экранируем специальные символы до конца, если остались непроверенные
         //
         d->escapeCharacters(paragraphText, 0, escapedRange);
+
+        int insertedLength = 0;
+        for (int position = 0; position < d->sourcePositions.size(); ++position) {
+            insertedLength += d->sourcePositions[position];
+            d->sourcePositions[position] = position + insertedLength;
+        }
 
         //
         // Разрывы строк преобразуем в переносы строк
@@ -539,6 +568,12 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
         }
     }
     return markdownFile.write("\n") == 1 && markdownFile.commit();
+}
+
+int AbstractMarkdownExporter::formattedPosition(int _sourcePosition) const
+{
+    Q_ASSERT(_sourcePosition >= 0 && _sourcePosition < d->sourcePositions.size());
+    return d->sourcePositions.at(_sourcePosition);
 }
 
 void AbstractMarkdownExporter::removeWhitespaceAtBegin(QString& _paragraph) const

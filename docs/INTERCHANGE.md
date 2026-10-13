@@ -27,11 +27,20 @@ supported internal XML child orders and native annotation persistence. A second
 process checks the saved UUIDs, complete serialized bytes, text, styles and review
 coverage again. Contiguous formatting fragments count as one review range only
 when all review metadata matches, including the complete comment list.
-Full annotated Fountain export/reimport is still affected by
-[issue 13](../ISSUES2.md#13-fountain-escaping-shifts-a-review-note-onto-the-wrong-text),
-including duplicate comments across emphasis fragments. This fixture's export
-explicitly disables reviews and verifies that omission; the original annotated
-script crosses native save/reopen without filtering.
+Full annotated Fountain export/reimport is checked without filtering reviews.
+`review-offsets.fountain` additionally covers repeated literal escapes, multiple
+notes/replies, styles spanning notes, boundaries before escapes/opening emphasis,
+and UTF-16 positions across an emoji. All four original/fresh scripts cross a
+separate-process native reopen. Exact exported syntax independently requires each
+note or reply once, after closing emphasis and before a next opening/escape prefix.
+
+`./tools/check-fountain-review-source.sh` separately exercises the real application
+Save coordinator with edited versions of both fixtures, full/partial clipboard
+exports, ordinary close and a fresh application reopening the saved source.
+Repeated saves must be byte-idempotent, with exact per-character style and review
+coverage. The explicit `cold-undo` mode still fails with the separate
+[issue 15](../ISSUES2.md#15-undo-of-the-first-edit-after-importing-styled-review-notes-aborts)
+assertion; the passing export/source checks do not credit first-edit Undo.
 
 Ordinary source saves accept only `.fountain`, `.txt`, `.fdx` and `.fdxt` (case
 insensitive). Other destinations are refused before opening a file for writing.
@@ -94,6 +103,11 @@ evidence directory, including failed runs.
   surrounding `/* */` content is normalized only for the note comparison. Review
   text and its exported anchor are checked; generated review author/date metadata
   is not an interchange identity guarantee.
+  The represented review spans start at the paragraph start or previous note's
+  end, following the application's Fountain note convention. Arbitrary native
+  highlight starts, colors, resolved status and author/date identities are not
+  promised by these plain-text note delimiters. Adjacent notes are replies on the
+  same range; distinct notes with intervening text retain distinct ranges.
 - Fountain preserves the tested dual-dialogue left/right ownership. FDX exports
   the same speech paragraphs sequentially, preserving every speech and its order
   while losing simultaneity/column ownership; this loss is checked explicitly

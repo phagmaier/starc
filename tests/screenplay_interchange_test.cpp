@@ -232,6 +232,29 @@ const Expected emphasisReview{
       { "action", "Final urgent clue.", { { "urgent", 3 }, { "clue", 4 } }, "none",
         { "Final note" }, { { 0, 18 } } } }, { "1" }
 };
+const Expected reviewOffsets{
+    { { "scene_heading", "INT. OFFICE - DAY" },
+      { "action", "A *literal* clue.", {}, "none", { "Check clue" }, { { 0, 17 } } },
+      { "action", "The _plain_ symbol and *star* stay.", {}, "none",
+        { "Check symbols" }, { { 0, 35 } } },
+      { "action", "A red box and blue key.", { { "red", 1 }, { "blue", 2 } }, "none",
+        { "First note", "Second note" }, { { 0, 9 }, { 9, 13 } } },
+      { "action", "A *literal* and bold clue.", { { "bold", 1 } }, "none",
+        { "Mixed note" }, { { 0, 26 } } },
+      { "character", "MARA" },
+      { "dialogue", "A bold answer then quiet.", { { "bold", 1 }, { "quiet", 4 } }, "none",
+        { "First dialogue note", "Second dialogue note" }, { { 0, 13 }, { 13, 12 } } },
+      { "action", "A bold italic clue.", { { "bold italic", 3 }, { "clue", 4 } }, "none",
+        { "Combined note" }, { { 0, 19 } } },
+      { "action", "A bold clue.", { { "bold", 1 } }, "none",
+        { "First reply", "Second reply" }, { { 0, 6 } } },
+      { "action", "A bold *star* still tail.", { { "bold *star* still", 1 } }, "none",
+        { "Across style", "Final style" }, { { 0, 13 }, { 13, 12 } } },
+      { "action", "A lead *literal*.", {}, "none", { "Before escape" }, { { 0, 7 } } },
+      { "action", "A leadbold tail.", { { "bold", 1 } }, "none", { "Before bold" }, { { 0, 6 } } },
+      { "action", "A 🙂 bold *literal* Ω clue.", { { "bold", 1 } }, "none",
+        { "Unicode note" }, { { 0, 27 } } } }, { "1" }
+};
 
 void inputFailures(const QString& root, const QString& fixtures)
 {
@@ -339,20 +362,14 @@ int main(int argc, char** argv)
     };
     if (argc == 4) {
         const auto identities = QJsonDocument::fromJson(read(root + "/emphasis-review-identities.json")).array();
-        require(identities.size() == 2, "two retained emphasis/review screenplays");
+        require(identities.size() == 4, "four retained emphasis/review screenplays");
         for (const auto& identity : identities) {
             const auto record = identity.toObject();
             const QUuid uuid(record.value("uuid").toString());
             const auto label = record.value("label").toString();
             require(storage->document(uuid)->content() == read(root + "/" + label + "-serialized.xml"),
                     "fresh-process exact serialized bytes and UUID: " + label);
-            auto expected = emphasisReview;
-            if (label == "emphasis-review-fresh") {
-                for (auto& row : expected.rows) {
-                    row.comments.clear();
-                    row.reviewRanges.clear();
-                }
-            }
+            const auto& expected = label.startsWith("review-offsets") ? reviewOffsets : emphasisReview;
             check(select(uuid), expected, root + "/" + label + "-process-reopened.json");
         }
         manager.closeCurrentProject(projectPath);
@@ -378,7 +395,8 @@ int main(int argc, char** argv)
         manager.loadCurrentProject(&project);
         require(storage->document(uuid)->content() == bytes, "exact serialized bytes after database reopen");
         check(select(uuid), expected, root + "/" + label + "-reopened.json");
-        if (label == "emphasis-review" || label == "emphasis-review-fresh")
+        if (label == "emphasis-review" || label == "emphasis-review-fresh"
+            || label == "review-offsets" || label == "review-offsets-fresh")
             emphasisReviewIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
     };
     const auto run = [&](const QString& name, const QString& input, const Expected& expected,
@@ -421,10 +439,12 @@ int main(int argc, char** argv)
     const auto rawEmphasis = ScreenplayFountainImporter().importScreenplays(emphasisOptions);
     require(rawEmphasis.size() == 1, "combined emphasis/review raw import");
     write(root + "/emphasis-review-raw.xml", rawEmphasis.first().text.toUtf8());
-    // Combined annotations must survive native persistence. Full annotated Fountain
-    // round trips remain governed by the separate exporter-offset defect (ISSUES2 #13).
-    // Its explicitly filtered export still preserves every character and emphasis run.
-    run("emphasis-review", fixtures + "/emphasis-review.fountain", emphasisReview, false, false);
+    emphasisOptions.filePath = fixtures + "/review-offsets.fountain";
+    const auto rawOffsets = ScreenplayFountainImporter().importScreenplays(emphasisOptions);
+    require(rawOffsets.size() == 1, "review offsets raw import");
+    write(root + "/review-offsets-raw.xml", rawOffsets.first().text.toUtf8());
+    run("emphasis-review", fixtures + "/emphasis-review.fountain", emphasisReview, false);
+    run("review-offsets", fixtures + "/review-offsets.fountain", reviewOffsets, false);
     const auto fdxUuid = run("fdx", fixtures + "/authored.fdx", fdx, true);
     // Ordinary saves of a shadow project use this convenience route. The destination's
     // extension must select FDX, rather than replacing an FDX file with Fountain text.

@@ -119,6 +119,8 @@ public:
      */
     unsigned noteLen = 0;
 
+    unsigned noteSyntaxLength = 0;
+
     /**
      * @brief Идет ли сейчас редакторская заметка
      */
@@ -239,6 +241,9 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
     //
     char prevSymbol = '\0';
     for (int i = 0; i != _paragraphText.size(); ++i) {
+        if (isNotation) {
+            ++noteSyntaxLength;
+        }
         //
         // Если предыдущий символ - \, то просто добавим текущий
         //
@@ -259,7 +264,9 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
         char curSymbol = _paragraphText[i].toLatin1();
         switch (curSymbol) {
         case '\\': {
-            q->movePreviousTypes(i, 1);
+            if (!isNotation) {
+                q->removePreviousTypes(blockText.size(), 1);
+            }
             break;
         }
 
@@ -331,6 +338,7 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
                 // Начинается редакторская заметка
                 //
                 isNotation = true;
+                noteSyntaxLength = 2; // [[
                 noteLen = blockText.size() - 1 - noteStartPos;
                 blockText = blockText.left(blockText.size() - 1);
             } else {
@@ -350,7 +358,13 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
                 // текущему блоку
                 //
                 isNotation = false;
-                notes.append(std::make_tuple(note.left(note.size() - 1), noteStartPos, noteLen));
+                q->removePreviousTypes(blockText.size(), noteSyntaxLength);
+                // Adjacent [[...]][[...]] entries are replies on the same range.
+                const auto from
+                    = noteLen == 0 && !notes.isEmpty() ? std::get<1>(notes.last()) : noteStartPos;
+                const auto length
+                    = noteLen == 0 && !notes.isEmpty() ? std::get<2>(notes.last()) : noteLen;
+                notes.append(std::make_tuple(note.left(note.size() - 1), from, length));
                 noteStartPos += noteLen;
                 noteLen = 0;
                 note.clear();
@@ -445,19 +459,26 @@ void AbstractFountainImporter::Implementation::appendComments(QXmlStreamWriter& 
 
     _writer.writeStartElement(xml::kReviewMarksTag);
 
+    int previousFrom = -1;
+    int previousLength = -1;
     for (int i = 0; i != notes.size(); ++i) {
         int endPos = std::get<2>(notes[i]);
         if (endPos == 0) {
             endPos = lastBlockText.length();
         }
 
-        if (i != 0) {
-            _writer.writeEndElement(); // review mark
+        const int from = std::get<1>(notes[i]);
+        if (from != previousFrom || endPos != previousLength) {
+            if (i != 0) {
+                _writer.writeEndElement(); // review mark
+            }
+            _writer.writeStartElement(xml::kReviewMarkTag);
+            _writer.writeAttribute(xml::kFromAttribute, QString::number(from));
+            _writer.writeAttribute(xml::kLengthAttribute, QString::number(endPos));
+            _writer.writeAttribute(xml::kBackgroundColorAttribute, "#FFD302");
+            previousFrom = from;
+            previousLength = endPos;
         }
-        _writer.writeStartElement(xml::kReviewMarkTag);
-        _writer.writeAttribute(xml::kFromAttribute, QString::number(std::get<1>(notes[i])));
-        _writer.writeAttribute(xml::kLengthAttribute, QString::number(endPos));
-        _writer.writeAttribute(xml::kBackgroundColorAttribute, "#FFD302");
 
         _writer.writeStartElement(xml::kCommentTag);
         _writer.writeAttribute(xml::kAuthorAttribute, "fountain author");

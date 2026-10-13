@@ -271,12 +271,23 @@ evidence. All runs and logs remain under `.build/evidence/`.
 ordered paragraph/text/emphasis/number checks, fresh imports, and explicit model
 serialization plus project save/reopen. Combined Fountain emphasis/review notes
 also cross a separate-process native reopen with exact XML/UUID and annotation
-coverage checks. Their export explicitly excludes reviews while `ISSUES2.md`
-issue 13 remains open. It also checks the exported syntax/XML
+coverage checks. Annotated exports include repeated escapes, style/note boundaries
+and replies, with exact text, styles and review spans after fresh import.
+It also checks the exported syntax/XML
 with Python, input failures, options, and unchanged fixture hashes. See
 [docs/INTERCHANGE.md](docs/INTERCHANGE.md) for exact normalization, intentional
 loss and remaining limits. It uses a new disposable profile/project and an
 absent private session-bus address so it cannot contact the desktop keyring.
+
+`./tools/check-fountain-review-source.sh` checks annotated Fountain through the
+real application Save coordinator, pending editor edits, full/partial clipboard
+exports, ordinary close and fresh-process source reopening. Repeated saves must
+retain exact output bytes. It uses isolated temporary clipboard files, profiles,
+sources and a fake credential backend. The default is offscreen;
+`STARC_REVIEW_SOURCE_PLATFORM=xcb STARC_REVIEW_SOURCE_SCREENSHOTS=1` on private
+Xvfb adds native application/window evidence. The separately selected
+`STARC_REVIEW_SOURCE_MODES=cold-undo` case reproduces the still-open first-edit
+Undo assertion tracked as `ISSUES2.md` issue 15; it is not a passing export check.
 
 `./tools/check-project-sync.sh` checks the GitHub story sync logic, client and
 actual sync manager. It covers status/context actions after successful transfers,

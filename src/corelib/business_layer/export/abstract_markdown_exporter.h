@@ -61,6 +61,11 @@ protected:
      */
     void removeWhitespaceAtBegin(QString& _paragraph) const;
 
+    /**
+     * @brief Map a UTF-16 source boundary to the escaped/formatted paragraph in processBlock.
+     */
+    int formattedPosition(int _sourcePosition) const;
+
 private:
     class Implementation;
     QScopedPointer<Implementation> d;

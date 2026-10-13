@@ -29,6 +29,11 @@ protected:
     void movePreviousTypes(int _position, int _offset) const;
 
     /**
+     * @brief Remove syntax from collected formatting coordinates, including crossing spans.
+     */
+    void removePreviousTypes(int _position, int _length) const;
+
+    /**
      * @brief Собрать типы выделения текста
      */
     void collectSelectionTypes(QString& _paragraphText) const;

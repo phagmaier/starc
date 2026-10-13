@@ -70,54 +70,79 @@ combined_expected = [
     ("A quiet bold answer.", [(2, 5, 4), (8, 4, 1)], [(0, 20, "Check answer")]),
     ("Final urgent clue.", [(6, 6, 3), (13, 4, 4)], [(0, 18, "Final note")]),
 ]
-for name, child_order in [("emphasis-review-raw.xml", ["v", "fms", "rms"]),
-                          ("emphasis-review-serialized.xml", ["v", "rms", "fms"])]:
+def check_review_xml(name, expected, child_order):
     tree = ET.parse(checks / name)
     paragraphs = [element for element in tree.iter() if element.find("v") is not None]
-    assert len(paragraphs) == len(combined_expected), name
-    for paragraph, (text, spans, reviews) in zip(paragraphs, combined_expected):
+    assert len(paragraphs) == len(expected), name
+    for paragraph, (text, spans, reviews) in zip(paragraphs, expected):
         assert paragraph.findtext("v") == text, (name, text)
-        actual_styles = [0] * len(text)
+        size = len(text.encode("utf-16-le")) // 2
+        actual_styles = [0] * size
         for span in paragraph.findall("fms/fm"):
             start, length = int(span.attrib["from"]), int(span.attrib["length"])
-            assert 0 <= start <= start + length <= len(text), (name, span.attrib)
+            assert 0 <= start <= start + length <= size, (name, span.attrib)
             bits = ("bold" in span.attrib) + 2 * ("italic" in span.attrib) + 4 * ("underline" in span.attrib)
             for position in range(start, start + length):
                 actual_styles[position] |= bits
-        expected_styles = [0] * len(text)
+        expected_styles = [0] * size
         for start, length, bits in spans:
             expected_styles[start:start + length] = [bits] * length
         assert actual_styles == expected_styles, (name, text, actual_styles)
         # Internal CDATA holds HTML-escaped comment content, unlike wire-format
         # Fountain. Decode that documented layer after parsing the XML.
-        actual_reviews = [(int(mark.attrib["from"]), int(mark.attrib["length"]), html.unescape(mark.findtext("c")))
+        actual_reviews = [(int(mark.attrib["from"]), int(mark.attrib["length"]), [html.unescape(comment.text or "") for comment in mark.findall("c")])
                           for mark in paragraph.findall("rms/rm")]
-        assert actual_reviews == reviews, (name, text, actual_reviews)
+        expected_reviews = [(start, length, [messages] if isinstance(messages, str) else messages)
+                            for start, length, messages in reviews]
+        assert actual_reviews == expected_reviews, (name, text, actual_reviews)
         for mark in paragraph.findall("rms/rm"):
             assert mark.attrib["bgcolor"].lower() == "#ffd302" and "done" not in mark.attrib
-            assert mark.find("c").attrib["author"] == "fountain author"
-            assert mark.find("c").attrib["date"] and len(mark.findall("c")) == 1
+            for comment in mark.findall("c"):
+                assert comment.attrib["author"] == "fountain author" and comment.attrib["date"]
         if spans and reviews:
             assert [child.tag for child in paragraph] == child_order, (name, list(paragraph))
 
-# This deliberately excludes reviews while issue 13's exporter offsets remain
-# open. Native annotation persistence above is checked without that filtering.
-combined_filtered = """INT. ROOM - DAY #1#
+
+for prefix, expected in [("emphasis-review", combined_expected), ("review-offsets", [
+    ("INT. OFFICE - DAY", [], []),
+    ("A *literal* clue.", [], [(0, 17, "Check clue")]),
+    ("The _plain_ symbol and *star* stay.", [], [(0, 35, "Check symbols")]),
+    ("A red box and blue key.", [(2, 3, 1), (14, 4, 2)], [(0, 9, "First note"), (9, 13, "Second note")]),
+    ("A *literal* and bold clue.", [(16, 4, 1)], [(0, 26, "Mixed note")]),
+    ("MARA", [], []),
+    ("A bold answer then quiet.", [(2, 4, 1), (19, 5, 4)],
+     [(0, 13, "First dialogue note"), (13, 12, "Second dialogue note")]),
+    ("A bold italic clue.", [(2, 11, 3), (14, 4, 4)], [(0, 19, "Combined note")]),
+    ("A bold clue.", [(2, 4, 1)], [(0, 6, ["First reply", "Second reply"])]),
+    ("A bold *star* still tail.", [(2, 17, 1)], [(0, 13, "Across style"), (13, 12, "Final style")]),
+    ("A lead *literal*.", [], [(0, 7, "Before escape")]),
+    ("A leadbold tail.", [(6, 4, 1)], [(0, 6, "Before bold")]),
+    ("A 🙂 bold *literal* Ω clue.", [(5, 4, 1)], [(0, 27, "Unicode note")]),
+])]:
+    check_review_xml(prefix + "-raw.xml", expected, ["v", "fms", "rms"])
+    check_review_xml(prefix + "-serialized.xml", expected, ["v", "rms", "fms"])
+
+# Exact output checks require each review or reply exactly once at its source
+# anchor, after closing emphasis and before any next opening/escape prefix.
+combined_annotated = """INT. ROOM - DAY #1#
 
 A **bold** clue.
 
-A clue.
+A clue.[[Review only]]
 
-A **bold** clue.
+A **bold** clue.[[Check clue]]
 
-The **red** box and *blue* key waits.
+The **red** box and *blue* key[[First note]] waits[[Second café & <tag>]].
 
 MARA
-A _quiet_ **bold** answer.
+A _quiet_ **bold** answer.[[Check answer]]
 
-Final ***urgent*** _clue_.
+Final ***urgent*** _clue_.[[Final note]]
 """
-assert (checks / "emphasis-review-export.fountain").read_text() == combined_filtered
+assert (checks / "emphasis-review-export.fountain").read_text() == combined_annotated
+expected_offsets = (fixtures / "review-offsets.fountain").read_text().replace(
+    "INT. OFFICE - DAY", "INT. OFFICE - DAY #1#", 1)
+assert (checks / "review-offsets-export.fountain").read_text() == expected_offsets, "review offsets, escapes, emphasis and reply syntax"
 
 
 def check_fdx(name, expected, numbers, emphasis):

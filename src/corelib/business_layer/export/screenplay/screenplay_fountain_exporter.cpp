@@ -28,6 +28,29 @@ const QStringList sceneHeadingStart = {
     QCoreApplication::translate("BusinessLayer::FountainExporter", "EXT/INT"),
     QCoreApplication::translate("BusinessLayer::FountainExporter", "I/E"),
 };
+
+bool sameReviewMetadata(const QTextCharFormat& _first, const QTextCharFormat& _second)
+{
+    const int properties[] = {
+        QTextFormat::ForegroundBrush,
+        QTextFormat::BackgroundBrush,
+        TextBlockStyle::PropertyIsDone,
+        TextBlockStyle::PropertyComments,
+        TextBlockStyle::PropertyCommentsAuthors,
+        TextBlockStyle::PropertyCommentsAuthorsEmails,
+        TextBlockStyle::PropertyCommentsDates,
+        TextBlockStyle::PropertyCommentsIsRevision,
+        TextBlockStyle::PropertyCommentsIsAddition,
+        TextBlockStyle::PropertyCommentsIsRemoval,
+        TextBlockStyle::PropertyCommentsIsEdited,
+    };
+    for (const auto property : properties) {
+        if (_first.property(property) != _second.property(property)) {
+            return false;
+        }
+    }
+    return true;
+}
 } // namespace
 
 
@@ -69,7 +92,15 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
         QVector<QTextLayout::FormatRange> reviewMarks;
         for (const QTextLayout::FormatRange& format : _block.textFormats()) {
             if (format.format.boolProperty(TextBlockStyle::PropertyIsReviewMark)) {
-                reviewMarks.push_back(format);
+                // Emphasis splits one review thread into several QTextBlock runs.
+                // Join only adjacent runs carrying the complete same review data.
+                if (!reviewMarks.isEmpty()
+                    && reviewMarks.last().start + reviewMarks.last().length == format.start
+                    && sameReviewMetadata(reviewMarks.last().format, format.format)) {
+                    reviewMarks.last().length += format.length;
+                } else {
+                    reviewMarks.push_back(format);
+                }
             }
         }
         for (int markIndex = reviewMarks.size() - 1; markIndex >= 0; --markIndex) {
@@ -85,7 +116,8 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
             //
             for (int commentIndex = comments.size() - 1; commentIndex >= 0; --commentIndex) {
                 if (!comments[commentIndex].simplified().isEmpty()) {
-                    _paragraph.insert(reviewMarks[markIndex].start + reviewMarks[markIndex].length,
+                    _paragraph.insert(formattedPosition(reviewMarks[markIndex].start
+                                                        + reviewMarks[markIndex].length),
                                       "[[" + comments[commentIndex] + "]]");
                 }
             }

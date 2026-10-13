@@ -7,6 +7,7 @@ No application fixes, commits or pushes were made during this review.
 
 The build and all nine existing focused regression scripts passed. Additional
 fault, concurrency and editor probes nevertheless confirmed the fourteen issues below.
+Issue 15 was additionally confirmed while fixing issue 13; it is recorded separately.
 The eight completed entries in `ISSUES.md` were not reopened; these findings
 identify remaining paths or failure classes. Inherited upstream defects are
 included because they still affect writing in this fork.
@@ -38,6 +39,7 @@ application's own recovery copies.
 | 12 | P1 | Fountain export/reimport removes literal brackets and backslashes from script text |
 | 13 | P2 | Fountain escaping moves review-note anchors onto the wrong text |
 | 14 | P2 | Fountain export loses forced Action types and changes their content |
+| 15 | P1 | Undo of the first edit in an imported styled/reviewed screenplay aborts the debug app |
 
 ## 1. Failed Fountain/FDX saves appear successful; output is not protected
 
@@ -1046,6 +1048,10 @@ that intended omission alongside unchanged text/styles. This is not credited as
 an annotated Fountain round trip. The original combined annotations are checked
 without filtering through native persistence. Issues 12–14 remain open.
 
+**Subsequent update:** Issue 13 below now fixes that export path. The combined
+fixture's regression exports reviews enabled and verifies the complete annotated
+round trip; the earlier filtered result remains historical evidence.
+
 `./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, the expanded
 interchange check, screenplay scope check, changed-source formatting, Bash
 syntax, ShellCheck, Python compilation and `git diff --check` passed. Evidence:
@@ -1105,7 +1111,7 @@ mismatches; probe source and runner are in `.build/evidence/audit2-interchange/`
 
 ## 13. Fountain escaping shifts a review note onto the wrong text
 
-- [ ] **P2 — confirmed with independent before/after annotation ranges.**
+- [x] **P2 — fixed 2026-10-13; verified through annotated export/reimport, source Save, clipboard exports and fresh-process reopening.**
 
 **Locations:**
 [screenplay_fountain_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp),
@@ -1142,6 +1148,65 @@ The failed comparison and exact output remain in
 Issue 11's reader fix does not repair this exporter path. Resolution here must
 also avoid duplicated comments and preserve styles alongside exact review spans.
 
+**Resolution (2026-10-13):** The Markdown formatting layer now records a map from
+each UTF-16 source boundary to its escaped/formatted output position. Review
+notes follow closing emphasis at that boundary and precede opening emphasis or
+an escape prefix belonging to the next character. Fountain uses this map when
+inserting notes. Adjacent text-format fragments are joined only when all review
+metadata matches, including authors, dates, reply lists, status/flags and colors;
+font differences alone no longer emit another copy of the same note.
+
+The importer projects collected style ranges when removing note syntax or escape
+prefixes, including spans that cross a note. This keeps later styles at their
+actual text positions. Adjacent `[[...]][[...]]` entries retain one review range
+with the replies in order, instead of creating an invalid range past the paragraph.
+
+`./tools/check-screenplay-interchange.sh` passed complete annotated round trips
+for the previous combined fixture and an independent `review-offsets.fountain`
+fixture. It checks repeated literal asterisks/underscores, mixed literal and styled
+text, multiple distinct notes, replies, dialogue, combined bold/italic/underline,
+a style spanning a note and escaped text, note boundaries immediately before an
+escape/opening style, and an emoji with UTF-16 offsets. Every character, style
+bit, comment and represented review range is compared before/after export and
+native serialization/save/reopen. A separate process reopens all four original
+and fresh-imported scripts, verifying exact XML and UUIDs before editor binding.
+Python independently checks source hashes, internal XML ranges and exact output
+syntax, requiring each note/reply once at the authored boundary.
+
+The new `./tools/check-fountain-review-source.sh` passed **four ordinary exits**
+offscreen and the same **four on private Xvfb/XCB**. Both fixtures cross the actual
+ApplicationManager Save coordinator after a real pending editor edit, ordinary
+close and a fresh application import. Repeated Save, fresh-process Save and final
+close preserve the exact expected source bytes. Per-character styles and review
+coverage remain exact; full and partial clipboard selections also match independent
+annotated syntax. Tests choose **Keep .FOUNTAIN** before editing and answer an
+observed asynchronous close Save question once when needed. Credentials are an
+asynchronous in-memory backend; temporary clipboard files, projects and profiles
+are disposable. Native screenshots are diagnostic captures, not an assertion of
+completed editor rendering or physical desktop/GPU behavior.
+
+`./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, the expanded
+interchange check, screenplay scope check, changed-code formatting, Bash syntax,
+ShellCheck, Python compilation and `git diff --check` passed. Retained evidence:
+[interchange](.build/evidence/screenplay-interchange-8j17du/),
+[scope](.build/evidence/screenplay-scope-TIOcHj/),
+[source/clipboard checks](.build/evidence/fountain-review-source-ridkiM/),
+[native source checks](.build/evidence/fountain-review-source-blAFe3/),
+and [builds, original failure and earlier probes](.build/evidence/fountain-review-offsets-fix/).
+The original annotated regression fails on `d86a057d`; its invalid emphasis
+ranges and duplicated output remain in the pre-fix evidence. Earlier native
+harness attempts left the existing source-format or late Save question unanswered;
+their logs/screenshots are retained. No retry, forced shutdown or relaxed data
+assertion is counted as a passing close.
+
+The separate first-edit Undo assertion was reproduced against the previous code
+and remains unchecked as issue 15 below. The passing source/export cases do not
+claim that workflow passes. Fountain's generated author/date/status/color policy
+and inability to express every arbitrary native review start remain unchanged;
+these checks cover the represented spans authored in the fixtures. Issues 12 and
+14 remain open. Release, physical desktop/GPU, other operating systems and
+third-party Fountain applications remain unexercised.
+
 ## 14. Fountain export loses forced Action types and changes their content
 
 - [ ] **P2 — confirmed for six independently authored forced Action paragraphs.**
@@ -1173,6 +1238,49 @@ independent input/export fixtures in the same directory, and the separate
 `case-action-prefixes/checks/` repeat under `.build/evidence/audit2-interchange/`.
 These changes exceed documented whitespace/forced-syntax normalization, which
 does not permit unrelated text or paragraph-type differences.
+
+## 15. Undo of the first edit after importing styled review notes aborts
+
+- [ ] **P1 — confirmed in the real editor/coordinator and reproduced against the previous core library.**
+
+**Locations:**
+[text_model.cpp](src/corelib/business_layer/model/text/text_model.cpp),
+`TextModel::applyPatch`, final `newContent == toXml()` assertion around 2887;
+[abstract_model.cpp](src/corelib/business_layer/model/abstract_model.cpp),
+`saveChanges`, `undo` and `undoChange`;
+[text_document.cpp](src/corelib/business_layer/document/text/text_document.cpp),
+editor/model review-format projection.
+
+**Trigger:** Open `emphasis-review.fountain` in a disposable application profile,
+choose **Keep .FOUNTAIN**, select the screenplay editor, type ` SAVEMARKER` at its
+end, then Undo. The controlled editor probe also fails after an initial Save.
+
+**Result:** The debug application aborts at `TextModel::applyPatch`'s exact XML
+comparison. The Undo patch includes initial review normalization (foreground
+color and formatting fragments) as well as the authored edit. Reconstructed
+model XML differs from the patch target. This is an Undo/history defect, separate
+from Fountain output offsets; no assertion was disabled for the issue 13 fix.
+Release behavior and physical keyboard input remain unexercised.
+
+**Reproduction:** `STARC_REVIEW_SOURCE_MODES=cold-undo ./tools/check-fountain-review-source.sh`.
+This explicit case fails rather than being included among the passing Save/reopen
+cases. It uses disposable sources/profiles, Qt editor actions and a fake
+credential backend. No user script or real keyring is involved.
+
+**Evidence:**
+[normal source-format flow](.build/evidence/fountain-review-source-Q7zyOJ/),
+[earlier first-edit failure](.build/evidence/fountain-review-source-SYDizx/),
+and [previous-code control](.build/evidence/fountain-review-offsets-fix/baseline-flwio6x9/normal-flow-undo/).
+The control rebuilds the four changed importer/exporter objects from `d86a057d`
+and links them with the unchanged debug objects in a separate library, leaving
+the working application libraries intact. The same normal-flow editor probe
+aborts there too. A separate previous-code probe also aborts before any export.
+Build/loader setup failures remain under the other `baseline-*` evidence paths.
+
+**Debugging direction:** Trace editor initialization, review projection and
+history ownership through the first edit and Undo. Preserve complete annotations,
+source text and exact model/XML equality through Undo/Redo and save/reopen;
+do not suppress the assertion, clear history, or add delays to conceal it.
 
 ## Validation, coverage and remaining limits
 

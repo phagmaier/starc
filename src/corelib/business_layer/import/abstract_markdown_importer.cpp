@@ -90,6 +90,24 @@ void AbstractMarkdownImporter::movePreviousTypes(int _position, int _offset) con
     }
 }
 
+void AbstractMarkdownImporter::removePreviousTypes(int _position, int _length) const
+{
+    const auto mapPosition = [_position, _length](int _value) {
+        if (_value <= _position) {
+            return _value;
+        }
+        return _value < _position + _length ? _position : _value - _length;
+    };
+    for (auto& format : d->formatsInText) {
+        const auto end = mapPosition(format.from + format.length);
+        format.from = mapPosition(format.from);
+        format.length = end - format.from;
+    }
+    d->formatsInText.erase(std::remove_if(d->formatsInText.begin(), d->formatsInText.end(),
+                                          [](const auto& _format) { return _format.length == 0; }),
+                           d->formatsInText.end());
+}
+
 //
 // Чтобы не возникало путаницы, обозначим термины, которые будут использоваться при описании того,
 // что здесь происходит: ФОРМАТНЫЕ СИМВОЛЫ - символовы, которые делают текст жирным, подчеркнутым,
