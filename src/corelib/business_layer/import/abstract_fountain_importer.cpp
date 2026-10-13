@@ -531,6 +531,34 @@ AbstractFountainImporter::AbstractFountainImporter(
 
 AbstractFountainImporter::~AbstractFountainImporter() = default;
 
+bool AbstractFountainImporter::startsAnotherBlock(const QString& _line)
+{
+    // Mirrors blockType() and the checks in documentText(); keep them in step.
+    static const QString forcedBlockMarkers = QLatin1String(".!@>=~#");
+    if (_line.isEmpty()) {
+        return false;
+    }
+    if (forcedBlockMarkers.contains(_line.front())) {
+        return true;
+    }
+    // "(text)" following a cue or a speech is a parenthetical.
+    if (_line.startsWith('(') && _line.endsWith(')')) {
+        return true;
+    }
+    for (const QString& sceneHeading : sceneHeadingsDictionary()) {
+        if (_line.startsWith(sceneHeading)) {
+            return true;
+        }
+    }
+    // At the start of a file a key begins the title page, which is not read as script text.
+    for (const auto& titleKey : titleKeysDictionary().keys()) {
+        if (_line.startsWith(titleKey + ":")) {
+            return true;
+        }
+    }
+    return false;
+}
+
 AbstractScreenplayImporter::Documents AbstractFountainImporter::importDocuments(
     const ImportOptions& _options) const
 {

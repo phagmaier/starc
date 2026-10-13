@@ -3,6 +3,7 @@
 #include "screenplay_export_options.h"
 
 #include <business_layer/document/text/text_block_data.h>
+#include <business_layer/import/abstract_fountain_importer.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model_scene_item.h>
 #include <business_layer/model/text/text_model_text_item.h>
 #include <business_layer/templates/screenplay_template.h>
@@ -85,6 +86,17 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
 {
     const auto& exportOptions = static_cast<const ScreenplayExportOptions&>(_exportOptions);
 
+    // Every line of an Action block is a Fountain paragraph of its own. Find where the
+    // lines start before review notes bring line breaks of their own into the text.
+    QVector<int> actionLineStarts;
+    if (TextBlockStyle::forBlock(_block) == TextParagraphType::Action) {
+        actionLineStarts.append(0);
+        for (int position = _paragraph.indexOf(QChar::LineFeed); position != -1;
+             position = _paragraph.indexOf(QChar::LineFeed, position + 1)) {
+            actionLineStarts.append(position + 1);
+        }
+    }
+
     //
     // Если нужны редакторские заметки, то вставляем их
     //
@@ -116,9 +128,15 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
             //
             for (int commentIndex = comments.size() - 1; commentIndex >= 0; --commentIndex) {
                 if (!comments[commentIndex].simplified().isEmpty()) {
-                    _paragraph.insert(formattedPosition(reviewMarks[markIndex].start
-                                                        + reviewMarks[markIndex].length),
-                                      "[[" + comments[commentIndex] + "]]");
+                    const int position = formattedPosition(reviewMarks[markIndex].start
+                                                           + reviewMarks[markIndex].length);
+                    const QString note = "[[" + comments[commentIndex] + "]]";
+                    _paragraph.insert(position, note);
+                    for (int& lineStart : actionLineStarts) {
+                        if (lineStart > position) {
+                            lineStart += note.size();
+                        }
+                    }
                 }
             }
         }
@@ -223,11 +241,29 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
     }
 
     case TextParagraphType::Action: {
-        //
-        // Если действие в верхнем регистре, поставим перед ним "!"
-        //
-        if (TextHelper::isUppercase(_paragraph)) {
-            _paragraph.prepend("!");
+        // The importer reads every line as a paragraph of its own and decides its type from
+        // the text, so put "!" before each line it would not read as Action.
+        const QStringList sourceLines
+            = _block.text().replace(QChar::LineSeparator, QChar::LineFeed).split(QChar::LineFeed);
+        for (int line = actionLineStarts.size() - 1; line >= 0; --line) {
+            // The importer trims a line before looking at it and skips an empty one.
+            const QString sourceLine = TextHelper::simplified(sourceLines.value(line));
+            if (sourceLine.isEmpty()) {
+                continue;
+            }
+
+            // An uppercase line following an empty one is a cue or a transition. The importer
+            // compares the line as written, including the first line of a review note.
+            const int lineStart = actionLineStarts[line];
+            const int lineEnd = _paragraph.indexOf(QChar::LineFeed, lineStart);
+            const QString writtenLine
+                = _paragraph.mid(lineStart, lineEnd == -1 ? -1 : lineEnd - lineStart);
+            const bool followsEmptyLine
+                = line == 0 || TextHelper::simplified(sourceLines.value(line - 1)).isEmpty();
+            if (AbstractFountainImporter::startsAnotherBlock(sourceLine)
+                || (followsEmptyLine && TextHelper::isUppercase(writtenLine))) {
+                _paragraph.insert(lineStart, '!');
+            }
         }
         return true;
     }

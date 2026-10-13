@@ -25,6 +25,12 @@ public:
      */
     Documents importDocuments(const ImportOptions& _options) const override;
 
+    /**
+     * @brief Would a line with this text be read as a block of another type, or lose its first
+     *        characters, unless its type is forced?
+     */
+    static bool startsAnotherBlock(const QString& _line);
+
 protected:
     /**
      * @brief Получить основной текст документа в формате xml из заданного текста

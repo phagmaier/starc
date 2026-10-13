@@ -256,6 +256,45 @@ const Expected reviewOffsets{
         { "Unicode note" }, { { 0, 27 } } } }, { "1" }
 };
 
+// Every Action below would be another paragraph type, or lose leading characters,
+// if its text were written without the forcing "!". The controls stay unforced.
+const Expected forcedAction{
+    { { "scene_heading", "INT. STUDIO - DAY" },
+      { "action", "# A private instruction" }, { "action", "@address" },
+      { "action", ">A direction" }, { "action", "= A hint" },
+      { "action", "~ A hummed sound" }, { "action", "INT. The camera opens - Day" },
+      { "action", ".A dotted remark" }, { "action", "...and then silence." },
+      { "action", "!Twice forced" }, { "action", "EXT is short for exterior." },
+      { "action", "ESTHER walks in." }, { "action", "I/E reads as both." },
+      { "character", "MARA" }, { "dialogue", "A spoken line." },
+      { "action", "(Later that night)" }, { "action", ">Centered words<" },
+      { "action", "===" }, { "action", "# A bold marker", { { "# A bold marker", 1 } } },
+      { "action", "@noted address", {}, "none", { "Check address" }, { { 0, 14 } } },
+      { "action", "THE WIND RISES" }, { "action", "A plain action stays plain." },
+      { "action", "Into the room, a # sign and an @ sign." },
+      { "action", "# The final instruction" } }, { "1" }
+};
+// An unforced title page key on the first line of a file would begin a title page, which
+// is not script text. The exporter forces such a line wherever it stands.
+const Expected forcedActionFirst{
+    { { "action", "Source: a live broadcast." }, { "action", "Title: the door is ajar." },
+      { "action", "Titles roll over black." }, { "scene_heading", "INT. STUDIO - DAY" },
+      { "action", "Credit: none is given." }, { "action", "source: lowercase is not a key." } },
+    { "1" }
+};
+// Physical lines of the model-authored Action paragraphs after a Fountain round trip.
+const Expected forcedActionModel{
+    { { "scene_heading", "INT. LAB - NIGHT" },
+      { "action", "The sign reads:" }, { "action", "# 1 in sales" },
+      { "action", "INT. means interior." },
+      { "action", "BOB" }, { "action", "walks in." },
+      { "action", "A marked line", {}, "none", { "two\nlines" }, { { 0, 13 } } },
+      { "action", "# 2 in sales" },
+      { "action", "BANG", {}, "none", { "SEE\nthis" }, { { 0, 4 } } },
+      { "character", "ADA" }, { "dialogue", "Yes." },
+      { "action", "(She waits)" }, { "action", "~ humming" } }, { "7" }
+};
+
 void inputFailures(const QString& root, const QString& fixtures)
 {
     ScreenplayFountainImporter fountainImporter;
@@ -445,6 +484,8 @@ int main(int argc, char** argv)
     write(root + "/review-offsets-raw.xml", rawOffsets.first().text.toUtf8());
     run("emphasis-review", fixtures + "/emphasis-review.fountain", emphasisReview, false);
     run("review-offsets", fixtures + "/review-offsets.fountain", reviewOffsets, false);
+    run("forced-action", fixtures + "/forced-action.fountain", forcedAction, false);
+    run("forced-action-first", fixtures + "/forced-action-first.fountain", forcedActionFirst, false);
     const auto fdxUuid = run("fdx", fixtures + "/authored.fdx", fdx, true);
     // Ordinary saves of a shadow project use this convenience route. The destination's
     // extension must select FDX, rather than replacing an FDX file with Fountain text.
@@ -512,37 +553,52 @@ int main(int argc, char** argv)
     }
 
     // Construct independently in the application model: no importer or exported seed.
-    auto story = structure->itemForIndex(structure->addDocument(Type::Screenplay, "Model authored"));
-    QUuid uuid;
-    for (int i = 0; i < story->childCount(); ++i)
-        if (story->childAt(i)->type() == Type::ScreenplayText)
-            uuid = story->childAt(i)->uuid();
-    auto model = select(uuid);
-    const auto rootItem = model->itemForIndex({});
-    auto scene = new ScreenplayTextModelSceneItem(model);
-    scene->setGroupType(TextGroupType::Scene);
-    model->appendItem(scene);
-    while (rootItem->childAt(0) != scene)
-        model->removeItem(rootItem->childAt(0));
+    const auto author = [&](const QString& name, const QVector<Row>& rows, const QString& number) {
+        auto story = structure->itemForIndex(structure->addDocument(Type::Screenplay, name));
+        QUuid uuid;
+        for (int i = 0; i < story->childCount(); ++i)
+            if (story->childAt(i)->type() == Type::ScreenplayText)
+                uuid = story->childAt(i)->uuid();
+        auto model = select(uuid);
+        const auto rootItem = model->itemForIndex({});
+        auto scene = new ScreenplayTextModelSceneItem(model);
+        scene->setGroupType(TextGroupType::Scene);
+        model->appendItem(scene);
+        while (rootItem->childAt(0) != scene)
+            model->removeItem(rootItem->childAt(0));
+        for (const auto& row : rows) {
+            auto item = new ScreenplayTextModelTextItem(model);
+            item->setParagraphType(textParagraphTypeFromString(row.type));
+            item->setText(row.text);
+            QVector<QTextLayout::FormatRange> formats;
+            for (const auto& span : row.emphasis) {
+                QTextCharFormat format;
+                format.setFontWeight(QFont::Bold);
+                formats.append({ int(row.text.indexOf(span.text)), int(span.text.size()), format });
+            }
+            item->setFormats(formats);
+            QVector<TextModelTextItem::ReviewMark> marks;
+            for (int i = 0; i < row.reviewRanges.size(); ++i) {
+                TextModelTextItem::ReviewMark mark;
+                mark.from = row.reviewRanges[i].first;
+                mark.length = row.reviewRanges[i].second;
+                mark.backgroundColor = QColor("#FFD302");
+                mark.comments = { { "model author", {}, "2026-10-13T00:00:00", row.comments[i] } };
+                marks.append(mark);
+            }
+            if (!marks.isEmpty())
+                item->setReviewMarks(marks);
+            model->appendItem(item, scene);
+        }
+        scene->setCustomNumber(number, false);
+        return uuid;
+    };
     // One model dialogue paragraph with an embedded line break; Fountain splits it, FDX keeps it.
     auto modelRows = authoredModel.rows;
     modelRows[4].text += QChar::LineSeparator + modelRows[5].text;
     modelRows.removeAt(5);
-    for (const auto& row : modelRows) {
-        auto item = new ScreenplayTextModelTextItem(model);
-        item->setParagraphType(textParagraphTypeFromString(row.type));
-        item->setText(row.text);
-        QVector<QTextLayout::FormatRange> formats;
-        for (const auto& span : row.emphasis) {
-            QTextCharFormat format;
-            format.setFontWeight(QFont::Bold);
-            formats.append({ int(row.text.indexOf(span.text)), int(span.text.size()), format });
-        }
-        item->setFormats(formats);
-        model->appendItem(item, scene);
-    }
-    scene->setCustomNumber("41C", false);
-    check(model, authoredModel, root + "/model-authored.json");
+    const auto uuid = author("Model authored", modelRows, "41C");
+    check(select(uuid), authoredModel, root + "/model-authored.json");
     persist(uuid, authoredModel, "model");
     for (const bool asFdx : { false, true }) {
         ScreenplayExportOptions options;
@@ -557,6 +613,37 @@ int main(int argc, char** argv)
         const auto fresh = scriptUuid();
         check(select(fresh), authoredModel, root + (asFdx ? "/model-fdx-fresh.json" : "/model-fountain-fresh.json"));
         persist(fresh, authoredModel, asFdx ? "model-fdx" : "model-fountain");
+    }
+
+    // Action paragraphs with embedded line breaks: every physical line is its own Fountain
+    // paragraph, so each one needs its own protection. Notes carry line breaks of their own.
+    const QChar lineBreak = QChar::LineSeparator;
+    const auto forcedUuid = author("Model forced actions", {
+        { "scene_heading", "INT. LAB - NIGHT" },
+        { "action", QString("The sign reads:") + lineBreak + "# 1 in sales" + lineBreak
+                        + "INT. means interior." },
+        { "action", QString("BOB") + lineBreak + "walks in." },
+        { "action", QString("A marked line") + lineBreak + "# 2 in sales", {}, "none",
+          { "two\nlines" }, { { 0, 13 } } },
+        { "action", "BANG", {}, "none", { "SEE\nthis" }, { { 0, 4 } } },
+        { "character", "ADA" }, { "dialogue", "Yes." },
+        { "action", QString("(She waits)") + lineBreak + "~ humming" } }, "7");
+    // collect() reports an item's review on each of its physical lines.
+    auto forcedOriginal = forcedActionModel;
+    forcedOriginal.rows[7].comments = forcedOriginal.rows[6].comments;
+    forcedOriginal.rows[7].reviewRanges = forcedOriginal.rows[6].reviewRanges;
+    check(select(forcedUuid), forcedOriginal, root + "/model-forced-authored.json");
+    persist(forcedUuid, forcedOriginal, "model-forced");
+    {
+        ScreenplayExportOptions options;
+        options.templateId = "world_cp";
+        options.includeTitlePage = false;
+        options.filePath = root + "/model-forced-export.fountain";
+        ScreenplayFountainExporter().exportTo(select(forcedUuid), options);
+        importer.importScreenplay(options.filePath, false);
+        const auto fresh = scriptUuid();
+        check(select(fresh), forcedActionModel, root + "/model-forced-fresh.json");
+        persist(fresh, forcedActionModel, "model-forced-fresh");
     }
     inputFailures(root, fixtures);
     write(root + "/emphasis-review-identities.json", QJsonDocument(emphasisReviewIdentities).toJson());

@@ -273,13 +273,16 @@ serialization plus project save/reopen. Combined Fountain emphasis/review notes
 also cross a separate-process native reopen with exact XML/UUID and annotation
 coverage checks. Annotated exports include repeated escapes, style/note boundaries
 and replies, with exact text, styles and review spans after fresh import.
+Forced Action fixtures cover every reserved line start, the scene-heading,
+parenthetical and title-key rules, and each line of a multi-line Action paragraph.
 It also checks the exported syntax/XML
 with Python, input failures, options, and unchanged fixture hashes. See
 [docs/INTERCHANGE.md](docs/INTERCHANGE.md) for exact normalization, intentional
 loss and remaining limits. It uses a new disposable profile/project and an
 absent private session-bus address so it cannot contact the desktop keyring.
 
-`./tools/check-fountain-review-source.sh` checks annotated Fountain through the
+`./tools/check-fountain-review-source.sh` checks annotated Fountain and forced
+Action paragraphs through the
 real application Save coordinator, pending editor edits, full/partial clipboard
 exports, ordinary close and fresh-process source reopening. Repeated saves must
 retain exact output bytes. It uses isolated temporary clipboard files, profiles,

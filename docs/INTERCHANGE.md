@@ -34,9 +34,22 @@ and UTF-16 positions across an emoji. All four original/fresh scripts cross a
 separate-process native reopen. Exact exported syntax independently requires each
 note or reply once, after closing emphasis and before a next opening/escape prefix.
 
+`forced-action.fountain` and `forced-action-first.fountain` are authored in the
+exporter's canonical spelling. They hold Action paragraphs that another Fountain
+rule would claim without the forcing `!`: each reserved first character (`.`, `!`,
+`@`, `>`, `=`, `~`, `#`), each scene-heading start, a parenthesized line after a
+speech, `>centered<` text, a page-break line, bold and reviewed variants, an
+uppercase line, and a first line of the file that begins with a title page key.
+Ordinary Action lines beside them are controls that must stay unforced. A
+model-authored script adds Action paragraphs with embedded line breaks, where each
+physical line is forced on its own, and review notes that carry line breaks.
+Expected types and text are written out in the tests; the exported bytes must equal
+the fixtures apart from the scene number.
+
 `./tools/check-fountain-review-source.sh` separately exercises the real application
-Save coordinator with edited versions of both fixtures, full/partial clipboard
-exports, ordinary close and a fresh application reopening the saved source.
+Save coordinator with edited versions of the review and forced Action fixtures,
+full/partial clipboard exports, ordinary close and a fresh application reopening
+the saved source.
 Repeated saves must be byte-idempotent, with exact per-character style and review
 coverage. The explicit `cold-undo` mode still fails with the separate
 [issue 15](../ISSUES2.md#15-undo-of-the-first-edit-after-importing-styled-review-notes-aborts)
@@ -78,6 +91,16 @@ evidence directory, including failed runs.
   dual dialogue. Mixed-case cues/transitions are not case-preservation evidence:
   the screenplay template/editor can uppercase them; the fixtures use uppercase
   cues/transitions. The forced scene heading is independent of heading heuristics.
+- An Action line is written with `!` whenever this application's importer would
+  otherwise read it as another paragraph, drop its first characters or skip it: a
+  reserved first character, a scene-heading start, text wrapped in parentheses, a
+  title page key followed by a colon, or an uppercase line after an empty line.
+  The decision is made for each physical line from its own text, so a
+  parenthesized or key-like Action gains `!` even in a place where the importer
+  would have read it as Action. A forced Action whose text needs no protection is
+  still written without `!`. The rules follow this importer (case-sensitive heading
+  starts, eight title keys), not every third-party Fountain reader. Other paragraph
+  types have no forcing syntax; see the open items in `ISSUES2.md`.
 - Interchange output is not byte-identical source preservation. Fountain removes
   CR, simplifies ordinary line whitespace, normalizes blank-line separators and
   inserts/removes forced syntax and emphasis delimiters. Each physical input line

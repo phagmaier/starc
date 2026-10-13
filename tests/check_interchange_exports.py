@@ -144,6 +144,49 @@ expected_offsets = (fixtures / "review-offsets.fountain").read_text().replace(
     "INT. OFFICE - DAY", "INT. OFFICE - DAY #1#", 1)
 assert (checks / "review-offsets-export.fountain").read_text() == expected_offsets, "review offsets, escapes, emphasis and reply syntax"
 
+# Forced Action: the fixture is authored in the exporter's canonical spelling. Every
+# Action that another paragraph rule would claim keeps "!", and no other line gains one.
+forced_source = (fixtures / "forced-action.fountain").read_text()
+forced_lines = [line for line in forced_source.split("\n") if line]
+assert [line for line in forced_lines if not line.startswith("!")] == [
+    "INT. STUDIO - DAY", "MARA", "A spoken line.", "A plain action stays plain.",
+    "Into the room, a # sign and an @ sign.",
+], "only the heading, the speech and the two ordinary actions are unforced"
+assert [line[1] for line in forced_lines if line.startswith("!")] == list(
+    "#@>=~I..!EEI(>=*@T#"), "one forced Action per reserved start or heuristic"
+assert (checks / "forced-action-export.fountain").read_text() == forced_source.replace(
+    "INT. STUDIO - DAY", "INT. STUDIO - DAY #1#", 1), "forced Action syntax"
+# A first line beginning with a title page key would otherwise be read as a title page.
+first_source = (fixtures / "forced-action-first.fountain").read_text()
+assert first_source.startswith("!Source: ") and "\nTitles roll" in first_source
+assert (checks / "forced-action-first-export.fountain").read_text() == first_source.replace(
+    "INT. STUDIO - DAY", "INT. STUDIO - DAY #1#", 1), "forced first Action line"
+# Each physical line of a model Action is forced on its own; a note's own line break
+# neither moves the marker nor counts as a line of the paragraph.
+model_forced = """INT. LAB - NIGHT #7#
+
+The sign reads:
+!# 1 in sales
+!INT. means interior.
+
+!BOB
+walks in.
+
+A marked line[[two
+lines]]
+!# 2 in sales
+
+!BANG[[SEE
+this]]
+
+ADA
+Yes.
+
+!(She waits)
+!~ humming
+"""
+assert (checks / "model-forced-export.fountain").read_text() == model_forced, "per-line forced Action"
+
 
 def check_fdx(name, expected, numbers, emphasis):
     data = (checks / name).read_bytes()

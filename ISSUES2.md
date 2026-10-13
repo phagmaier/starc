@@ -8,6 +8,7 @@ No application fixes, commits or pushes were made during this review.
 The build and all nine existing focused regression scripts passed. Additional
 fault, concurrency and editor probes nevertheless confirmed the fourteen issues below.
 Issue 15 was additionally confirmed while fixing issue 13; it is recorded separately.
+Issues 16 and 17 were confirmed while fixing issue 14 and are recorded separately.
 The eight completed entries in `ISSUES.md` were not reopened; these findings
 identify remaining paths or failure classes. Inherited upstream defects are
 included because they still affect writing in this fork.
@@ -40,6 +41,8 @@ application's own recovery copies.
 | 13 | P2 | Fountain escaping moves review-note anchors onto the wrong text |
 | 14 | P2 | Fountain export loses forced Action types and changes their content |
 | 15 | P1 | Undo of the first edit in an imported styled/reviewed screenplay aborts the debug app |
+| 16 | P1 | Fountain export leaves out Shot paragraphs |
+| 17 | P1 | Fountain export/reimport turns dialogue with a reserved line start into headings and cues |
 
 ## 1. Failed Fountain/FDX saves appear successful; output is not protected
 
@@ -1209,7 +1212,7 @@ third-party Fountain applications remain unexercised.
 
 ## 14. Fountain export loses forced Action types and changes their content
 
-- [ ] **P2 — confirmed for six independently authored forced Action paragraphs.**
+- [x] **P2 — fixed 2026-10-13; verified through fixture and model round trips, source Save, clipboard export and fresh-process reopening.**
 
 **Location:**
 [screenplay_fountain_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp),
@@ -1238,6 +1241,96 @@ independent input/export fixtures in the same directory, and the separate
 `case-action-prefixes/checks/` repeat under `.build/evidence/audit2-interchange/`.
 These changes exceed documented whitespace/forced-syntax normalization, which
 does not permit unrelated text or paragraph-type differences.
+
+**Resolution (2026-10-13):** The exporter now decides the forcing `!` for each
+physical line of an Action paragraph from that line's own text, rather than from
+the case of the whole paragraph. A line is forced when this application's importer
+would otherwise read it as another paragraph, strip its first characters or skip it:
+
+- a first character among `.`, `!`, `@`, `>`, `=`, `~` and `#`;
+- a scene-heading start from the importer's own list (`INT`, `EXT`, `EST`, `I/E`
+  and their combinations, with any translated spellings);
+- text wrapped in parentheses, which is a parenthetical after a cue or a speech;
+- a title page key followed by a colon, which begins a title page when it is the
+  first line of a file;
+- an uppercase line after an empty line, as before, now judged from the first
+  written line of each physical line instead of the whole paragraph.
+
+The first four tests sit beside the importer rules they mirror, in
+`AbstractFountainImporter::startsAnotherBlock`. Line-start positions are kept
+through review-note insertion, because a note can carry line breaks of its own.
+Ordinary Action lines are written exactly as before, and a `!` that a source does
+not need is still dropped on export.
+
+The same defect was confirmed in further forms, all now covered. Importing the
+unfixed exporter's retained output again (without its bold line, which stops the
+comparison harness earlier) showed `.A dotted remark` and
+`...and then silence.` as scene headings (the second as `..AND THEN SILENCE.`),
+`!Twice forced` without its `!`, `(Later that night)` after a speech as a
+parenthetical without its parentheses, `>Centered words<` without both markers,
+and `ESTHER walks in.`, `EXT is short for exterior.` and `I/E reads as both.` as
+scene headings. A first line `Source: a live broadcast.` was taken for a title
+page and left out of the script entirely. An Action paragraph with embedded line
+breaks is written as one line per physical line: with the old whole-paragraph test
+`BOB` + break + `walks in.` came back as a cue and its dialogue, and `BANG` with a
+note beginning `SEE` and continuing on a second line came back as a cue; with
+only the first line forced, inner lines `# 1 in sales`, `INT. means interior.`
+and `~ humming` came back as a sequence heading, a scene heading and lyrics.
+
+`./tools/check-screenplay-interchange.sh` passed with two new independently
+authored fixtures and one model-authored script. `forced-action.fountain` holds 19
+forced Action paragraphs (each reserved first character, each heading start, the
+parenthesized line after a speech, centered text, a page-break line, a bold and a
+reviewed variant, an uppercase line) beside ordinary Action controls that must
+stay unforced. `forced-action-first.fountain` holds title-key lines, including
+the first line of the file, and two controls. Each fixture is compared with
+explicit types and text after import, native save/reopen, export and fresh import,
+and the exported bytes must equal the fixture apart from the scene number. The
+model-authored script covers per-line forcing, a note with a line break before a
+forced line and the uppercase note case, with exact output text.
+
+`./tools/check-fountain-review-source.sh` passed **eight ordinary exits** offscreen
+and the same **eight on private Xvfb/XCB**; four of each are the two new fixtures.
+They cross the actual ApplicationManager Save coordinator after a real pending
+editor edit in a forced paragraph, an ordinary close and a fresh application
+import. Saved bytes equal the authored fixture plus the typed marker, repeated
+and fresh-process saves are byte-identical, the full clipboard selection equals
+the saved source, and the saved model holds the explicitly listed types and text.
+The native screenshots show the application window and navigator; the editor area
+is not painted in them, so they are not evidence of editor rendering.
+
+Without the fix both checks fail: the interchange check at the fresh import of
+`forced-action`, the source check at its fresh application import, after the
+application's own Save had written the unforced source. Eight
+single-rule mutations (old uppercase-only test, no marker rule, no parenthetical
+rule, no heading rule, no title-key rule, no note offset, whole-paragraph
+uppercase, first line only) each failed the interchange check; the first five
+also failed the source check. The other three need a paragraph with an embedded
+line break, which a Fountain source cannot hold. Each mutation was restored,
+rebuilt and followed by the passing runs below.
+
+`./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, the interchange,
+source (offscreen and Xvfb), screenplay scope, source-export-failure,
+import-only-sources and startup-last-story checks, changed-code formatting, Bash
+syntax, ShellCheck, Python compilation and `git diff --check` passed. Retained
+evidence: [interchange](.build/evidence/screenplay-interchange-lf4aOw/),
+[source checks](.build/evidence/fountain-review-source-bUmYlR/),
+[native source checks](.build/evidence/fountain-review-source-1vC0ad/),
+[scope](.build/evidence/screenplay-scope-IFjP51/), and
+[builds, failing runs, mutations and probes](.build/evidence/forced-action-fix/).
+The first failing runs are [unfixed](.build/evidence/screenplay-interchange-Bs2AHU/)
+and [before the title-key rule](.build/evidence/screenplay-interchange-0qaB8s/).
+
+Forcing does not look at the surrounding paragraphs. A parenthesized or key-like
+Action line therefore gains `!` even where the importer would have read it as
+Action; this is harmless and stable on the next save. The rules follow this
+application's importer: heading starts are case-sensitive and only its eight title
+keys count, so a third-party reader with wider rules (lowercase `int.`, any
+`key: value` first line) is not covered. Empty lines inside an Action paragraph
+and a review range that crosses an embedded line break were not exercised.
+Literal `[[`, `/*` and backslashes in Action text remain issue 12. Issues 16 and 17 below were confirmed with a separate probe and
+are not fixed here. Release, physical desktop/GPU, other operating systems and
+third-party Fountain applications remain unexercised.
 
 ## 15. Undo of the first edit after importing styled review notes aborts
 
@@ -1281,6 +1374,73 @@ Build/loader setup failures remain under the other `baseline-*` evidence paths.
 history ownership through the first edit and Undo. Preserve complete annotations,
 source text and exact model/XML equality through Undo/Redo and save/reopen;
 do not suppress the assertion, clear history, or add delays to conceal it.
+
+## 16. Fountain export leaves out Shot paragraphs
+
+- [ ] **P1 — confirmed through the actual exporter and a fresh import manager while fixing issue 14.**
+
+**Location:**
+[screenplay_fountain_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp),
+`processBlock`: there is no case for `TextParagraphType::Shot`, so it reaches the
+default branch that skips unknown blocks. `addIndentationAtBegin` in the same file
+already lists Shot. Frozen `master` has the same code.
+
+**Trigger:** A screenplay contains a Shot paragraph, typed in the editor or
+imported from FDX. Export it to Fountain.
+
+**Result:** The paragraph is not written. A model-authored script with the Shot
+`CLOSE ON THE LETTER` between a scene heading and an Action exported without that
+line, and the fresh import has no such paragraph. The neighbouring paragraphs
+were unaffected.
+
+The probe used the exporter and the import manager directly. An application
+source Save was not run for this case; direct Fountain saving uses the same
+exporter, so a Shot is expected to disappear from the source on Save.
+
+**Debugging direction:** Fountain has no Shot element. Decide how the text is kept
+(an uppercase forced Action keeps the words and loses the type) and record the
+type change in `docs/INTERCHANGE.md` if it is accepted. Check the other
+paragraph types that reach the default branch.
+
+**Evidence:** Probe source, run log and exported Fountain in
+[adjacent-probe](.build/evidence/forced-action-fix/adjacent-probe/).
+
+## 17. Fountain export/reimport turns dialogue with a reserved line start into headings and cues
+
+- [ ] **P1 — confirmed for four dialogue lines through the actual exporter and a fresh import manager while fixing issue 14.**
+
+**Locations:**
+[abstract_fountain_importer.cpp](src/corelib/business_layer/import/abstract_fountain_importer.cpp),
+`blockType` and the scene-heading test in `documentText`, which run before the
+dialogue rule;
+[screenplay_fountain_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp),
+Dialogue handling, which writes the text unchanged.
+
+**Trigger:** A speech begins with `#`, `@`, `.` or a scene-heading start, such as
+`#1 is the best.`, `@home, he says.`, `...and then nothing.` or
+`INT. is short for interior.`. Export to Fountain and import again.
+
+**Result:** The four speeches came back as a sequence heading `1 is the best.`, a
+cue `home, he says.`, a scene heading `..and then nothing.` and a scene heading
+`INT. is short for interior.`. Types change, leading characters are lost and the
+false headings add a sequence and scenes. A speech that trails in with an
+ellipsis is ordinary screenplay text, so the `.` case does not need unusual
+input. A hand-written Fountain file with such a speech imports the same way
+without any export.
+
+Fountain's `!` forces Action only, so the issue 14 fix cannot be applied to a
+speech. Starts with `!`, `>`, `=` and `~` take the same importer path and were
+not run. A parenthetical beginning `~` round-tripped correctly.
+
+**Debugging direction:** Fountain forces a scene heading only for a single period
+followed by a letter or digit; reading two or more leading periods as text would
+remove the ellipsis case for every paragraph type, including hand-written
+sources. The remaining starts need an escape that the importer honours before
+classification, which belongs with issue 12. Check type, complete text and the
+absence of new headings through export/fresh import and source Save/reopen.
+
+**Evidence:** Probe source, run log and exported Fountain in
+[adjacent-probe](.build/evidence/forced-action-fix/adjacent-probe/).
 
 ## Validation, coverage and remaining limits
 
