@@ -79,6 +79,7 @@ public:
      */
     void requestRename(const QString& _name);
     Q_SIGNAL void renameRequested(const QString& _name);
+    Q_SIGNAL void renameRejected(const QString& _reason);
     QString documentName() const override;
     void setDocumentName(const QString& _name) override;
 

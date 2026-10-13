@@ -894,6 +894,40 @@ void TextModelTextItem::setText(const QString& _text)
     markChanged();
 }
 
+void TextModelTextItem::replaceText(int _from, int _length, const QString& _text)
+{
+    if (_from < 0 || _length <= 0 || _from > d->text.length() || _length > d->text.length() - _from
+        || d->text.mid(_from, _length) == _text) {
+        return;
+    }
+
+    const int oldEnd = _from + _length;
+    const int newEnd = _from + _text.length();
+    const int delta = _text.length() - _length;
+    const auto moveRanges = [&](auto& _ranges) {
+        for (auto& range : _ranges) {
+            const int end = range.end();
+            if (end <= _from) {
+                continue;
+            }
+            if (range.from >= oldEnd) {
+                range.from += delta;
+                continue;
+            }
+
+            // Keep annotations on the replaced name, and keep any unaffected text covered.
+            range.from = qMin(range.from, _from);
+            range.length = (end >= oldEnd ? end + delta : newEnd) - range.from;
+        }
+    };
+    moveRanges(d->formats);
+    moveRanges(d->reviewMarks);
+    moveRanges(d->resourceMarks);
+    d->text.replace(_from, _length, _text);
+    d->updateXml();
+    markChanged();
+}
+
 void TextModelTextItem::removeText(int _from, int _length)
 {
     if (_from >= d->text.length()) {

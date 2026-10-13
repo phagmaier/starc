@@ -167,13 +167,19 @@ kinds of paragraph:
 2. a character cue whose parsed name is the old name;
 3. only with `withMentions`: the mentions of the character in running text.
 
-The first two are upstream's and always happen. The third was upstream's too,
+The first two always happen. Cue and list names use the parser's exact simplified
+name, with replacements at the original source positions. This preserves leading
+and trailing spaces, extensions such as `(V.O.)`, and every matching list entry.
+The third was upstream's too,
 without a condition, in every paragraph and in any letter case, so renaming WILL
 turned "I will go" into "I Bill go", the cue YOUNG WILL into YOUNG BILL and the
 heading INT. WILL'S BAR - DAY into INT. BILL'S BAR - DAY, while the lists still
 said YOUNG WILL and WILL'S BAR. Now:
 
 - A mention is the name as a whole word whose first letter is not lowercase.
+  Names are escaped literally, including regex punctuation. Unicode letters,
+  combining marks, numbers and underscores form word boundaries. The first
+  letter is checked even when a name starts with a digit or punctuation.
   "Will" and "WILL" are mentions of WILL; "will" never is. A mention in capitals
   becomes the new name in capitals, any other one the new name with each word
   capitalised ("Will" to "Bill").
@@ -187,6 +193,10 @@ said YOUNG WILL and WILL'S BAR. Now:
 - `characterMentions` in the same file is the one matcher for counting
   (`characterMentionsCount`) and for renaming, so the number the writer is asked
   about is the number of places that change.
+- Cue, list and mention replacements use `TextModelTextItem::replaceText`.
+  Emphasis, review comments/status and resource links move with the text; a
+  range overlapping a replaced name covers the replacement. Multiple names in
+  one paragraph share a change transaction so its XML is rebuilt once.
 
 "Will you come?" cannot be told apart from the name, so the writer decides.
 `renameCharacter` counts the mentions in every screenplay text of the project,
@@ -205,6 +215,12 @@ for the whole project, with the number, and two answers: "Leave the text" or
 - The name field loses the focus to the question and enters its name once more.
   A request that arrives while a question is open is ignored.
 - Closing the project hides an open question and renames nothing.
+- A patch changing the character's name dismisses the pending question. An
+  answer from an old or fading question cannot overwrite that patch or clear
+  a newer question. Answer callbacks disconnect with the project manager.
+- The proposed name is checked again after the answer. If another character
+  has taken it, the page shows the duplicate-name error and neither character
+  is merged or deleted.
 
 Only the page asks. `CharacterModel::setName` is also reached from `applyPatch`
 (undo or redo of the character document, applied remote changes) and from
@@ -235,6 +251,11 @@ it; the dialog is a child of the host widget given to `ProjectManager`. A
 passing run leaves `project/rename-mentions-fixture.starc`, the project as it
 is before that rename. The rename connections are lambdas, which the code graph
 does not list as callers; find them with `rg`.
+The check also covers literal Unicode/punctuation names, growing and shrinking
+formatted names, real applied character patches and stale answers, a target name
+taken while the question is open, and annotated page renaming through script
+Undo/Redo and save/reopen. `STARC_RENAME_CHECK=model` runs just the model cases;
+`STARC_RENAME_CHECK=pages` includes the character/location page cases.
 
 ## Retired formats
 

@@ -55,8 +55,8 @@ bool isRunningText(TextParagraphType _type)
 }
 
 /**
- * @brief The mentions of the character in the text: its name as a whole word that doesn't begin
- *        with a lowercase letter, so the "will" of "I will go" isn't taken for WILL.
+ * @brief Literal whole-name mentions whose first letter isn't lowercase, including names that
+ *        start with punctuation or digits. Unicode letters and combining marks form words.
  *        The mentions are counted and renamed from this one list, so the two always agree
  * @note The name should be in capitals
  */
@@ -67,16 +67,58 @@ QVector<QRegularExpressionMatch> characterMentions(const QString& _text, const Q
         return mentions;
     }
 
-    const QRegularExpression nameMatcher(QString("\\b(%1)\\b").arg(TextHelper::toRxEscaped(_name)),
-                                         QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpression nameMatcher(
+        QString("(?<![\\p{L}\\p{M}\\p{N}_])(%1)(?![\\p{L}\\p{M}\\p{N}_])")
+            .arg(QRegularExpression::escape(_name)),
+        QRegularExpression::CaseInsensitiveOption);
     auto match = nameMatcher.globalMatch(_text);
     while (match.hasNext()) {
         const auto mention = match.next();
-        if (!mention.captured().at(0).isLower()) {
+        bool startsLowercase = false;
+        for (const auto codePoint : mention.captured().toUcs4()) {
+            if (QChar::isLetter(codePoint)) {
+                startsLowercase = QChar::isLower(codePoint);
+                break;
+            }
+        }
+        if (!startsLowercase) {
             mentions.append(mention);
         }
     }
     return mentions;
+}
+
+/**
+ * @brief Exact names in a cue or comma-separated scene-character list, with source positions.
+ *        Match the same simplified names as the parser, preserving whitespace and extensions
+ */
+QVector<QPair<int, int>> characterCueNames(const QString& _text, const QString& _name, bool _isList)
+{
+    QVector<QPair<int, int>> names;
+    int from = 0;
+    while (from < _text.length()) {
+        int end = _isList ? _text.indexOf(',', from) : -1;
+        if (end == -1) {
+            end = _text.length();
+        }
+        const auto entry = _text.mid(from, end - from);
+        if (ScreenplayCharacterParser::name(entry) == _name) {
+            int nameFrom = from;
+            int nameEnd = entry.indexOf('(');
+            nameEnd = nameEnd == -1 ? end : from + nameEnd;
+            while (nameFrom < nameEnd && _text.at(nameFrom).isSpace()) {
+                ++nameFrom;
+            }
+            while (nameEnd > nameFrom && _text.at(nameEnd - 1).isSpace()) {
+                --nameEnd;
+            }
+            if (nameEnd > nameFrom) {
+                names.append({ nameFrom, nameEnd - nameFrom });
+            }
+        }
+        from = end + 1;
+    }
+    return names;
 }
 } // namespace
 
@@ -306,61 +348,40 @@ void ScreenplayTextModel::updateCharacterName(const QString& _oldName, const QSt
             case TextModelItemType::Text: {
                 auto textItem = static_cast<ScreenplayTextModelTextItem*>(childItem);
                 if (textItem->paragraphType() == TextParagraphType::SceneCharacters
-                    && ScreenplaySceneCharactersParser::characters(textItem->text())
-                           .contains(oldName)) {
-                    auto text = textItem->text();
-                    auto nameIndex = TextHelper::smartToUpper(text).indexOf(oldName);
-                    while (nameIndex != -1) {
-                        //
-                        // Убедимся, что выделено именно имя, а не часть другого имени
-                        //
-                        const auto nameEndIndex = nameIndex + oldName.length();
-                        const bool atLeftAllOk = nameIndex == 0 || text.at(nameIndex - 1) == ','
-                            || (nameIndex > 2 && text.mid(nameIndex - 2, 2) == ", ");
-                        const bool atRightAllOk = nameEndIndex == text.length()
-                            || text.at(nameEndIndex) == ','
-                            || (text.length() > nameEndIndex + 1
-                                && (text.mid(nameEndIndex, 2) == " ,"
-                                    || text.mid(nameEndIndex, 2) == " ("));
-                        if (!atLeftAllOk || !atRightAllOk) {
-                            nameIndex
-                                = TextHelper::smartToUpper(text).indexOf(oldName, nameEndIndex);
-                            continue;
+                    || textItem->paragraphType() == TextParagraphType::Character) {
+                    const auto names = characterCueNames(textItem->text(), oldName,
+                                                         textItem->paragraphType()
+                                                             == TextParagraphType::SceneCharacters);
+                    if (!names.isEmpty()) {
+                        textItem->beginChangeTransaction();
+                        for (const auto& name : reversed(names)) {
+                            textItem->replaceText(name.first, name.second, _newName);
                         }
-
-                        text.remove(nameIndex, oldName.length());
-                        text.insert(nameIndex, _newName);
-                        textItem->setText(text);
+                        textItem->finishChangeTransaction();
                         updateItem(textItem);
+                    }
+                } else if (_withMentions && isRunningText(textItem->paragraphType())) {
+                    const auto mentions = characterMentions(textItem->text(), oldName);
+                    if (mentions.isEmpty()) {
                         break;
                     }
-                } else if (textItem->paragraphType() == TextParagraphType::Character
-                           && ScreenplayCharacterParser::name(textItem->text()) == oldName) {
-                    auto text = textItem->text();
-                    text.remove(0, oldName.length());
-                    text.prepend(_newName);
-                    textItem->setText(text);
-                    updateItem(textItem);
-                } else if (_withMentions && isRunningText(textItem->paragraphType())) {
-                    auto text = textItem->text();
-                    const auto mentions = characterMentions(text, oldName);
                     //
                     // From the last mention to the first one, so the positions of the ones
                     // that aren't renamed yet stay valid. A name written in capitals stays
                     // in capitals, any other one is written as a name
                     //
+                    textItem->beginChangeTransaction();
                     for (const auto& mention : reversed(mentions)) {
                         const auto capitalizeEveryWord = true;
                         const auto newName = mention.captured() == oldName
                             ? TextHelper::smartToUpper(_newName)
                             : TextHelper::toSentenceCase(_newName, capitalizeEveryWord);
-                        text.replace(mention.capturedStart(), mention.capturedLength(), newName);
+                        textItem->replaceText(mention.capturedStart(), mention.capturedLength(),
+                                              newName);
                     }
 
-                    if (!mentions.isEmpty()) {
-                        textItem->setText(text);
-                        updateItem(textItem);
-                    }
+                    textItem->finishChangeTransaction();
+                    updateItem(textItem);
                 }
                 break;
             }

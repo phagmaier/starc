@@ -77,6 +77,13 @@ lands. If a decision or a limit is worth remembering, add a line under the item.
     shown to fail without its fix) and private Xvfb rename/answer/save/quit/
     reopen checks on five disposable copies passed; all eight Ctrl+Q exits
     were 0.
+  - Follow-up review 2026-10-12: fixed literal Unicode/punctuation matching,
+    whitespace and repeated entries in cues/lists, and movement of emphasis,
+    review comments and resource links when names change length. Pending
+    answers are guarded against applied patches, newer questions and a target
+    name taken after the page's original validation. Focused model/page checks
+    include actual patches and annotated script Undo/Redo plus save/reopen;
+    see the follow-up evidence in `docs/PROJECT.md`.
   - Limits: act and sequence headings are not searched. A capitalised ordinary
     word ("Will you come?") is counted as a mention, so the writer has to look
     before choosing to rename the text. A project with several screenplays

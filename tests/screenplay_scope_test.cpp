@@ -7,7 +7,9 @@
 #include <business_layer/import/import_options.h>
 #include <business_layer/model/characters/character_model.h>
 #include <business_layer/model/locations/location_model.h>
+#include <business_layer/model/screenplay/screenplay_information_model.h>
 #include <business_layer/model/screenplay/text/screenplay_text_model.h>
+#include <business_layer/model/screenplay/text/screenplay_text_model_text_item.h>
 #include <business_layer/model/structure/structure_model.h>
 #include <business_layer/model/structure/structure_model_item.h>
 #include <business_layer/model/text/text_model_text_item.h>
@@ -659,6 +661,109 @@ void checkStatistics(const QString& _evidence, const QString& _slice)
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
 }
+void checkCharacterRenameModel()
+{
+    using namespace BusinessLayer;
+    ScreenplayInformationModel information;
+    ScreenplayTextModel model;
+    model.setInformationModel(&information);
+    auto add = [&](TextParagraphType _type, const QString& _text) {
+        auto item = new ScreenplayTextModelTextItem(&model);
+        item->setParagraphType(_type);
+        item->setText(_text);
+        model.appendItem(item);
+        return item;
+    };
+    bool passed = true;
+    const auto check = [&](bool _ok, const char* _label) {
+        std::printf("%s: %s\n", _ok ? "ok" : "FAIL", _label);
+        passed &= _ok;
+    };
+    const QVector<QPair<QString, QString>> names = {
+        { "ZOË", "Zoë ZOË zoë Zoëy" },
+        { "ÉMILE", "Émile ÉMILE émile PréÉmile" },
+        { "2ND COP", "2ND COP 2Nd Cop 2nd cop" },
+        { "A|B", "A|B A|b a|b A B" },
+        { "$AGENT", "$AGENT $Agent $agent" },
+        { "WILL", "Will WILL will Willé ÉWill Will\u0301 Will_ Will2" },
+    };
+    for (const auto& fixture : names) {
+        auto item = add(TextParagraphType::Action, fixture.second);
+        check(model.characterMentionsCount(fixture.first) == 2,
+              qPrintable("literal Unicode mention count for " + fixture.first));
+        model.updateCharacterName(fixture.first, "BOB", true);
+        check(item->text().count("Bob") + item->text().count("BOB") == 2,
+              qPrintable("count agrees with Unicode replacements for " + fixture.first));
+        model.removeItem(item);
+    }
+
+    auto cue = add(TextParagraphType::Character, "  WILL  (V.O.)");
+    auto list = add(TextParagraphType::SceneCharacters, "ALICE,  WILL (V.O.), WILL, YOUNG WILL");
+    auto action = add(TextParagraphType::Action, "Will sees Will. Tail.");
+    QTextCharFormat bold;
+    bold.setFontWeight(QFont::Bold);
+    QTextCharFormat italic;
+    italic.setFontItalic(true);
+    QTextCharFormat underline;
+    underline.setFontUnderline(true);
+    action->setFormats({ { 0, 4, bold }, { 5, 4, italic }, { 16, 4, underline } });
+    auto expectedFormats = action->formats();
+    TextModelTextItem::ReviewMark nameMark;
+    nameMark.from = 10;
+    nameMark.length = 4;
+    nameMark.backgroundColor = Qt::yellow;
+    nameMark.isDone = true;
+    TextModelTextItem::ReviewComment comment;
+    comment.author = "Reviewer";
+    comment.authorEmail = "reviewer@example.invalid";
+    comment.date = "2026-10-12T00:00:00";
+    comment.text = "Keep this comment on the name";
+    nameMark.comments.append(comment);
+    auto tailMark = nameMark;
+    tailMark.from = 16;
+    tailMark.isDone = false;
+    action->setReviewMarks(QVector<TextModelTextItem::ReviewMark>{ nameMark, tailMark });
+    auto expectedReviews = action->reviewMarks();
+    TextModelTextItem::ResourceMark resource;
+    resource.from = 16;
+    resource.length = 4;
+    resource.uuid = QUuid::createUuid();
+    action->setResourceMarks(QVector<TextModelTextItem::ResourceMark>{ resource });
+    auto expectedResources = action->resourceMarks();
+    model.updateItem(action);
+
+    model.updateCharacterName("WILL", "WILLIAM", true);
+    check(cue->text() == "  WILLIAM  (V.O.)", "cue whitespace and extension survive renaming");
+    check(list->text() == "ALICE,  WILLIAM (V.O.), WILLIAM, YOUNG WILL",
+          "every exact scene-character entry is renamed with its whitespace intact");
+    check(action->text() == "William sees William. Tail.", "both formatted mentions are renamed");
+    expectedFormats[0].length = 7;
+    expectedFormats[1].from = 8;
+    expectedFormats[2].from = 22;
+    expectedReviews[0].from = 13;
+    expectedReviews[0].length = 7;
+    expectedReviews[1].from = 22;
+    expectedResources[0].from = 22;
+    check(action->formats() == expectedFormats, "growing names preserve emphasis on the same text");
+    check(action->reviewMarks() == expectedReviews,
+          "growing names preserve review ranges, comments and status");
+    check(action->resourceMarks() == expectedResources, "growing names preserve resource links");
+
+    model.updateCharacterName("WILLIAM", "BO", true);
+    expectedFormats[0].length = 2;
+    expectedFormats[1].from = 3;
+    expectedFormats[2].from = 12;
+    expectedReviews[0].from = 8;
+    expectedReviews[0].length = 2;
+    expectedReviews[1].from = 12;
+    expectedResources[0].from = 12;
+    check(action->text() == "Bo sees Bo. Tail." && action->formats() == expectedFormats
+              && action->reviewMarks() == expectedReviews
+              && action->resourceMarks() == expectedResources,
+          "shortening names preserves all attached content");
+    require(passed, "character rename model regressions");
+}
+
 // The pages of characters and locations: what they show and store, renaming through the
 // screenplay, the names they refuse, and the documents they leave as they are.
 void checkCharacterAndLocationPages(const QString& _evidence)
@@ -1368,6 +1473,47 @@ void checkCharacterAndLocationPages(const QString& _evidence)
     save();
     require(nothingRenamed(), "the name set back without the page restores the typed script");
 
+    // Apply an actual character-document patch while a question is open. The stale answer
+    // must not overwrite the patched name, rewrite mentions or clear a later question.
+    fields = fieldsOf(willUuid, "Ui::CharacterInformationView");
+    asked = askToRename("bill");
+    require(asked, "question before a character patch");
+    auto patchedCharacter = will->document()->content();
+    patchedCharacter.replace("<![CDATA[WILL]]>", "<![CDATA[WILLIAM]]>");
+    const auto patches = will->adoptDocumentChanges(patchedCharacter);
+    will->applyDocumentChanges({ patches.first });
+    require(will->name() == "WILLIAM" && answer(asked, RenameInText) && will->name() == "WILLIAM",
+            "a stale question cannot overwrite a patched character name");
+    save();
+    auto patchedScript = mentionsWithCues;
+    patchedScript.replace(stored("character", "BILL"), stored("character", "WILLIAM"));
+    patchedScript.replace(stored("scene_characters", "BILL, YOUNG WILL"),
+                          stored("scene_characters", "WILLIAM, YOUNG WILL"));
+    require(mentions() == patchedScript && script() == firstTyped && questions().isEmpty(),
+            "a real applied patch renames cues and leaves mentions without a question");
+    will->applyDocumentChanges({ patches.second });
+    save();
+    require(nothingRenamed(), "the inverse character patch restores the cues only");
+    fields = fieldsOf(willUuid, "Ui::CharacterInformationView");
+    asked = askToRename("bill");
+    require(asked, "another question before a patch and its inverse");
+    will->applyDocumentChanges({ patches.first });
+    will->applyDocumentChanges({ patches.second });
+    will->requestRename("BILL");
+    Dialog* laterQuestion = nullptr;
+    for (auto open : questions()) {
+        if (open != asked) {
+            laterQuestion = open;
+        }
+    }
+    require(laterQuestion && answer(asked, RenameInText) && !laterQuestion->isHidden()
+                && will->name() == "WILL",
+            "answering a fading stale question leaves a later question alone");
+    require(answer(laterQuestion, LeaveText), "answer the later question");
+    save();
+    will->setName("WILL");
+    save();
+
     // A question that is still open when the project closes goes away and renames nothing.
     fields = fieldsOf(willUuid, "Ui::CharacterInformationView");
     asked = askToRename("bill");
@@ -1429,6 +1575,135 @@ void checkCharacterAndLocationPages(const QString& _evidence)
     require(structure->itemForUuid(danaUuid)->name() == "DINA"
                 && script().contains(stored("action", "Dana waves.")),
             "the single mention stays as the writer chose");
+
+    // A real page rename with a longer accented name, emphasis and review comments. Exercise
+    // serialization, the editor's Undo/Redo and a fresh project load, not just the matcher.
+    select(scriptUuid);
+    edit = screenplayEdit(scriptUuid);
+    edit->moveCursor(QTextCursor::End);
+    const QString unicodeText = "Zoë greets Émile, while zoë waits.";
+    paragraph(Paragraph::Action, unicodeText);
+    paragraph(Paragraph::Character, "ZOË (V.O.)");
+    paragraph(Paragraph::Dialogue, "Hello.");
+    save();
+    auto unicodeModel = qobject_cast<BusinessLayer::ScreenplayTextModel*>(current);
+    require(unicodeModel, "formatted Unicode fixture uses the real screenplay model");
+    const auto findText = [&](BusinessLayer::ScreenplayTextModel* _model, const QString& _text) {
+        BusinessLayer::TextModelTextItem* found = nullptr;
+        std::function<void(BusinessLayer::TextModelItem*)> visit;
+        visit = [&](BusinessLayer::TextModelItem* _item) {
+            if (auto textItem = dynamic_cast<BusinessLayer::TextModelTextItem*>(_item);
+                textItem && textItem->text() == _text) {
+                found = textItem;
+            }
+            for (int row = 0; row < _item->childCount(); ++row) {
+                visit(_item->childAt(row));
+            }
+        };
+        visit(_model->itemForIndex({ }));
+        return found;
+    };
+    auto unicodeItem = findText(unicodeModel, unicodeText);
+    require(unicodeItem, "find the typed Unicode action");
+    QTextCharFormat bold;
+    bold.setFontWeight(QFont::Bold);
+    QTextCharFormat italic;
+    italic.setFontItalic(true);
+    BusinessLayer::TextModelTextItem::ReviewMark unicodeReview;
+    unicodeReview.from = 11;
+    unicodeReview.length = 5;
+    unicodeReview.backgroundColor = Qt::yellow;
+    unicodeReview.textColor = Qt::black;
+    BusinessLayer::TextModelTextItem::ReviewComment unicodeComment;
+    unicodeComment.author = "Reviewer";
+    unicodeComment.text = "Keep this on Émile";
+    unicodeReview.comments.append(unicodeComment);
+    auto annotationCursor = edit->document()->find(unicodeText);
+    require(!annotationCursor.isNull(), "find the action in the live editor for annotation");
+    const int annotationStart = annotationCursor.selectionStart();
+    annotationCursor.beginEditBlock();
+    const auto annotate = [&](int _from, int _length, const QTextCharFormat& _format) {
+        annotationCursor.setPosition(annotationStart + _from);
+        annotationCursor.setPosition(annotationStart + _from + _length, QTextCursor::KeepAnchor);
+        annotationCursor.mergeCharFormat(_format);
+    };
+    annotate(0, 3, bold);
+    annotate(4, 6, italic);
+    annotate(11, 5, unicodeReview.charFormat());
+    annotationCursor.endEditBlock();
+    save();
+    auto unicodeFormats = unicodeItem->formats();
+    require(unicodeFormats.size() == 2 && unicodeFormats[0].from == 0
+                && unicodeFormats[0].length == 3 && unicodeFormats[0].isBold
+                && unicodeFormats[1].from == 4 && unicodeFormats[1].length == 6
+                && unicodeFormats[1].isItalic
+                && unicodeItem->reviewMarks()
+                    == QVector<BusinessLayer::TextModelTextItem::ReviewMark>{ unicodeReview },
+            "the live editor stores the intended emphasis and review comment");
+    const auto unicodeBefore = script();
+    const auto zoeUuid = member(Type::Characters, "ZOË");
+    require(!zoeUuid.isNull(), "accented cue is collected as a character");
+    fields = fieldsOf(zoeUuid, "Ui::CharacterInformationView");
+    enter(fields[0], "zoe long");
+    key(fields[0], Qt::Key_Return, "\r");
+    asked = question();
+    require(asked && questionText(asked).contains("1 time") && answer(asked, RenameInText),
+            "the real page counts and renames an accented mention, leaving lowercase words");
+    save();
+    const auto unicodeAfter = script();
+    const QString unicodeRenamed = "Zoe Long greets Émile, while zoë waits.";
+    unicodeFormats[0].length = 8;
+    unicodeFormats[1].from = 9;
+    unicodeReview.from = 16;
+    select(scriptUuid);
+    unicodeModel = qobject_cast<BusinessLayer::ScreenplayTextModel*>(current);
+    unicodeItem = findText(unicodeModel, unicodeRenamed);
+    require(unicodeItem && unicodeItem->formats() == unicodeFormats
+                && unicodeItem->reviewMarks()
+                    == QVector<BusinessLayer::TextModelTextItem::ReviewMark>{ unicodeReview },
+            "page rename preserves emphasis and review comments on their text");
+    edit = screenplayEdit(scriptUuid);
+    edit->undo();
+    save();
+    require(script() == unicodeBefore,
+            "one Undo restores accented cues, text and annotations exactly");
+    edit->redo();
+    save();
+    require(script() == unicodeAfter,
+            "one Redo restores accented cues, text and annotations exactly");
+    reopen();
+    select(scriptUuid);
+    unicodeModel = qobject_cast<BusinessLayer::ScreenplayTextModel*>(current);
+    unicodeItem = findText(unicodeModel, unicodeRenamed);
+    require(script() == unicodeAfter && unicodeItem && unicodeItem->formats() == unicodeFormats
+                && unicodeItem->reviewMarks()
+                    == QVector<BusinessLayer::TextModelTextItem::ReviewMark>{ unicodeReview },
+            "renamed Unicode text, emphasis and review comments survive save and reopen");
+
+    // A name that was available before the question can be taken while it is open. The old
+    // merge route would delete the renamed character and its notes in this case.
+    fields = fieldsOf(zoeUuid, "Ui::CharacterInformationView");
+    const QPointer<BusinessLayer::CharacterModel> pendingCharacter
+        = qobject_cast<BusinessLayer::CharacterModel*>(current);
+    enter(fields[0], "zoe next");
+    key(fields[0], Qt::Key_Return, "\r");
+    asked = question();
+    require(asked, "question before another character takes the proposed name");
+    manager.storeCharacter("ZOE NEXT",
+                           "<?xml version=\"1.0\"?>"
+                           "<document mime-type=\"application/x-starc/document/character\" "
+                           "version=\"1.0\"><name><![CDATA[ZOE NEXT]]></name>"
+                           "<long_description><![CDATA[Keep these notes]]>"
+                           "</long_description></document>");
+    const auto takenUuid = member(Type::Characters, "ZOE NEXT");
+    require(!takenUuid.isNull() && answer(asked, RenameInText) && !pendingCharacter.isNull()
+                && pendingCharacter->name() == "ZOE LONG" && storage->document(zoeUuid)
+                && storage->document(takenUuid),
+            "a pending rename cannot merge or delete characters when its target is taken");
+    save();
+    require(script() == unicodeAfter && fields[0]->error().contains("already exists")
+                && text(takenUuid).contains("Keep these notes"),
+            "the stale duplicate name reports an error and preserves scripts and notes");
     manager.closeCurrentProject(path);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
@@ -1450,6 +1725,15 @@ int main(int argc, char** argv)
     for (const auto font : { ":/fonts/roboto-regular", ":/fonts/materialdesignicons",
                              ":/fonts/font-awesome-brands" }) {
         require(QFontDatabase::addApplicationFont(font) >= 0, "embedded font");
+    }
+    checkCharacterRenameModel();
+    if (qEnvironmentVariable("STARC_RENAME_CHECK") == "model") {
+        return 0;
+    }
+    if (qEnvironmentVariable("STARC_RENAME_CHECK") == "pages") {
+        checkCharacterAndLocationPages(evidence);
+        std::puts("PASS: character rename model and pages");
+        return 0;
     }
     const auto statisticsSlice = qEnvironmentVariable("STARC_STATISTICS_CHECK");
     if (!statisticsSlice.isEmpty()) {

@@ -1244,6 +1244,8 @@ Limits:
 Completed 2026-10-12, as the "Make renaming a character safe for the script"
 item under Fix. It supersedes the first limit listed in the section above:
 renaming a character no longer rewrites ordinary words.
+This records the initial implementation. The review follow-up below supersedes
+its Unicode, formatting and applied-patch limitations.
 
 Upstream's rename replaced the name wherever it stood as a whole word, in any
 letter case and in every paragraph. Observed with the unchanged code on a typed
@@ -1417,3 +1419,76 @@ Limits:
   credentials were edited. Escape and the "1 time" wording were checked
   offscreen only. Other platforms, release packaging, right-to-left layout and
   the owner's projects were not exercised.
+
+## Character rename review follow-up
+
+Reviewed and improved 2026-10-12, starting from `370afe06` on a clean `dev`.
+The existing choice before renaming, conservative dismissal, paragraph scope
+and one Undo step per screenplay remain the intended behavior.
+
+The new model probe failed against the unchanged build: accented names were
+missed, digit-prefixed lowercase names were counted, Unicode word boundaries
+were wrong, extra cue/list whitespace was mishandled, and growing or shrinking
+names left emphasis, review comments and resource links at their old offsets.
+The matcher also used an incomplete regex escape function. Names are now escaped
+as literals with Unicode letter/mark/number boundaries; the first letter is
+checked even after a digit or punctuation. Exact cue/list names use original
+source positions, preserve spaces and extensions, and update every matching
+entry without touching another character's name.
+
+`TextModelTextItem::replaceText` moves emphasis, review ranges with their full
+comments/status, and resource links with each replacement. Ranges overlapping
+a replaced name cover the replacement. Replacements run from right to left
+inside one paragraph transaction, so cached XML is rebuilt once per paragraph.
+`setText` and unrelated text-editing paths are unchanged.
+
+The pending question now belongs to its request and its project manager. A
+character-name patch dismisses it; an old or fading answer cannot overwrite
+that patch or clear a later question. The proposed name is checked again when
+the answer arrives. If another character has taken it, the page shows the
+duplicate-name error instead of entering the existing merge/delete route.
+
+Validation:
+
+- `./build/dev.sh doctor`: exit 0.
+- `JOBS=4 ./build/dev.sh build debug`: exit 0, including the new model method
+  and signal. Existing warnings remain in unchanged code; the changed manager
+  file has its two pre-existing unused lambda parameters.
+- `STARC_RENAME_CHECK=pages ./tools/check-screenplay-scope.sh`: exit 0. Model
+  cases cover ZOË, ÉMILE, digit prefixes, regex punctuation, Unicode word
+  boundaries, cue whitespace/extensions, repeated scene-character entries,
+  longer/shorter names and all three kinds of attached ranges. The page cases
+  include real `applyDocumentChanges` patches, stale answers, a target taken
+  while the question is open, and annotated Unicode text through the real
+  editor's Undo/Redo and project save/reopen, compared against exact stored XML.
+- `./tools/check-screenplay-scope.sh`: exit 0 on the final code and fixture,
+  including the existing creation, keyboard, pagination, export, preservation
+  and statistics cases as well as the new rename cases.
+- `./tools/check-screenplay-interchange.sh`: exit 0, including independent
+  Fountain/FDX fixtures, syntax/XML/styles and save/reopen checks.
+- Bash syntax, ShellCheck, changed-line formatting with `src/.clang-format`,
+  and `git diff --check`: passed. The formatter used read-only Git diffs because
+  `git clang-format` cannot create its temporary index in this sandbox.
+
+Evidence: `.build/evidence/character-rename-review-2026-10-12-s2qbp7ss/` retains
+the baseline, build, regression and failed-attempt logs. Successful focused
+pages: `.build/evidence/screenplay-scope-A6SLxk/`; successful interchange:
+`.build/evidence/screenplay-interchange-EMPNZQ/`.
+The final full scope run is `.build/evidence/screenplay-scope-Vs4xId/`.
+
+Failed attempts are retained separately: `screenplay-scope-6rlCRd` is the
+baseline probe; `screenplay-scope-N9ziK8` failed to compile a test calling a
+protected character serializer; `screenplay-scope-RvNCJl` exposed a missing
+second capitalized match in a punctuation fixture; `screenplay-scope-NjdNSa`
+exposed sentence auto-capitalization in the typed fixture; `screenplay-scope-wNUe22`
+and `screenplay-scope-D8JYtH` exposed noncanonical font/color metadata from a
+test that set model formatting directly. The final fixture applies emphasis
+and review comments through the live editor, verifies the intended ranges
+before renaming, and retains exact comparisons after renaming and Undo/Redo.
+
+Limits: Linux debug and in-process offscreen evidence, not a new visible desktop
+or private Xvfb run. Detached windows, other platforms, release builds and the
+owner's projects were not exercised. Capitalized ordinary words and names
+inside longer running-text names remain ambiguous and require the writer's
+choice. Act/sequence titles remain excluded. Script Undo still leaves the
+character document's new name in place, as documented above.

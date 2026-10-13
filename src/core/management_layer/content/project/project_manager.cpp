@@ -1968,15 +1968,32 @@ void ProjectManager::Implementation::renameCharacter(BusinessLayer::CharacterMod
         { { kLeaveMentionsButtonId, tr("Leave the text"), Dialog::RejectButton },
           { kRenameMentionsButtonId, tr("Rename in the text too"), Dialog::NormalButton } });
     const QPointer<BusinessLayer::CharacterModel> character = _character;
-    auto applyName = [this, dialog, character, _name](const Dialog::ButtonInfo& _buttonInfo) {
+    const auto oldName = _character->name();
+    auto applyName = [this, dialog, character, oldName,
+                      _name](const Dialog::ButtonInfo& _buttonInfo) {
+        // A closed question can still emit while fading, after another one has been opened.
+        if (characterMentionsQuestion != dialog) {
+            return;
+        }
         dialog->hideDialog();
         characterMentionsQuestion.clear();
 
         //
         // The project was closed while the question was open
         //
-        if (character.isNull()) {
+        if (character.isNull() || character->name() != oldName) {
             return;
+        }
+
+        // The page checked this before asking. Another view or a patch can take the name while
+        // the question is open; applying it then would delete this character as a duplicate.
+        const auto characters = qobject_cast<BusinessLayer::CharactersModel*>(
+            modelsFacade.modelFor(Domain::DocumentObjectType::Characters));
+        for (auto existing : characters->characters(_name)) {
+            if (existing != character) {
+                emit character->renameRejected(tr("Character with this name already exists"));
+                return;
+            }
         }
 
         //
@@ -1986,7 +2003,19 @@ void ProjectManager::Implementation::renameCharacter(BusinessLayer::CharacterMod
                                                         _buttonInfo.id == kRenameMentionsButtonId);
         character->setName(_name);
     };
-    QObject::connect(dialog, &Dialog::finished, dialog, applyName);
+    QObject::connect(dialog, &Dialog::finished, q, applyName);
+    // A patch may change the name while the question is open. Its answer belongs to the old
+    // name and must not overwrite that change. Keep both captures tied to the manager's life.
+    const QPointer<Dialog> pendingQuestion = dialog;
+    const auto nameChangedConnection = QObject::connect(
+        _character, &BusinessLayer::CharacterModel::nameChanged, q, [this, pendingQuestion] {
+            if (!pendingQuestion.isNull() && characterMentionsQuestion == pendingQuestion) {
+                pendingQuestion->hideDialog();
+                characterMentionsQuestion.clear();
+            }
+        });
+    QObject::connect(dialog, &QObject::destroyed, q,
+                     [nameChangedConnection] { QObject::disconnect(nameChangedConnection); });
     QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
 }
 

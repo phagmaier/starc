@@ -47,6 +47,11 @@ if ! "$EVIDENCE/screenplay-scope-test" "$EVIDENCE/project" > "$EVIDENCE/test.log
 fi
 
 # The exporters ran in process; check what they wrote with independent tools.
+if [[ ${STARC_RENAME_CHECK:-} == model || ${STARC_RENAME_CHECK:-} == pages ]]; then
+    cat "$EVIDENCE/test.log"
+    printf 'Evidence: %s\n' "$EVIDENCE"
+    exit 0
+fi
 python3 - "$EVIDENCE/project" >> "$EVIDENCE/test.log" 2>&1 <<'PY' || {
 import subprocess
 import sys

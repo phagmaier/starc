@@ -178,6 +178,12 @@ public:
     void setText(const QString& _text);
 
     /**
+     * @brief Replace a text range, shifting emphasis, review and resource ranges with it.
+     *        Ranges overlapping the replaced text stay attached to the replacement
+     */
+    void replaceText(int _from, int _length, const QString& _text);
+
+    /**
      * @brief Удалить текст, начиная с заданной позиции, при этом корректируется и остальной контент
      *        блока
      */

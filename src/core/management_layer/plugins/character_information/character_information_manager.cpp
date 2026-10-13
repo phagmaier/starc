@@ -116,6 +116,8 @@ void CharacterInformationManager::Implementation::setModelForView(
         connect(model, &BusinessLayer::CharacterModel::modelReset, _view, reloadModel);
         connect(model, &BusinessLayer::CharacterModel::nameChanged, _view,
                 &Ui::CharacterInformationView::setName);
+        connect(model, &BusinessLayer::CharacterModel::renameRejected, _view,
+                &Ui::CharacterInformationView::setNameError);
         connect(model, &BusinessLayer::CharacterModel::oneSentenceDescriptionChanged, _view,
                 &Ui::CharacterInformationView::setDescription);
         connect(model, &BusinessLayer::CharacterModel::longDescriptionChanged, _view,
