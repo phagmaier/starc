@@ -10,6 +10,7 @@
 #include <utils/shugar.h>
 
 #include <QTextTable>
+#include <QVector>
 #include <QtGui/private/qtextdocument_p.h>
 
 
@@ -264,6 +265,50 @@ void TextCursor::removeCharacters(bool _backward, BaseTextEdit* _editor)
                 }
             }
         }
+    }
+
+    // Hidden beat headings are outline boundaries, not selected visible text.
+    // Keep their text and both paragraph separators so that deleting a boundary
+    // cannot merge the heading into an action or move text into another beat.
+    QVector<Selection> visibleRanges;
+    int rangeStart = topCursorPosition;
+    bool crossesHiddenBeat = false;
+    for (auto block = document()->findBlock(topCursorPosition);
+         block.isValid() && block.position() <= bottomCursorPosition; block = block.next()) {
+        if (block.isVisible()
+            || TextBlockStyle::forBlock(block) != TextParagraphType::BeatHeading) {
+            continue;
+        }
+        const int protectedStart = qMax(0, block.position() - 1);
+        const int protectedEnd = block.position() + block.length();
+        if (protectedEnd <= topCursorPosition || protectedStart >= bottomCursorPosition) {
+            continue;
+        }
+        crossesHiddenBeat = true;
+        if (rangeStart < protectedStart) {
+            visibleRanges.append({ rangeStart, protectedStart });
+        }
+        rangeStart = qMax(rangeStart, protectedEnd);
+    }
+    if (crossesHiddenBeat) {
+        if (rangeStart < bottomCursorPosition) {
+            visibleRanges.append({ rangeStart, bottomCursorPosition });
+        }
+        TextCursor insertionCursor(document());
+        insertionCursor.setPosition(topCursorPosition);
+        cursor.beginEditBlock();
+        // Work backwards so earlier source positions remain valid. Reuse the
+        // normal deletion rules within each visible section, with one Undo step.
+        for (auto range = visibleRanges.crbegin(); range != visibleRanges.crend(); ++range) {
+            TextCursor part(document());
+            part.setPosition(range->from);
+            part.setPosition(range->to, QTextCursor::KeepAnchor);
+            _editor->setTextCursor(part);
+            part.removeCharacters(_backward, _editor);
+        }
+        _editor->setTextCursor(insertionCursor);
+        cursor.endEditBlock();
+        return;
     }
 
     //

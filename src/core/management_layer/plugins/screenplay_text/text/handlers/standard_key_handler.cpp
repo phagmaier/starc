@@ -338,13 +338,17 @@ void StandardKeyHandler::removeCharacters(bool _backward)
     BusinessLayer::TextCursor cursor = editor()->textCursor();
 
     //
-    // TODO: не удалять невидимые блоки внутри выделения
-    //
-
-    //
     // Если нет выделения, то обработаем крайние случаи с удалением по краям блоков
     //
     if (!cursor.hasSelection()) {
+        // Joining across a hidden beat would change unseen outline structure.
+        // Keep the caret and both paragraphs in place, including empty actions.
+        const auto adjacentBlock = _backward ? cursor.block().previous() : cursor.block().next();
+        if ((_backward ? cursor.atBlockStart() : cursor.atBlockEnd()) && adjacentBlock.isValid()
+            && !adjacentBlock.isVisible()
+            && TextBlockStyle::forBlock(adjacentBlock) == TextParagraphType::BeatHeading) {
+            return;
+        }
         const auto textDocument = static_cast<BusinessLayer::TextDocument*>(editor()->document());
         //
         // Включен ли режим изоляции

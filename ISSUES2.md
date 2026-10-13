@@ -712,7 +712,7 @@ colors and existing threads.
 
 ## 9. Deleting between visible paragraphs destroys a hidden beat heading
 
-- [ ] **P2 — confirmed with an invisible beat block before deletion.**
+- [x] **P2 — fixed 2026-10-13; verified through the screenplay editor, exact Undo/Redo and fresh-process reopening.**
 
 **Location:**
 [standard_key_handler.cpp](src/core/management_layer/plugins/screenplay_text/text/handlers/standard_key_handler.cpp),
@@ -737,6 +737,49 @@ boundary Delete/Backspace and replacement typing, including Undo/Redo and reopen
 the heading was invisible before deletion. `before-hidden-delete.xml` contains
 `HIDDEN BEAT TITLE`; `after-hidden-delete.xml` does not. Artifacts and the reusable
 `editor_probe.cpp`/`run.sh` are under `.build/evidence/audit2-editor/`.
+
+**Resolution:** `TextCursor::removeCharacters` splits deletion into visible
+sections around hidden beat headings, preserving the heading text, formatting,
+review comments, beat identities and both paragraph boundaries. Boundary
+Delete/Backspace keeps the caret in place, including beside empty actions.
+Selection Delete/Backspace and replacement typing remove only the selected
+visible text; the remaining paragraphs stay in their original beats. Show beat
+headings to explicitly delete or merge across them. Ordinary joins within one
+beat and deletion across visible headings retain their existing behavior.
+
+**Regression:** [hidden_beats_test.cpp](tests/hidden_beats_test.cpp) and
+[check-hidden-beats.sh](tools/check-hidden-beats.sh) exercise the production
+screenplay editor and project coordinator with disposable stories. The 48 cases
+cover both selection directions, single/multiple/adjacent hidden headings,
+select-all, empty actions, boundary keys, replacement typing and visible-heading
+and ordinary-join controls. They check exact XML through one-step Undo/Redo,
+coordinator save and fresh-process reopening. Independent XML checks compare
+beat identities, heading emphasis/review comments and selection directions.
+
+**Validation:**
+
+- `./build/dev.sh doctor` and `JOBS=4 ./build/dev.sh build debug`: passed.
+- `./tools/check-hidden-beats.sh`: 48 offscreen editor cases and fresh-process
+  reopening passed. The initial XML postcheck incorrectly expected reverse
+  fixtures for single-key cases; the runner now distinguishes those cases.
+- The final 48-case suite passed under private Xvfb/XCB, including caret checks
+  and the corrected independent XML postcheck. To verify this fix independently
+  of pre-existing issue-8 worktree edits, a separate `libcorelib.so` used the
+  committed `TextDocument`/comments implementations and this issue's cursor fix.
+  The retained driver was
+  `STARC_HIDDEN_BEATS_PLATFORM=xcb xvfb-run -a -e .build/evidence/issue9-build/xvfb.log -s '-screen 0 1280x900x24' bash .build/evidence/issue9-build/native-run.sh`.
+  Final evidence: `.build/evidence/hidden-beats-FV5KkI/`; build and independent
+  library logs: `.build/evidence/issue9-build/`.
+- `./tools/check-track-changes.sh`: all 54 cases, fresh-process reopening and
+  independent selection-direction XML comparison passed in
+  `.build/evidence/track-changes-1ADz9E/`.
+- Bash syntax, ShellCheck, changed-code formatting and `git diff --check`: passed.
+- The original failing deletion control remains in
+  `.build/evidence/hidden-beats-xSc5vG/`; the earlier offscreen run/postcheck failure
+  and sandbox Xvfb abort remain in `.build/evidence/hidden-beats-slXUJu/` and
+  `.build/evidence/hidden-beats-obnVGJ/`. The sandbox abort occurred before cases ran.
+  Xvfb used programmatic Qt key events; physical desktop keyboard interaction,
+  release builds and user-driven window close remain unexercised.
 
 ## 10. Window restoration can abort when the splitter has zero total size
 
