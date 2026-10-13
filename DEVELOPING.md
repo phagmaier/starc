@@ -179,6 +179,10 @@ The interface is English only: the check requires `translation_en.qm` to be the
 single embedded catalog and to supply singular and plural forms, the settings to
 have no Language row, chooser or language callbacks, and an interface language
 stored by an earlier version to stay in the settings untouched.
+Location rename checks cover shorter, longer and equal-length names with emphasis,
+review comments/status and resource links before, on, after and overlapping the
+name. The location page checks shorter/longer names, exact
+script XML through Undo/Redo, and annotation/identity preservation after reopening.
 It builds
 `tests/screenplay_scope_test.cpp`
 against the debug build and runs it offscreen with a disposable project and

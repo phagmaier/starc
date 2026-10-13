@@ -764,6 +764,86 @@ void checkCharacterRenameModel()
     require(passed, "character rename model regressions");
 }
 
+void checkLocationRenameModel()
+{
+    using namespace BusinessLayer;
+    // Include annotations before, on, after, across and strictly inside the replaced name.
+    const QVector<QPair<int, int>> originalRanges
+        = { { 0, 3 }, { 5, 5 }, { 13, 3 }, { 3, 11 }, { 7, 2 } };
+    for (const QString& newName : { QString("HO"), QString("LIVING ROOM"), QString("CABIN") }) {
+        ScreenplayInformationModel information;
+        ScreenplayTextModel model;
+        model.setInformationModel(&information);
+        auto heading = new ScreenplayTextModelTextItem(&model);
+        heading->setParagraphType(TextParagraphType::SceneHeading);
+        heading->setText("INT. HOUSE - DAY");
+        model.appendItem(heading);
+        auto action = new ScreenplayTextModelTextItem(&model);
+        action->setParagraphType(TextParagraphType::Action);
+        action->setText("INT. HOUSE - DAY");
+        model.appendItem(action);
+        QVector<TextModelTextItem::TextFormat> formats;
+        QVector<TextModelTextItem::ReviewMark> reviews;
+        QVector<TextModelTextItem::ResourceMark> resources;
+        for (const auto& range : originalRanges) {
+            TextModelTextItem::TextFormat format;
+            format.from = range.first;
+            format.length = range.second;
+            format.isBold = true;
+            formats.append(format);
+            TextModelTextItem::ReviewMark review;
+            review.from = range.first;
+            review.length = range.second;
+            review.backgroundColor = Qt::yellow;
+            review.textColor = Qt::black;
+            review.isDone = true;
+            TextModelTextItem::ReviewComment comment;
+            comment.author = "Reviewer";
+            comment.authorEmail = "reviewer@example.invalid";
+            comment.date = "2026-10-12T00:00:00";
+            comment.text = "Keep this annotation";
+            review.comments.append(comment);
+            reviews.append(review);
+            TextModelTextItem::ResourceMark resource;
+            resource.from = range.first;
+            resource.length = range.second;
+            resource.uuid = QUuid::createUuid();
+            resources.append(resource);
+        }
+        QVector<QTextLayout::FormatRange> layoutFormats;
+        for (const auto& format : formats) {
+            layoutFormats.append({ format.from, format.length, format.charFormat() });
+        }
+        heading->setFormats(layoutFormats);
+        // setFormats records canonical font metadata as well as the supplied emphasis.
+        formats = heading->formats();
+        require(formats.size() == originalRanges.size(), "model fixture stores every format range");
+        for (int i = 0; i < originalRanges.size(); ++i) {
+            require(formats[i].from == originalRanges[i].first
+                        && formats[i].length == originalRanges[i].second && formats[i].isBold,
+                    "model fixture stores the intended emphasis and ranges");
+        }
+        heading->setReviewMarks(reviews);
+        heading->setResourceMarks(resources);
+        model.updateItem(heading);
+
+        const int length = newName.length();
+        const QVector<QPair<int, int>> expectedRanges
+            = { { 0, 3 }, { 5, length }, { 8 + length, 3 }, { 3, 6 + length }, { 5, length } };
+        for (int i = 0; i < expectedRanges.size(); ++i) {
+            formats[i].from = reviews[i].from = resources[i].from = expectedRanges[i].first;
+            formats[i].length = reviews[i].length = resources[i].length = expectedRanges[i].second;
+        }
+        model.updateLocationName("HOUSE", newName);
+        require(heading->text() == "INT. " + newName + " - DAY"
+                    && action->text() == "INT. HOUSE - DAY",
+                "location renaming changes scene headings only");
+        require(heading->formats() == formats && heading->reviewMarks() == reviews
+                    && heading->resourceMarks() == resources,
+                qPrintable("location annotation ranges and payloads survive rename to " + newName));
+    }
+}
+
 // The pages of characters and locations: what they show and store, renaming through the
 // screenplay, the names they refuse, and the documents they leave as they are.
 void checkCharacterAndLocationPages(const QString& _evidence)
@@ -1704,6 +1784,101 @@ void checkCharacterAndLocationPages(const QString& _evidence)
     require(script() == unicodeAfter && fields[0]->error().contains("already exists")
                 && text(takenUuid).contains("Keep these notes"),
             "the stale duplicate name reports an error and preserves scripts and notes");
+
+    // Reproduce the location-page annotation loss. The prefix, name and time-of-day have
+    // independent annotations so a misplaced range cannot pass.
+    select(scriptUuid);
+    edit = screenplayEdit(scriptUuid);
+    edit->moveCursor(QTextCursor::End);
+    paragraph(Paragraph::SceneHeading, "INT. HOUSE - DAY");
+    paragraph(Paragraph::Action, "The house is quiet.");
+    save();
+    const auto annotatedHouseUuid = member(Type::Locations, "HOUSE");
+    require(!annotatedHouseUuid.isNull(), "annotated location fixture collects its location");
+    auto locationModel = qobject_cast<BusinessLayer::ScreenplayTextModel*>(current);
+    auto locationItem = findText(locationModel, "INT. HOUSE - DAY");
+    require(locationItem, "find the location heading to annotate");
+    BusinessLayer::TextModelTextItem::ReviewMark locationReview = unicodeReview;
+    locationReview.from = 13;
+    locationReview.length = 3;
+    locationReview.isDone = true;
+    locationReview.comments[0].text = "Keep this on DAY";
+    BusinessLayer::TextModelTextItem::ResourceMark nameResource;
+    nameResource.from = 5;
+    nameResource.length = 5;
+    nameResource.uuid = QUuid::createUuid();
+    auto dayResource = nameResource;
+    dayResource.from = 13;
+    dayResource.length = 3;
+    dayResource.uuid = QUuid::createUuid();
+    annotationCursor = edit->document()->find("INT. HOUSE - DAY");
+    require(!annotationCursor.isNull(), "find the location heading in the live editor");
+    const int locationStart = annotationCursor.selectionStart();
+    const auto annotateLocation = [&](int _from, int _length, const QTextCharFormat& _format) {
+        annotationCursor.setPosition(locationStart + _from);
+        annotationCursor.setPosition(locationStart + _from + _length, QTextCursor::KeepAnchor);
+        annotationCursor.mergeCharFormat(_format);
+    };
+    annotationCursor.beginEditBlock();
+    annotateLocation(0, 3, bold);
+    annotateLocation(5, 5, italic);
+    annotateLocation(13, 3, bold);
+    annotateLocation(13, 3, locationReview.charFormat());
+    annotateLocation(5, 5, nameResource.charFormat());
+    annotateLocation(13, 3, dayResource.charFormat());
+    annotationCursor.endEditBlock();
+    save();
+    auto locationFormats = locationItem->formats();
+    QVector<BusinessLayer::TextModelTextItem::ResourceMark> locationResources
+        = { nameResource, dayResource };
+    require(locationFormats.size() == 3 && locationFormats[0].from == 0
+                && locationFormats[0].length == 3 && locationFormats[0].isBold
+                && locationFormats[1].from == 5 && locationFormats[1].length == 5
+                && locationFormats[1].isItalic && locationFormats[2].from == 13
+                && locationFormats[2].length == 3 && locationFormats[2].isBold
+                && locationItem->reviewMarks()
+                    == QVector<BusinessLayer::TextModelTextItem::ReviewMark>{ locationReview }
+                && locationItem->resourceMarks() == locationResources,
+            "live editor stores location emphasis, completed comment and resource links");
+    for (const QString& newName : { QString("HO"), QString("LIVING ROOM") }) {
+        const auto before = script();
+        fields = fieldsOf(annotatedHouseUuid, "Ui::LocationInformationView");
+        enter(fields[0], newName);
+        key(fields[0], Qt::Key_Return, "\r");
+        save();
+        const auto after = script();
+        const QString renamedHeading = "INT. " + newName + " - DAY";
+        locationFormats[1].length = newName.length();
+        locationFormats[2].from = newName.length() + 8;
+        locationReview.from = newName.length() + 8;
+        locationResources[0].length = newName.length();
+        locationResources[1].from = newName.length() + 8;
+        select(scriptUuid);
+        locationModel = qobject_cast<BusinessLayer::ScreenplayTextModel*>(current);
+        locationItem = findText(locationModel, renamedHeading);
+        const auto annotationsKept = [&] {
+            return locationItem && locationItem->formats() == locationFormats
+                && locationItem->reviewMarks()
+                == QVector<BusinessLayer::TextModelTextItem::ReviewMark>{ locationReview }
+            && locationItem->resourceMarks() == locationResources;
+        };
+        require(annotationsKept() && structure->itemForUuid(annotatedHouseUuid)->name() == newName,
+                qPrintable("page rename preserves location annotations and identity for " + newName));
+        edit = screenplayEdit(scriptUuid);
+        edit->undo();
+        save();
+        require(script() == before, "one Undo restores location headings and annotations exactly");
+        edit->redo();
+        save();
+        require(script() == after, "one Redo restores renamed locations and annotations exactly");
+        reopen();
+        select(scriptUuid);
+        locationModel = qobject_cast<BusinessLayer::ScreenplayTextModel*>(current);
+        locationItem = findText(locationModel, renamedHeading);
+        require(script() == after && annotationsKept()
+                    && structure->itemForUuid(annotatedHouseUuid)->name() == newName,
+                "location emphasis, comments, links and identities survive save and reopen");
+    }
     manager.closeCurrentProject(path);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
@@ -1727,12 +1902,13 @@ int main(int argc, char** argv)
         require(QFontDatabase::addApplicationFont(font) >= 0, "embedded font");
     }
     checkCharacterRenameModel();
+    checkLocationRenameModel();
     if (qEnvironmentVariable("STARC_RENAME_CHECK") == "model") {
         return 0;
     }
     if (qEnvironmentVariable("STARC_RENAME_CHECK") == "pages") {
         checkCharacterAndLocationPages(evidence);
-        std::puts("PASS: character rename model and pages");
+        std::puts("PASS: character and location rename models and pages");
         return 0;
     }
     const auto statisticsSlice = qEnvironmentVariable("STARC_STATISTICS_CHECK");

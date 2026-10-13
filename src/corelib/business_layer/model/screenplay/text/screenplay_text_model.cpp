@@ -627,11 +627,9 @@ void ScreenplayTextModel::updateLocationName(const QString& _oldName, const QStr
                       auto textItem = static_cast<ScreenplayTextModelTextItem*>(childItem);
                       if (textItem->paragraphType() == TextParagraphType::SceneHeading
                           && ScreenplaySceneHeadingParser::location(textItem->text()) == oldName) {
-                          auto text = textItem->text();
-                          const auto nameIndex = TextHelper::smartToUpper(text).indexOf(oldName);
-                          text.remove(nameIndex, oldName.length());
-                          text.insert(nameIndex, _newName);
-                          textItem->setText(text);
+                          const auto nameIndex
+                              = TextHelper::smartToUpper(textItem->text()).indexOf(oldName);
+                          textItem->replaceText(nameIndex, oldName.length(), _newName);
                           updateItem(textItem);
                       }
                       break;

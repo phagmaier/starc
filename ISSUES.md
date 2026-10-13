@@ -2,7 +2,7 @@
 
 Audit date: 2026-10-12 (local time). Reviewed `dev` at `12722c89`; frozen
 upstream reference: `master` at `4b9677db`. No application fixes were made during
-the initial audit. Issues 1–4 have since been completed; issues 5–8 remain open.
+the initial audit. Issues 1–5 have since been completed; issues 6–8 remain open.
 
 Eight defects were confirmed outside the passing regression suite. Existing
 upstream defects are included because they still affect this fork. The source
@@ -332,7 +332,55 @@ inherited from upstream; the fork's FDX exception does not cover DOCX.
 The intact original and overwritten output are retained in its `stories/`
 directory. Real import/editor/save path, offscreen Qt; ordinary exit 0.
 
-## 5. High: renaming a location can permanently lose or misplace annotations
+## 5. Completed: renaming a location can permanently lose or misplace annotations
+
+- [x] **Fixed and verified on 2026-10-12.**
+
+**Resolution:** Location renaming now uses the existing annotation-aware
+`TextModelTextItem::replaceText` boundary. Emphasis, review comments/status and
+resource links on the location name cover its replacement; annotations before
+the name stay in place, and annotations on later text follow that text. The
+existing model change transaction keeps each screenplay rename in one Undo step.
+
+**Validation:** `./build/dev.sh doctor` and `JOBS=4 ./build/dev.sh build debug`
+passed. `STARC_RENAME_CHECK=model ./tools/check-screenplay-scope.sh` passed
+shorter, longer and equal-length names with all three annotation types before,
+on, after, across and inside the name, including complete comment payloads,
+completion status and resource UUIDs. The full `./tools/check-screenplay-scope.sh`
+passed. Its real location-page checks rename HOUSE to HO and then LIVING ROOM,
+compare the exact script XML through one Undo/Redo, and verify annotations and
+the location identity after project save/reopen. Existing keyboard, pagination,
+export, character-rename and project-preservation checks also passed.
+`./tools/check-screenplay-interchange.sh` passed independent Fountain/FDX fixtures,
+syntax/styles and serialization/save/reopen checks. `git diff --check` passed.
+
+An independent read-only SQLite/XML postcheck confirms that the pre-fix page
+fixture lost DAY's bold formatting, review comment and resource links, while
+the fixed shorter and longer headings retain their correct ranges and payloads.
+
+**Fix evidence:** [doctor](.build/evidence/issue-5-doctor.log),
+[build](.build/evidence/issue-5-build.log),
+[model checks](.build/evidence/screenplay-scope-cxXv0m/),
+[full scope and page/save/reopen checks](.build/evidence/screenplay-scope-nMC2jA/),
+[interchange](.build/evidence/screenplay-interchange-jM5y5h/), and
+[independent postcheck](.build/evidence/issue-5-independent-postcheck.json).
+The [pre-fix page failure](.build/evidence/screenplay-scope-nx1pJO/) is retained.
+Earlier harness attempts remain retained: the model fixture initially passed the
+wrong formatting input type ([compile failure](.build/evidence/screenplay-scope-tsANdH/))
+and compared noncanonical font metadata ([initial baseline](.build/evidence/screenplay-scope-qh0Cqp/)
+and [first fixed-code run](.build/evidence/screenplay-scope-YL6OYK/)). The corrected
+fixture verifies its initial ranges and compares the stored canonical metadata.
+An [intermediate full-scope run](.build/evidence/screenplay-scope-lEXcaw/) preserved
+the annotations but failed an added nested-location assertion against the already
+documented issue #7. The final annotation fixture is scoped to issue #5; issues
+6–8 remain open.
+
+This establishes Linux debug behavior with injected Qt editor/page actions and
+in-process offscreen save/reopen. Visible desktop/GPU behavior, other operating
+systems and release packages were unexercised. Existing compiler warnings in
+unchanged code remain. Disposable projects and isolated profiles were used.
+
+The original finding and reproduction below are retained for reference.
 
 **Where:** [screenplay_text_model.cpp](src/corelib/business_layer/model/screenplay/text/screenplay_text_model.cpp),
 lines 630–635, especially `setText` at 634;

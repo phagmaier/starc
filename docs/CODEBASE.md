@@ -277,6 +277,10 @@ For a location the same connection renames the locations nested in it
 " - " or ". "; a location that merely begins with the same letters ("HOUSEBOAT")
 is left alone, and a nested location keeps its name when the new one is already
 taken. Upstream matched on the bare prefix and removed the duplicate.
+`ScreenplayTextModel::updateLocationName` uses `TextModelTextItem::replaceText`
+to move emphasis, review comments/status and resource links with the heading's
+text when the location name changes length. An annotation on the replaced name
+covers its replacement; annotations on later text, such as DAY, follow that text.
 
 The upstream trait navigators (`character_information_structure`,
 `location_information_structure`) listed the categories of the private editors
