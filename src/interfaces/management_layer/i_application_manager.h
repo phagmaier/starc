@@ -26,6 +26,8 @@ public:
 
     /**
      * @brief Открыть проект по заданному пути
+     * @return True only when opened synchronously. Startup buffering or a save question
+     *         can defer opening; cancellation and failed saves leave the current story open.
      */
     virtual bool openProject(const QString& _path) = 0;
 };

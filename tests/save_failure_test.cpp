@@ -26,6 +26,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileOpenEvent>
 #include <QPointer>
 #include <QScreen>
 #include <QSettings>
@@ -192,6 +193,29 @@ void screenshot(const QString& _root, const QString& _name)
     require(window->screen()->grabWindow(window->winId()).save(_root + "/" + _name + ".png"),
             "retain native window screenshot");
 }
+
+void fileOpen(Application& _app, const QString& _path)
+{
+    QFileOpenEvent event(_path);
+    require(QCoreApplication::sendEvent(&_app, &event),
+            "application handles actual QFileOpenEvent");
+}
+
+int saveQuestionCount()
+{
+    int count = 0;
+    for (auto candidate : QApplication::allWidgets()) {
+        if (auto dialog = qobject_cast<Dialog*>(candidate); dialog && dialog->isVisible()) {
+            for (auto label : dialog->findChildren<AbstractLabel*>()) {
+                if (label->text().contains("Save changes?")) {
+                    ++count;
+                    break;
+                }
+            }
+        }
+    }
+    return count;
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -204,9 +228,11 @@ int main(int argc, char** argv)
     const auto root = qEnvironmentVariable("STARC_SAVE_FAILURE_ROOT");
     const auto mode = qEnvironmentVariable("STARC_SAVE_FAILURE_MODE");
     const auto path = root + "/story.starc";
+    const auto target = root + "/target.starc";
     require(!root.isEmpty() && !mode.isEmpty(), "disposable root and test mode provided");
     const bool sync = mode.startsWith("sync-");
-    const bool commitFailure = mode.startsWith("commit-");
+    const bool fileEvent = mode.startsWith("file-open-");
+    const bool commitFailure = mode.startsWith("commit-") || mode == "file-open-commit";
     if (sync) {
         // Exercise the production credential boundary's retained-legacy route with a fake token
         // and an absent private session bus. No desktop keyring or real repository is used.
@@ -242,6 +268,19 @@ int main(int argc, char** argv)
             require(edit->toPlainText().contains("UNSAVED_MARKER")
                         == (qEnvironmentVariable("STARC_EXPECT_MARKER") == "1"),
                     "reopened text matches the writer's Save or Don't save choice");
+            if (QFile::exists(target)) {
+                require(manager->openProject(target), "fresh process opens the event target");
+                require(script() == fileBytes(root + "/target.xml"),
+                        "event target reopens with its exact original screenplay and annotations");
+                query = DatabaseLayer::Database::query();
+                require(query.exec("SELECT uuid FROM documents ORDER BY uuid"),
+                        "read target document identities");
+                QByteArray targetIds;
+                while (query.next()) {
+                    targetIds += query.value(0).toString().toUtf8() + '\n';
+                }
+                require(targetIds == ids, "event target keeps every original document identity");
+            }
             window->close();
             return;
         }
@@ -290,6 +329,109 @@ int main(int argc, char** argv)
             ids += query.value(0).toString().toUtf8() + '\n';
         }
         retain(root + "/identities.txt", ids);
+
+        if (fileEvent) {
+            require(QFile::copy(path, target), "prepare another disposable story for file events");
+            retain(root + "/target.xml", original);
+            const auto targetBytes = fileBytes(target);
+            if (mode == "file-open-clean") {
+                fileOpen(app, target);
+                require(DatabaseLayer::Database::currentFile() == target && saveQuestionCount() == 0
+                            && !QFile::exists(path + ".lock"),
+                        "clean file-open switches immediately without a save question");
+                retain(root + "/expected.xml", original);
+                window->close();
+                return;
+            }
+            edit->moveCursor(QTextCursor::End);
+            edit->insertPlainText(" UNSAVED_MARKER");
+            waitFor([&] { return window->isWindowModified(); });
+            if (mode == "file-open-same") {
+                fileOpen(app, root + "/./story.starc");
+                require(DatabaseLayer::Database::currentFile() == path && window->isWindowModified()
+                            && saveQuestionCount() == 0
+                            && edit->toPlainText().contains("UNSAVED_MARKER"),
+                        "same-story event preserves unsaved edits without a question");
+                save();
+                retain(root + "/expected.xml", script());
+                window->close();
+                return;
+            }
+            if (mode == "file-open-failure" || mode == "file-open-commit") {
+                rejectWrites(true, commitFailure);
+            }
+            if (mode == "file-open-menu") {
+                menu->openProjectPressed();
+            } else {
+                fileOpen(app, target);
+            }
+            require(
+                DatabaseLayer::Database::currentFile() == path && window->isWindowModified()
+                    && QFile::exists(path + ".lock") && !QFile::exists(target + ".lock")
+                    && fileBytes(target) == targetBytes
+                    && edit->toPlainText().contains("UNSAVED_MARKER"),
+                "file-open asks before switching and keeps source edits, lock and target bytes");
+            waitFor([] { return saveQuestionCount() == 1; });
+            screenshot(root, "file-open-question");
+            if (mode == "file-open-repeated" || mode == "file-open-menu") {
+                const auto other = root + "/other.starc";
+                require(QFile::copy(target, other), "prepare a competing external open request");
+                fileOpen(app, other);
+                require(!manager->openProject(other),
+                        "public coordinator reports no immediate open during the save question");
+                require(DatabaseLayer::Database::currentFile() == path && saveQuestionCount() == 1
+                            && fileBytes(other) == targetBytes,
+                        "repeated requests neither replace the first question nor open a story");
+                if (mode == "file-open-repeated") {
+                    save();
+                    require(!window->isWindowModified(), "manual Save settles the live edits");
+                    fileOpen(app, other);
+                    require(
+                        DatabaseLayer::Database::currentFile() == path && saveQuestionCount() == 1,
+                        "external event cannot bypass an outstanding question after manual Save");
+                }
+            }
+            if (mode == "file-open-cancel" || mode == "file-open-menu") {
+                answer("Save changes?", { 0, "Cancel", Dialog::RejectButton });
+                require(window->isWindowModified() && DatabaseLayer::Database::currentFile() == path
+                            && QFile::exists(path + ".lock") && fileBytes(target) == targetBytes,
+                        "Cancel keeps the original story, dirty state, lock and unopened target");
+                edit->undo();
+                require(!edit->toPlainText().contains("UNSAVED_MARKER"),
+                        "Undo survives a canceled external request");
+                edit->redo();
+                require(edit->toPlainText().contains("UNSAVED_MARKER"),
+                        "Redo restores the edits after Cancel");
+                save();
+                retain(root + "/expected.xml", script());
+                window->close();
+                return;
+            }
+            answer("Save changes?",
+                   mode == "file-open-discard"
+                       ? Dialog::ButtonInfo{ 1, "Don't save", Dialog::NormalButton }
+                       : Dialog::ButtonInfo{ 2, "Save", Dialog::AcceptButton });
+            if (mode != "file-open-failure" && mode != "file-open-commit") {
+                require(
+                    DatabaseLayer::Database::currentFile() == target
+                        && !QFile::exists(path + ".lock") && QFile::exists(target + ".lock")
+                        && script() == original,
+                    "approved file-open switches to the requested story and transfers the lock");
+                const auto expected = persistedScript(path);
+                require(
+                    expected.contains("UNSAVED_MARKER") == (mode != "file-open-discard")
+                        && expected.contains("bold=")
+                        && expected.contains("Retain this annotation"),
+                    "Save preserves edits and annotations; Don't save preserves committed text");
+                if (mode == "file-open-discard") {
+                    require(expected == original, "explicit Don't save keeps exact committed XML");
+                }
+                retain(root + "/expected.xml", expected);
+                screenshot(root, "file-open-switched");
+                window->close();
+                return;
+            }
+        }
 
         GitHubFilesClient client;
         if (sync) {
@@ -347,16 +489,18 @@ int main(int argc, char** argv)
             }
         }
 
-        edit->moveCursor(QTextCursor::End);
-        edit->insertPlainText(" UNSAVED_MARKER");
-        waitFor([&] { return window->isWindowModified(); });
-        rejectWrites(true, commitFailure);
+        if (!fileEvent) {
+            edit->moveCursor(QTextCursor::End);
+            edit->insertPlainText(" UNSAVED_MARKER");
+            waitFor([&] { return window->isWindowModified(); });
+            rejectWrites(true, commitFailure);
+        }
         if (sync) {
             widget<Ui::ProjectsNavigator>()->syncProjectsPressed();
             answer("internal database error", { 0, "OK", Dialog::RejectButton });
             answer("Newer on GitHub", { 1, "Sync", Dialog::AcceptButton });
             waitFor([&] { return dialogWithText("Not all stories were synced") != nullptr; });
-        } else {
+        } else if (!fileEvent) {
             if (mode == "switch-failure") {
                 menu->openProjectPressed();
             } else {
@@ -389,7 +533,7 @@ int main(int argc, char** argv)
         require(edit->toPlainText().contains("UNSAVED_MARKER"),
                 "Redo restores the unsaved edit after failed Save");
 
-        if (mode == "close-retry" || mode == "commit-retry") {
+        if (mode == "close-retry" || mode == "commit-retry" || fileEvent) {
             answer("internal database error", { 1, "Retry", Dialog::AcceptButton });
             require(window->isWindowModified() && edit->toPlainText().contains("UNSAVED_MARKER"),
                     "another failed Retry still retains edits");
@@ -402,6 +546,12 @@ int main(int argc, char** argv)
             }
             rejectWrites(false, commitFailure);
             answer("internal database error", { 1, "Retry", Dialog::AcceptButton });
+            if (fileEvent) {
+                require(DatabaseLayer::Database::currentFile() == path
+                            && !window->isWindowModified() && QFile::exists(path + ".lock")
+                            && !QFile::exists(target + ".lock"),
+                        "successful Retry keeps the story open until a new file-open request");
+            }
         } else {
             answer("internal database error", { 0, "OK", Dialog::RejectButton });
             require(window->isWindowModified(), "dismissing saving error retains dirty state");
@@ -431,6 +581,11 @@ int main(int argc, char** argv)
         }
         retain(root + "/expected.xml", recovered);
         screenshot(root, "save-recovered");
+        if (fileEvent) {
+            fileOpen(app, target);
+            require(DatabaseLayer::Database::currentFile() == target && script() == original,
+                    "new file-open request succeeds after the failed Save has recovered");
+        }
         window->close();
     });
     QTimer::singleShot(45000, &app, [] { require(false, "ordinary shutdown watchdog"); });

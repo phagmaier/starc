@@ -24,6 +24,16 @@ failure. First-run onboarding completes before a pending explicit request opens;
 automatic reopening applies to profiles already configured when startup began.
 Repeated startup callbacks cannot repeat the automatic attempt.
 
+After startup, public `ApplicationManager::openProject` uses `saveIfNeeded`
+before switching stories. `Application::event` sends OS file-open requests
+through that public route, so Cancel or a failed requested save keeps the live
+editor and story lock. Clean requests still open synchronously; dirty requests
+wait for the save question. Its boolean result reports only immediate opening.
+Same-story requests keep the current edits without prompting. Requests arriving
+while a save question is active cannot bypass it or replace its callback.
+Already-guarded story-list/cloud callbacks call the private opening method after
+approval, avoiding a second guard while their question is disappearing.
+
 `kApplicationOpenLastStoryKey` defaults to false. The settings checkbox persists
 it without a runtime project-switch handler. `goToEditCurrentProject` records
 `kApplicationLastStoryPathKey` only after loading succeeds, using the local story's

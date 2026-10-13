@@ -204,7 +204,12 @@ when SQLite rejects document writes or a deferred constraint rejects the commit.
 It covers Save on close, failed and recovered Retry, edits made while a commit is
 pending, dismissing the saving error, Cancel, explicit Don't save, an Open-menu
 request, and a refused GitHub replacement download. A successful download control
-checks its exact backup. Fresh processes reopen every result and compare script,
+checks its exact backup. Actual `QFileOpenEvent` cases cover Save, Don't save,
+Cancel, clean and same-story requests, competing requests during the save
+question (including after manual Save), an external request during the Open-menu
+question, and failed writes/commits with Retry recovery. External requests keep
+the current editor and lock until the writer approves and any requested save
+succeeds. Fresh processes reopen every result and compare script,
 emphasis, review annotations and document identities. All files, profiles and
 fake credentials are disposable; the GitHub API is a loopback mock server and
 the session bus is absent. The default is offscreen; on a private Xvfb display,

@@ -92,6 +92,7 @@
 #include <QtConcurrentRun>
 
 #include <NetworkRequest.h>
+#include <memory>
 
 namespace ManagementLayer {
 
@@ -2248,7 +2249,21 @@ bool ApplicationManager::openProject(const QString& _path)
         }
         return false;
     }
-    return d->openProject(_path);
+    if (_path.isEmpty()) {
+        return false;
+    }
+    if (const auto currentProject = d->projectsManager->currentProject();
+        currentProject != nullptr && QFileInfo(currentProject->path()) == QFileInfo(_path)) {
+        d->showProject();
+        return false;
+    }
+
+    // File-open events use this public route too. Keep the current story until the writer
+    // approves switching and any requested save succeeds. The result must outlive this call
+    // when the save question is asynchronous; false then means no immediate opening occurred.
+    auto opened = std::make_shared<bool>(false);
+    d->saveIfNeeded([this, _path, opened] { *opened = d->openProject(_path); });
+    return *opened;
 }
 
 bool ApplicationManager::event(QEvent* _event)
@@ -2499,7 +2514,7 @@ void ApplicationManager::initConnections()
                     return;
                 }
 
-                auto callback = [this, _path] { openProject(_path); };
+                auto callback = [this, _path] { d->openProject(_path); };
                 d->saveIfNeeded(callback);
             });
     connect(d->projectsManager.data(), &ProjectsManager::closeCurrentProjectRequested, this,
@@ -2888,7 +2903,7 @@ void ApplicationManager::initConnections()
                 }
 
                 auto callback = [this, _id, _path] {
-                    const auto isProjectOpened = openProject(_path);
+                    const auto isProjectOpened = d->openProject(_path);
                     if (!isProjectOpened) {
                         return;
                     }

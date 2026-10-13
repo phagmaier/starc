@@ -2,7 +2,7 @@
 
 Audit date: 2026-10-12 (local time). Reviewed `dev` at `12722c89`; frozen
 upstream reference: `master` at `4b9677db`. No application fixes were made during
-the initial audit. Issues 1 and 2 have since been completed; issues 3–8 remain open.
+the initial audit. Issues 1–3 have since been completed; issues 4–8 remain open.
 
 Eight defects were confirmed outside the passing regression suite. Existing
 upstream defects are included because they still affect this fork. The source
@@ -153,7 +153,59 @@ chain was verified in source, but was not separately fault-injected.
 with the isolated harness and write-rejection fixture alongside it.
 Real editor/coordinator and ordinary close, offscreen Qt; exit 0 despite lost edits.
 
-## 3. High: an OS file-open event switches stories without protecting unsaved edits
+## 3. Completed: an OS file-open event switches stories without protecting unsaved edits
+
+- [x] **Fixed and verified on 2026-10-12.**
+
+**Resolution:** Public coordinator opening requests, including the application's
+`QFileOpenEvent` route, now use the existing save guard. Save opens the requested
+story only after saving succeeds. Cancel or a failed save keeps the current
+editor, unsaved status, Undo/Redo and story lock. Explicit Don't save permits
+switching. Clean requests still open immediately; same-story requests preserve
+the live edits without a question. Repeated requests cannot bypass an outstanding
+save question, including after a manual Save, or replace its callback.
+
+Already-guarded story-list and cloud callbacks invoke the internal opening method
+after approval, avoiding a second guard while their dialog disappears. Startup
+file-event buffering and onboarding behavior are retained. The public boolean
+result reports only an immediate successful opening; a save question can defer it.
+
+**Validation:** `./build/dev.sh doctor`, `make qmake_all` and
+`JOBS=4 ./build/dev.sh build debug` passed. The expanded
+`./tools/check-save-failure.sh` passed all 36 ordinary-exit cases on private Xvfb:
+the existing 18 save/reopen cases and 18 new file-event/reopen cases covering Save,
+Cancel, Don't save, clean and same-story requests, repeated requests, an external
+request during the Open-menu question, rejected document writes and rejected
+commits with failed and recovered Retry. Every fresh-process reopen compares
+exact screenplay/emphasis/review XML and document identities, including the
+event targets. An independent read-only SQLite postcheck confirmed all 27 source
+and target story comparisons and released story locks.
+
+The 35-case startup/coordinator check also passed on private Xvfb. Screenplay
+scope and independent Fountain/FDX interchange checks passed with their existing
+offscreen boundaries. Bash syntax, ShellCheck and `git diff --check` passed.
+
+**Fix evidence:** [build](.build/evidence/issue-3-build.log),
+[qmake regeneration](.build/evidence/issue-3-qmake.log),
+[native runner and related checks](.build/evidence/issue-3-native-0uu3g2ex/),
+[36 native cases and screenshots](.build/evidence/save-failure-QRSkld/),
+[independent postcheck](.build/evidence/save-failure-QRSkld/independent-postcheck.json),
+[35 startup cases](.build/evidence/startup-last-story-MyLGhF/), and
+[18 focused offscreen cases](.build/evidence/save-failure-jxhz6R/).
+The new test reproduced the original bypass before the fix in
+[the retained baseline](.build/evidence/save-failure-9xvnr2/).
+[The initial post-fix harness run](.build/evidence/save-failure-fjniJH/) retained
+the current story but checked dialog visibility before its opening animation
+completed; the final harness waits for the observable save question. Screenshots
+include animation transitions.
+
+This establishes Linux debug behavior with actual `QFileOpenEvent` objects and
+injected editor/dialog actions on private XCB windows. Physical desktop file
+association delivery, other operating systems, release packages and exhaustive
+storage/crash faults were unexercised. Existing sync controls used fake credentials,
+an absent session bus and a loopback mock API in an isolated network.
+
+The original finding and reproduction below are retained for reference.
 
 **Where:** [application.cpp](src/app/application.cpp), line 209;
 [application_manager.cpp](src/core/management_layer/application_manager.cpp),
