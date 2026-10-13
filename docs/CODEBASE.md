@@ -358,6 +358,13 @@ Rules the code relies on:
 - Successful uploads and replacement/new-story downloads use `GitHubSyncManager::Implementation::recordSync` to advance both the persisted link and cached snapshot to the transferred fingerprint/SHA. Remote-only entries acquire their local path; failed transfers and separate-copy downloads leave the original baseline intact.
 - A file is uploaded only over the repository version it was last synced with (GitHub refuses the upload otherwise), and downloaded over a local file only if that file has not changed since the last sync. When both changed, nothing is replaced until the user picks a version in the story's context menu.
 - A local version replaced by a download is first copied to the backups folder as `<name> (before GitHub download)_<time>.starc`.
+- Every download destination is locked, including absent files and separate copies.
+  Symlinks and non-file destinations are refused. New files use a flushed,
+  same-directory `QTemporaryFile` and publication that refuses an occupied path;
+  replacements retain their fingerprint/backup checks and atomic `QSaveFile` route.
+  Failed publication leaves sync baselines and the remote entry unchanged.
+  `tools/check-github-download-safety.sh` exercises collisions and write failures
+  through the real manager with disposable localhost fixtures.
 - A public repository is refused.
 - Sync waits for credential loading and writes to settle. A keyring credential takes precedence over any legacy settings token; only a confirmed keyring copy permits durable plaintext removal. Failed migration retains the legacy token for authentication and reports a retryable warning.
 - Settings stage token edits in memory; Save token, Clear token, Retry keyring, leaving settings, and normal close use the shared store. Programmatic population blocks change signals. Shutdown and settings-driven restarts report unsaved changes and allow retry or keeping the application open.

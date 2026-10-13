@@ -133,6 +133,14 @@ After a debug build, run `./tools/check-writing-session-storage.sh` for the
 focused writing-statistics storage regression. It uses an isolated profile and
 retains compile/test logs under `.build/evidence/`.
 
+`./tools/check-github-download-safety.sh` checks new-story and separate-copy
+downloads through the real sync manager and a localhost mock API. It covers
+destination locks, existing files/symlinks/directories, competing publication,
+short staged writes, publication failures and recovery. Fresh-process oracles
+check exact SQLite story/document/history bytes and preserved competing paths.
+It uses disposable profiles and fake credentials, with no native keyring or
+external API; logs remain under `.build/evidence/`.
+
 `./tools/check-backup-consistency.sh` checks native database copies during a
 deliberately overlapping Save, using the production builder in a worker thread.
 It verifies SQLite locks against same-process and separate-process writers,

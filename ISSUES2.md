@@ -442,7 +442,7 @@ restricts reconnects and the independent reader requests exact BLOB bytes.
 
 ## 5. A new GitHub download can overwrite a concurrently created, locked story
 
-- [ ] **P1 — confirmed with the production manager and a localhost mock API.**
+- [x] **P1 — fixed 2026-10-13; verified through both new-story and separate-copy downloads.**
 
 **Location:**
 [github_sync_manager.cpp](src/core/management_layer/content/github_sync/github_sync_manager.cpp),
@@ -478,6 +478,62 @@ entry and sync baseline.
 `sync-new-destination.cpp`, `run-sync-race.sh` and `run-sync-destination.sh` in
 `.build/evidence/audit2-persistence/`. Runners use fresh disposable directories,
 fake credentials and loopback only; they require local socket access.
+
+**Resolution (2026-10-13):** All download destinations now acquire the story lock,
+including absent paths and separate copies. The path is inspected under that lock;
+existing new-file destinations, valid/dangling symlinks and non-file destinations
+are refused. New stories and copies follow the guarded new-project pattern:
+stage in a same-directory `QTemporaryFile`, check the complete write and flush,
+then publish with a rename that refuses an occupied destination. A file, symlink
+or directory appearing immediately before publication survives unchanged.
+Replacement downloads retain their fingerprint and pre-replacement backup checks
+and use `QSaveFile` with direct-write fallback explicitly disabled. Locks remain
+held through publication and project registration. Failed downloads do not record
+a sync baseline or register a local project; separate copies retain the original
+story's bytes and conflict baseline.
+
+`./tools/check-github-download-safety.sh` passed **26 ordinary harness process
+exits**, thirteen cases for each route, with a separate Python process checking
+every result. Cases cover successful publication, live locks on absent/existing
+paths, a story appearing after the repository check, valid/dangling symlinks,
+directories, competing file/symlink/directory publication, an unwritable staging
+folder, genuine short staged writes and failed final publication. Every refusal
+is followed by successful recovery after removing the collision or fault.
+The test checks lock ownership through publication, exact persisted baselines,
+cached conflict/sync status, no phantom projects, temporary-file cleanup and
+released owned locks. Independent read-only SQLite/byte oracles verify entire
+downloaded and competing files, document/review IDs and bytes, opaque legacy
+content, change-history patches, integrity and untouched symlink targets.
+
+The Linux test-only interposer freezes wall time for deterministic copy names,
+observes the real Qt publication boundary, inserts competing paths, limits only
+the staging descriptor to one byte with `RLIMIT_FSIZE`, or removes directory
+write permission only during publication. The requested faults must actually
+fire. These are bounded concurrency/write/publication checks, not physical-disk
+exhaustion or power-loss durability evidence. The same regression fails against
+the retained pre-fix plugin for **both** routes: a locked, absent destination is
+published and registered despite refusal being required.
+
+`./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, the existing
+`./tools/check-project-sync.sh`, changed-code formatting, Bash syntax, ShellCheck
+and `git diff --check` passed. The sync control covers uploads, replacement
+downloads with exact previous-version backups, successful baseline advancement,
+separate-copy conflicts and failed transfers. All fixtures/profiles were
+disposable, with a localhost mock API, injected fake credentials, offscreen Qt
+dialog actions and an absent desktop session bus. Editor/visible-desktop/GPU
+behavior, native keyrings, real GitHub accounts, release builds and other
+operating systems remain unexercised. Issues 6–14 remain open.
+
+Final evidence: [download safety](.build/evidence/github-download-safety-89Miue/),
+[sync controls](.build/evidence/project-sync-LAdqzT/),
+and [debug build](.build/evidence/github-download-build-formatted.log).
+Expected pre-fix failures remain in [new-story control](.build/evidence/github-download-safety-Wpy5T2/)
+and [separate-copy control](.build/evidence/github-download-safety-49DyvE/).
+The initial passing matrix remains in [30ggR8](.build/evidence/github-download-safety-30ggR8/).
+Earlier runner attempts remain in `github-download-baseline*.log`: direct
+execution lacked an executable bit, the sandbox denied localhost sockets, and
+the original success-expecting audit harness timed out after loading the fixed
+plugin. That audit timeout is not the pre-fix regression evidence above.
 
 ## 6. An old lock dialog can crash a different, modified story
 

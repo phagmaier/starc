@@ -26,6 +26,7 @@
 #include <QSaveFile>
 #include <QSet>
 #include <QSysInfo>
+#include <QTemporaryFile>
 #include <QWidget>
 
 #include <algorithm>
@@ -791,7 +792,6 @@ void GitHubSyncManager::Implementation::download(const Entry& _entry, bool _asCo
             }
 
             QString path = _entry.path;
-            QScopedPointer<QLockFile> lock;
             if (_asCopy) {
                 const QFileInfo fileInfo(_entry.path);
                 path = QDir::toNativeSeparators(
@@ -802,9 +802,13 @@ void GitHubSyncManager::Implementation::download(const Entry& _entry, bool _asCo
             } else if (path.isEmpty()) {
                 const auto projectsFolder
                     = settingsValue(DataStorageLayer::kProjectSaveFolderKey).toString();
-                QDir::root().mkpath(projectsFolder);
+                if (!QDir::root().mkpath(projectsFolder)) {
+                    fail(tr("The stories folder can't be created."));
+                    return;
+                }
                 path = QDir::toNativeSeparators(projectsFolder + "/" + _entry.remoteName);
-            } else {
+            }
+            if (isReplacing) {
                 //
                 // The file will be replaced, so nobody should work with it
                 //
@@ -819,14 +823,28 @@ void GitHubSyncManager::Implementation::download(const Entry& _entry, bool _asCo
                     fail(tr("The story is still open, so it wasn't replaced."));
                     return;
                 }
-                const QFileInfo fileInfo(path);
-                lock.reset(new QLockFile(
-                    QString("%1/%2.lock").arg(fileInfo.absolutePath(), fileInfo.fileName())));
-                if (!lock->tryLock()) {
-                    fail(tr("The story is opened in another copy of the application."));
-                    return;
-                }
+            }
 
+            // New stories and separate copies need the same destination lock as replacements,
+            // even when the file does not exist yet. Inspect the path again under that lock.
+            const QFileInfo fileInfo(path);
+            QLockFile lock(QString("%1/%2.lock").arg(fileInfo.absolutePath(), fileInfo.fileName()));
+            if (!lock.tryLock()) {
+                fail(tr("The story is opened in another copy of the application."));
+                return;
+            }
+            const QFileInfo destination(path);
+            if (destination.isSymLink() || (destination.exists() && !destination.isFile())) {
+                fail(tr("The file \"%1\" isn't a regular story file. It was left unchanged.")
+                         .arg(path));
+                return;
+            }
+            if (!isReplacing && destination.exists()) {
+                fail(tr("The file \"%1\" already exists.").arg(path));
+                return;
+            }
+
+            if (isReplacing) {
                 //
                 // ... and it should be the same story which was checked
                 //
@@ -848,20 +866,24 @@ void GitHubSyncManager::Implementation::download(const Entry& _entry, bool _asCo
                     fail(backup.status);
                     return;
                 }
-            }
-            if (!isReplacing && QFileInfo::exists(path)) {
-                fail(tr("The file \"%1\" already exists.").arg(path));
-                return;
-            }
 
-            QSaveFile file(path);
-            if (!file.open(QIODevice::WriteOnly) || file.write(_content) != _content.size()
-                || !file.commit()) {
-                fail(tr("The file \"%1\" can't be written: %2").arg(path, file.errorString()));
-                return;
-            }
-            if (!lock.isNull()) {
-                lock->unlock();
+                QSaveFile file(path);
+                file.setDirectWriteFallback(false);
+                if (!file.open(QIODevice::WriteOnly) || file.write(_content) != _content.size()
+                    || !file.commit()) {
+                    fail(tr("The file \"%1\" can't be written: %2").arg(path, file.errorString()));
+                    return;
+                }
+            } else {
+                // Match new-project creation: stage beside the destination and publish without
+                // replacement. A file or symlink appearing after the check must survive.
+                QTemporaryFile file(destination.absoluteFilePath() + ".XXXXXX");
+                if (!file.open() || file.write(_content) != _content.size() || !file.flush()
+                    || !file.rename(destination.absoluteFilePath())) {
+                    fail(tr("The file \"%1\" can't be written: %2").arg(path, file.errorString()));
+                    return;
+                }
+                file.setAutoRemove(false);
             }
 
             auto project = projectsManager->addLocalProject(path);
@@ -873,7 +895,8 @@ void GitHubSyncManager::Implementation::download(const Entry& _entry, bool _asCo
                 project->setSyncStatus(BusinessLayer::ProjectSyncStatus::InSync);
             }
             projectsManager->updateProject(project);
-            _callback({});
+            lock.unlock();
+            _callback({ });
         });
 }
 
