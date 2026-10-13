@@ -23,12 +23,14 @@
 #include <ui/widgets/text_field/text_field.h>
 #include <ui/widgets/tree/tree.h>
 
+#include <QAbstractButton>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFileOpenEvent>
 #include <QLockFile>
+#include <QMessageBox>
 #include <QScreen>
 #include <QSettings>
 #include <QSortFilterProxyModel>
@@ -58,6 +60,11 @@ void waitFor(const std::function<bool()>& _ready)
     }
     if (!_ready()) {
         for (auto candidate : QApplication::allWidgets()) {
+            if (qobject_cast<Dialog*>(candidate) && candidate->isVisible()) {
+                for (auto label : candidate->findChildren<AbstractLabel*>()) {
+                    std::fprintf(stderr, "visible dialog label: %s\n", qPrintable(label->text()));
+                }
+            }
             if (QString(candidate->metaObject()->className()).contains("ProjectsView")
                 || QString(candidate->metaObject()->className()).contains("ApplicationView")) {
                 std::fprintf(stderr, "state: %s visible=%d hidden=%d parent=%s\n",
@@ -350,6 +357,193 @@ void selectSaveAs(const QString& _target, Ui::MenuView* _menu, bool _fail = fals
                 "restore disposable destination");
     }
 }
+
+void verifySaveAs(const QString& _root, const QString& _mode)
+{
+    const auto source = _root + "/remembered.starc";
+    const auto target = _mode == "save-as-same" ? source : _root + "/destination.starc";
+    const auto original = readFile(source);
+    const bool existing = QFileInfo(target).isFile();
+    const auto destinationBytes = existing ? readFile(target) : QByteArray();
+    const auto referent = _root + "/referent.starc";
+    const auto referentBytes = QFile::exists(referent) ? readFile(referent) : QByteArray();
+    QLockFile occupied(target + ".lock");
+    if (_mode == "save-as-locked" || _mode == "save-as-lock-only") {
+        require(occupied.tryLock(), "another live holder owns destination lock");
+    }
+    auto window = widget<Ui::ApplicationView>();
+    auto edit = widget<Ui::ScreenplayTextEdit>();
+    const bool dirty = _mode == "save-as-locked" || _mode == "save-as-cancel"
+        || _mode == "save-as-replacement-cancel" || _mode.startsWith("save-as-copy-failure")
+        || _mode.startsWith("save-as-write-failure") || _mode.startsWith("save-as-publish-failure");
+    if (dirty) {
+        edit->moveCursor(QTextCursor::End);
+        edit->insertPlainText("\nPending Save As edit.");
+        auto document = qobject_cast<BusinessLayer::TextDocument*>(edit->document());
+        document->model()->saveChanges();
+        waitFor([&] { return window->isWindowModified(); });
+    }
+    QTimer answers;
+    answers.setInterval(10);
+    bool discardAnswered = false;
+    QObject::connect(&answers, &QTimer::timeout, [&] {
+        // Answer the real replacement question while checking its destination lock.
+        if (auto question = widget<QMessageBox>(); question && question->isVisible()) {
+            require(question->button(QMessageBox::Yes), "replacement question has Yes button");
+            QLockFile competitor(target + ".lock");
+            require(!competitor.tryLock(), "replacement question holds destination lock");
+            question
+                ->button(_mode == "save-as-replacement-cancel" ? QMessageBox::No : QMessageBox::Yes)
+                ->click();
+        }
+        for (auto candidate : QApplication::allWidgets()) {
+            auto dialog = qobject_cast<Dialog*>(candidate);
+            if (!dialog || !dialog->isVisible()) {
+                continue;
+            }
+            for (auto label : dialog->findChildren<AbstractLabel*>()) {
+                if (!discardAnswered && label->text() == "Project was modified. Save changes?") {
+                    discardAnswered = true;
+                    // The answer opens a nested file chooser; let this timer return first.
+                    QTimer::singleShot(0, dialog, [dialog] {
+                        dialog->finished({ 1, "Don't save", Dialog::NormalButton });
+                    });
+                    return;
+                }
+            }
+        }
+    });
+    answers.start();
+    bool selected = false;
+    QTimer chooser;
+    chooser.setInterval(10);
+    QObject::connect(&chooser, &QTimer::timeout, [&] {
+        auto dialog = widget<QFileDialog>();
+        if (!dialog || !dialog->isVisible()) {
+            return;
+        }
+        chooser.stop();
+        selected = true;
+        std::puts("ok: Save As chooser appears");
+        if (_mode == "save-as-cancel") {
+            dialog->reject();
+            return;
+        }
+        QObject::connect(dialog, &QDialog::accepted, [&] {
+            if (_mode == "save-as-directory") {
+                require(QDir().mkpath(target), "a directory occupies destination after selection");
+            }
+            if (_mode.startsWith("save-as-copy-failure")) {
+                require(QFile::setPermissions(source, { }), "deny source reading after selection");
+            }
+            if (_mode == "save-as-unwritable") {
+                require(QFile::setPermissions(_root, QFile::ReadOwner | QFile::ExeOwner),
+                        "deny destination directory writing after selection");
+            }
+        });
+        if (dialog->focusWidget()) {
+            dialog->focusWidget()->clearFocus();
+        }
+        dialog->selectFile(_mode == "save-as-no-suffix" ? _root + "/destination" : target);
+        QMetaObject::invokeMethod(dialog, "accept", Qt::DirectConnection);
+    });
+    chooser.start();
+    widget<Ui::MenuView>()->saveProjectAsPressed();
+    waitFor([&] { return selected && !widget<QFileDialog>(); });
+    answers.stop();
+    if (_mode.startsWith("save-as-copy-failure")) {
+        require(QFile::setPermissions(source, QFile::ReadOwner | QFile::WriteOwner),
+                "restore source permissions");
+    }
+    if (_mode == "save-as-unwritable") {
+        require(
+            QFile::setPermissions(_root, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner),
+            "restore destination directory permissions");
+    }
+    const bool success
+        = _mode == "save-as-new" || _mode == "save-as-existing" || _mode == "save-as-no-suffix";
+    if (success) {
+        require(remembered() == target && DatabaseLayer::Database::currentFile() == target
+                    && QFile::exists(target + ".lock") && !QFile::exists(source + ".lock"),
+                "successful Save As switches story and transfers destination lock");
+        QLockFile competitor(target + ".lock");
+        require(!competitor.tryLock(), "destination remains locked after the switch");
+    } else {
+        require(remembered() == source && DatabaseLayer::Database::currentFile() == source
+                    && QFile::exists(source + ".lock"),
+                "refused Save As retains original story, editor and source lock");
+        if (_mode == "save-as-race") {
+            require(readFile(target) == "Concurrent publisher owns this destination.\n",
+                    "concurrent publisher's exact bytes survive refused Save As");
+        } else if (_mode == "save-as-symlink" || _mode == "save-as-dangling") {
+            require(QFileInfo(target).isSymLink(), "Save As preserves destination symlink");
+            require(_mode == "save-as-dangling" ? !QFile::exists(referent)
+                                                : readFile(referent) == referentBytes,
+                    "Save As leaves symlink referent unchanged");
+        } else if (_mode == "save-as-directory") {
+            require(QFileInfo(target).isDir(), "Save As preserves destination directory");
+        } else {
+            require(existing ? readFile(target) == destinationBytes : !QFile::exists(target),
+                    "refusal preserves complete old destination or leaves new path absent");
+        }
+        require(occupied.isLocked() ? QFile::exists(target + ".lock")
+                                    : !QFile::exists(target + ".lock") || target == source,
+                "refusal preserves another holder's lock and releases our destination lock");
+        if (dirty) {
+            require(widget<Ui::ScreenplayTextEdit>() == edit && window->isWindowModified()
+                        && edit->toPlainText().contains("Pending Save As edit."),
+                    "refusal retains dirty state and live unsaved edit");
+            edit->undo();
+            require(!edit->toPlainText().contains("Pending Save As edit."),
+                    "Undo remains available after refusal");
+            edit->redo();
+            require(edit->toPlainText().contains("Pending Save As edit."),
+                    "Redo restores the exact pending edit after refusal");
+            edit->undo();
+            auto document = qobject_cast<BusinessLayer::TextDocument*>(edit->document());
+            document->model()->saveChanges();
+            widget<Ui::MenuView>()->saveProjectChangesPressed();
+        }
+    }
+    if (!dirty) {
+        require(readFile(source) == original, "Save As leaves source file byte-exact");
+    }
+    verifyScript(_root);
+    for (const auto& entry : QDir(_root).entryList(QDir::Files | QDir::Hidden)) {
+        require(!entry.startsWith("destination.starc.") || entry.endsWith(".lock"),
+                "Save As leaves no staging files");
+    }
+    const bool error = !success && _mode != "save-as-cancel" && _mode != "save-as-same"
+        && _mode != "save-as-replacement-cancel";
+    if (error) {
+        Dialog* savingError = nullptr;
+        waitFor([&] {
+            for (auto candidate : QApplication::allWidgets()) {
+                auto dialog = qobject_cast<Dialog*>(candidate);
+                if (!dialog || !dialog->isVisible()) {
+                    continue;
+                }
+                for (auto label : dialog->findChildren<AbstractLabel*>()) {
+                    if (label->text().contains("Can't save the story to the file")
+                        || label->text().contains("already open in another copy")) {
+                        savingError = dialog;
+                        return true;
+                    }
+                }
+            }
+            return false;
+        });
+        savingError->finished({ 0, "OK", Dialog::AcceptButton });
+    }
+    waitFor([] {
+        for (auto candidate : QApplication::allWidgets()) {
+            if (auto dialog = qobject_cast<Dialog*>(candidate); dialog && dialog->isVisible()) {
+                return false;
+            }
+        }
+        return true;
+    });
+}
 } // namespace
 
 int main(int argc, char** argv)
@@ -393,6 +587,9 @@ int main(int argc, char** argv)
         request = explicitPath;
     } else if (mode == "explicit-failure") {
         request = root + "/absent-explicit.starc";
+    } else if (mode == "persisted-save-as") {
+        // Reopen explicitly; this regression does not depend on the startup preference.
+        request = remembered();
     }
 
     QLockFile held(path + ".lock");
@@ -445,7 +642,8 @@ int main(int argc, char** argv)
             || mode == "unavailable" || mode == "explicit-failure" || mode == "locked"
             || mode == "onboarding";
         const bool sourceReopen = mode == "persisted-fountain" || mode == "persisted-fdx";
-        const auto expectedPath = sourceReopen
+        const auto expectedPath = mode == "persisted-save-as" ? remembered()
+            : sourceReopen
             ? root + (mode == "persisted-fountain" ? "/source.fountain" : "/source.fdx")
             : mode == "persisted-explicit" || mode == "explicit" || mode == "early-event"
                 || mode == "queued-event" || mode == "onboarding-explicit"
@@ -532,6 +730,9 @@ int main(int argc, char** argv)
             require(QDir().mkpath(root + "/fail-save"), "create disposable Save As directory");
             selectSaveAs(root + "/fail-save/failure.starc", widget<Ui::MenuView>(), true);
             require(remembered() == before, "failed Save As retains the last successful story");
+        }
+        if (mode.startsWith("save-as-")) {
+            verifySaveAs(root, mode);
         }
         if (mode == "failures") {
             const auto before = remembered();

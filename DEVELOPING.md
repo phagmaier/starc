@@ -193,6 +193,19 @@ It builds
 against the debug build and runs it offscreen with a disposable project and
 profile. It needs `pdftotext` (poppler) and does not show a window.
 
+`./tools/check-save-as-safety.sh` exercises Save As through the real coordinator
+with disposable native stories, ordinary shutdown and fresh-process reopening.
+It covers existing and absent locked destinations, replacement approval/cancellation,
+chooser cancellation, omitted suffixes, same-story requests, symlinks, directories,
+source-read failures, short staged writes, failed final publication and a competing
+destination publisher. Refusals retain the source editor, dirty state, Undo/Redo
+and lock; independent byte and SQLite checks verify destination preservation,
+script/annotation bytes and document identities. A Linux test-only interposer
+restricts faults to the selected output and supplies an asynchronous in-memory
+credential store; no native keyring or repository is used. The default is offscreen
+with Qt dialog/signal actions, so this is not desktop/GPU or power-loss durability
+evidence. All runs and logs remain under `.build/evidence/`.
+
 `./tools/check-screenplay-interchange.sh` adds independent Fountain/FDX fixtures,
 ordered paragraph/text/emphasis/number checks, fresh imports, and explicit model
 serialization plus project save/reopen. It also checks the exported syntax/XML

@@ -136,11 +136,11 @@ fixture. The final direct-export limit guarantees an actual short write.
 The scope run [Jrh1Iw](.build/evidence/screenplay-scope-Jrh1Iw/) started while a build
 was replacing shared libraries and failed in the loader before any test output;
 its core/backtrace remain, including the plugin build-ID mismatch. The completed
-build's scope run passed. Issues 2–14 remain open.
+build's scope run passed. At that point, issues 2–14 remained open.
 
 ## 2. Save As overwrites a locked destination before checking its lock
 
-- [ ] **P1 — confirmed through the real Save As coordinator.**
+- [x] **P1 — fixed 2026-10-13; verified through the real Save As coordinator.**
 
 **Location:**
 [application_manager.cpp](src/core/management_layer/application_manager.cpp),
@@ -174,6 +174,60 @@ the destination byte oracle and both stories under that run's `stories/`, and
 `save_as_probe.cpp`/`run_probe.py` in `.build/evidence/audit2-20261013/save-as/`.
 The initial probe's incorrect source-open assertion is retained separately;
 the verified run checks the source lock, not the database's retained filename.
+
+**Resolution (2026-10-13):** Save As now acquires the destination lock before
+replacement confirmation or any destination writes and transfers that same lock
+to the copied story without releasing/reacquiring it. It stages a complete copy:
+existing destinations use `QSaveFile` with direct-write fallback disabled, while
+new destinations use a same-directory `QTemporaryFile` and a rename that refuses
+an occupied path. Source reads, writes, flushes and publication are checked.
+Symlinks and non-file destinations are refused, and the destination's kind is
+checked again after the replacement question. The chooser applies the `.starc`
+suffix before confirmation. A refusal or copy/publication failure leaves the
+source editor and lock in place and preserves the old destination. Choosing
+Don't save before a failed or canceled Save As also retains the modified flag,
+live edits and Undo/Redo history. Incoming file-open requests cannot switch the
+story while the Save As chooser or replacement question is active.
+
+`./tools/check-save-as-safety.sh` passed **39 ordinary process exits**: a seed,
+nineteen cases and a fresh-process reopen of each result. Cases include locked
+existing/absent destinations, new and approved replacements, chooser and
+replacement cancellation, omitted suffixes, same-story requests, valid/dangling
+symlinks, a directory appearing after selection, an unwritable directory,
+source-read failure, short staged writes, failed final publication, and a
+competing publisher immediately before new-file publication. Dirty failure cases
+verify live editor identity, pending text, Undo/Redo and subsequent successful
+Save. Independent byte/SQLite oracles check unchanged destinations, exact script
+and annotation bytes, document identities, integrity and released locks.
+
+The Linux test-only interposer applies a genuine one-byte kernel file-size limit
+only during writes to the staging descriptor, or removes directory write access
+only for final publication. It also proves the destination lock remains held
+during confirmation/publication and supplies an asynchronous in-memory credential
+store. These are bounded write/publication faults with injected Qt actions, not
+physical-disk exhaustion, power-loss durability or native-keyring evidence.
+
+`./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, Bash syntax,
+ShellCheck, changed-code formatting and `git diff --check` passed. The existing
+startup/last-story regression passed **35 ordinary exits**; Fountain/FDX
+`permission-retry` and `permission-close` source-export controls and their fresh
+reopens passed **8 ordinary exits**. Those controls used the same in-memory
+credential-store injection. All projects/profiles were disposable, with offscreen
+Qt and an absent desktop session bus. Desktop/GPU behavior, release builds and
+other operating systems remain unexercised. Issues 3–14 remain open.
+
+Passing evidence: [Save As safety](.build/evidence/save-as-safety-YBgEk6/),
+[startup coordinator](.build/evidence/startup-last-story-Hv47s6/),
+[source-export controls](.build/evidence/source-export-failure-RHT4I5/),
+and [final build](.build/evidence/save-as-safety-build-final.log).
+The new regression failed on the old build in
+[Xs6MYi](.build/evidence/save-as-safety-Xs6MYi/): its independent hash proved the
+locked destination changed, and the source lock was gone. Earlier harness/build
+failures remain in the other `save-as-safety-*` directories/logs. They include
+dialog handling, credential-isolation setup, unfired Qt virtual-write hooks,
+reopening incorrectly tied to the startup preference, and a Python oracle that
+initially distinguished SQLite TEXT from BLOB instead of comparing their exact
+UTF-8 document bytes. Final runs assert that each requested fault actually fired.
 
 ## 3. Background backups can publish a mixture of two saved generations
 

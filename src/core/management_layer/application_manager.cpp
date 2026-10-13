@@ -73,8 +73,10 @@
 #include <QLocale>
 #include <QLockFile>
 #include <QMenu>
+#include <QMessageBox>
 #include <QProcess>
 #include <QRawFont>
+#include <QSaveFile>
 #include <QScopedPointer>
 #include <QScopedValueRollback>
 #include <QShortcut>
@@ -251,7 +253,7 @@ public:
      *        или не хочет (Нет) сохранять и не будет вызван, если пользователь передумал (Отмена)
      *        or the requested save fails
      */
-    void saveIfNeeded(std::function<void()> _callback);
+    void saveIfNeeded(std::function<void()> _callback, bool _markDiscardedAsSaved = true);
 
     /**
      * @brief Сохранить проект как другой файл
@@ -1144,7 +1146,8 @@ bool ApplicationManager::Implementation::saveChanges()
     return true;
 }
 
-void ApplicationManager::Implementation::saveIfNeeded(std::function<void()> _callback)
+void ApplicationManager::Implementation::saveIfNeeded(std::function<void()> _callback,
+                                                      bool _markDiscardedAsSaved)
 {
     //
     // Избегаем зацикливания, проверяя, что диалог уже показан
@@ -1181,7 +1184,8 @@ void ApplicationManager::Implementation::saveIfNeeded(std::function<void()> _cal
                                     { kYesButtonId, tr("Save"), Dialog::AcceptButton } });
     QObject::connect(
         saveChangesDialog, &Dialog::finished, saveChangesDialog,
-        [this, _callback, kCancelButtonId, kNoButtonId](const Dialog::ButtonInfo& _buttonInfo) {
+        [this, _callback, _markDiscardedAsSaved, kCancelButtonId,
+         kNoButtonId](const Dialog::ButtonInfo& _buttonInfo) {
             saveChangesDialog->hideDialog();
 
             //
@@ -1195,7 +1199,9 @@ void ApplicationManager::Implementation::saveIfNeeded(std::function<void()> _cal
             // Пользователь не хочет сохранять изменения
             //
             if (_buttonInfo.id == kNoButtonId) {
-                markChangesSaved(true);
+                if (_markDiscardedAsSaved) {
+                    markChangesSaved(true);
+                }
             }
             //
             // ... пользователь хочет сохранить изменения перед следующим действием
@@ -1216,7 +1222,7 @@ void ApplicationManager::Implementation::saveIfNeeded(std::function<void()> _cal
 
 void ApplicationManager::Implementation::saveAs()
 {
-    if (projectsManager->currentProject() == nullptr) {
+    if (projectsManager->currentProject() == nullptr || importCopyPending) {
         Log::info("The current project is not defined and saving cannot be performed.");
         return;
     }
@@ -1225,6 +1231,7 @@ void ApplicationManager::Implementation::saveAs()
     // Изначально высвечивается текущее имя проекта
     //
     const auto currentProject = projectsManager->currentProject();
+    QScopedValueRollback<bool> pending(importCopyPending, true);
     QString projectPath = currentProject->path();
 
     switch (currentProject->projectType()) {
@@ -1260,12 +1267,18 @@ void ApplicationManager::Implementation::saveAs()
     //
     // Получим имя файла для сохранения
     //
-    QString saveAsProjectFilePath
-        = QFileDialog::getSaveFileName(applicationView, tr("Choose file to save story"),
-                                       projectPath, DialogHelper::starcProjectFilter());
-    if (saveAsProjectFilePath.isEmpty()) {
+    QFileDialog chooser(applicationView, tr("Choose file to save story"), projectPath,
+                        DialogHelper::starcProjectFilter());
+    chooser.setAcceptMode(QFileDialog::AcceptSave);
+    chooser.setDefaultSuffix(ExtensionHelper::starc());
+    // Confirm replacement after acquiring the destination lock, including names
+    // completed with the default suffix and files created while the chooser was open.
+    chooser.setOption(QFileDialog::DontConfirmOverwrite, true);
+    if (chooser.exec() != QDialog::Accepted || chooser.selectedFiles().isEmpty()
+        || projectsManager->currentProject() != currentProject) {
         return;
     }
+    QString saveAsProjectFilePath = chooser.selectedFiles().first();
 
     //
     // Если файл выбран
@@ -1287,30 +1300,92 @@ void ApplicationManager::Implementation::saveAs()
         return;
     }
 
-    //
-    // Cохраняем в новый файл
-    //
-    // ... если файл существовал, удалим его для удаления данных в нём
-    //
-    if (QFile::exists(saveAsProjectFilePath)) {
-        QFile::remove(saveAsProjectFilePath);
-    }
-    //
-    // ... скопируем текущую базу в указанный файл
-    //
-    const auto isCopied = QFile::copy(currentProject->realPath(), saveAsProjectFilePath);
-    if (!isCopied) {
+    const auto reportSavingError = [this, &saveAsProjectFilePath] {
         StandardDialog::information(
             applicationView, tr("Saving error"),
             tr("Can't save the story to the file %1. Please check permissions and retry.")
                 .arg(saveAsProjectFilePath));
+    };
+
+    // Keep the source editor and its lock until the complete destination is published.
+    // The destination lock also covers staging and the handover to the copied story.
+    QScopedPointer<QLockFile> destinationLock;
+    if (!tryLockProject(saveAsProjectFilePath, destinationLock)) {
+        return;
+    }
+    const QFileInfo destination(saveAsProjectFilePath);
+    if (destination.isSymLink() || (destination.exists() && !destination.isFile())) {
+        reportSavingError();
+        return;
+    }
+    if (destination.exists()
+        && QMessageBox::question(applicationView, tr("Replace existing story?"),
+                                 tr("A story already exists at %1. Do you want to replace it?")
+                                     .arg(destination.absoluteFilePath()),
+                                 QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+            != QMessageBox::Yes) {
+        return;
+    }
+    // The confirmation runs an event loop. Do not follow a symlink or change the
+    // publication policy if the destination's kind changed while it was open.
+    const QFileInfo confirmedDestination(saveAsProjectFilePath);
+    if (projectsManager->currentProject() != currentProject || confirmedDestination.isSymLink()
+        || (confirmedDestination.exists() && !confirmedDestination.isFile())
+        || confirmedDestination.exists() != destination.exists()) {
+        reportSavingError();
         return;
     }
 
-    //
-    // Откроем копию текущего проекта
-    //
-    openProject(saveAsProjectFilePath);
+    QFile source(currentProject->realPath());
+    if (!source.open(QIODevice::ReadOnly)) {
+        reportSavingError();
+        return;
+    }
+    const auto sourceSize = source.size();
+    const auto copySource = [&source, sourceSize](QFileDevice& output) {
+        qint64 copied = 0;
+        while (!source.atEnd()) {
+            const auto chunk = source.read(1024 * 1024);
+            if (source.error() != QFileDevice::NoError || chunk.isEmpty()
+                || output.write(chunk) != chunk.size()) {
+                return false;
+            }
+            copied += chunk.size();
+        }
+        return copied == sourceSize && copied > 0;
+    };
+    bool published = false;
+    if (destination.exists()) {
+        // Replacement was approved under the lock. Never truncate the old file, even
+        // when the directory cannot hold a temporary file or a final write fails.
+        QSaveFile output(destination.absoluteFilePath());
+        output.setDirectWriteFallback(false);
+        published = output.open(QIODevice::WriteOnly) && copySource(output) && output.commit();
+    } else {
+        // A publisher ignoring our lock must not lose a new destination it creates
+        // after selection. Unlike replacement, this rename refuses an occupied path.
+        QTemporaryFile output(destination.absoluteFilePath() + ".XXXXXX");
+        published = output.open() && copySource(output)
+            && output.setPermissions(source.permissions()) && output.flush()
+            && output.rename(destination.absoluteFilePath());
+        if (published) {
+            output.setAutoRemove(false);
+        }
+    }
+    if (!published) {
+        reportSavingError();
+        return;
+    }
+
+    closeCurrentProject();
+    lockFile.reset(destinationLock.take());
+    projectsManager->setCurrentProject(saveAsProjectFilePath);
+    projectsManager->saveProjects();
+    constexpr auto afterProjectCreation = false;
+    if (!goToEditCurrentProject(afterProjectCreation, { })) {
+        closeCurrentProject();
+        showProjects();
+    }
 }
 
 void ApplicationManager::Implementation::createProject()
@@ -2475,7 +2550,8 @@ void ApplicationManager::initConnections()
             [this] { d->saveChanges(); });
     connect(d->menuView, &Ui::MenuView::saveProjectAsPressed, this, [this] {
         auto callback = [this] { d->saveAs(); };
-        d->saveIfNeeded(callback);
+        // Don't save permits discarding the live edits only when Save As succeeds.
+        d->saveIfNeeded(callback, false);
     });
     connect(d->menuView, &Ui::MenuView::importPressed, this, [this] { d->importProject(); });
     connect(d->menuView, &Ui::MenuView::exportCurrentDocumentPressed, this,
