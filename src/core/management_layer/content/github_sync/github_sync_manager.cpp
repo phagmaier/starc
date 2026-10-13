@@ -195,6 +195,7 @@ public:
     GitHubSyncManager* q = nullptr;
     QWidget* parentWidget = nullptr;
     ProjectsManager* projectsManager = nullptr;
+    std::function<bool(const QString&)> projectReplacementHandler;
 
     GitHubFilesClient client;
     GitHubCredentialStore* credentials = nullptr;
@@ -779,8 +780,17 @@ void GitHubSyncManager::Implementation::download(const Entry& _entry, bool _asCo
                 //
                 // The file will be replaced, so nobody should work with it
                 //
-                emit q->saveCurrentProjectRequested();
-                emit q->closeProjectRequested(path);
+                if (projectReplacementHandler) {
+                    if (!projectReplacementHandler(path)) {
+                        fail(tr("The story couldn't be saved, so it was kept open and wasn't "
+                                "replaced. Retry saving before syncing again."));
+                        return;
+                    }
+                } else if (projectsManager->currentProject() != nullptr
+                           && projectsManager->currentProject()->path() == path) {
+                    fail(tr("The story is still open, so it wasn't replaced."));
+                    return;
+                }
                 const QFileInfo fileInfo(path);
                 lock.reset(new QLockFile(
                     QString("%1/%2.lock").arg(fileInfo.absolutePath(), fileInfo.fileName())));
@@ -1176,6 +1186,12 @@ GitHubSyncManager::GitHubSyncManager(QObject* _parent, QWidget* _parentWidget,
 }
 
 GitHubSyncManager::~GitHubSyncManager() = default;
+
+void GitHubSyncManager::setProjectReplacementHandler(
+    std::function<bool(const QString&)> _handler)
+{
+    d->projectReplacementHandler = std::move(_handler);
+}
 
 bool GitHubSyncManager::isConfigured() const
 {

@@ -41,6 +41,7 @@ static QString s_lastError;
  * @brief Счётчик открытых транзакций
  */
 static int s_openedTransactions = 0;
+static bool s_commitPending = false;
 
 /**
  * @brief Получить ключ хранения номера версии приложения
@@ -135,6 +136,8 @@ void Database::closeCurrentFile()
     if (QSqlDatabase::contains(s_connectionName)) {
         QSqlDatabase::removeDatabase(s_connectionName);
     }
+    s_openedTransactions = 0;
+    s_commitPending = false;
 }
 
 QString Database::currentFile()
@@ -147,34 +150,56 @@ QSqlQuery Database::query()
     return QSqlQuery(instance());
 }
 
-void Database::transaction()
+bool Database::transaction()
 {
     //
     // Для первого запроса открываем транзакцию
     //
     if (s_openedTransactions == 0) {
-        instance().transaction();
+        auto database = instance();
+        if (!database.transaction()) {
+            setLastError(database.lastError().text());
+            return false;
+        }
     }
 
     //
     // Увеличиваем счётчик открытых транзакций
     //
     ++s_openedTransactions;
+    return true;
 }
 
-void Database::commit()
+bool Database::commit()
 {
+    if (s_openedTransactions == 0) {
+        return true;
+    }
     //
     // Уменьшаем счётчик транзакций
     //
-    --s_openedTransactions;
+    if (s_openedTransactions > 1) {
+        --s_openedTransactions;
+        return true;
+    }
 
     //
     // При закрытии корневой транзакции фиксируем изменения в базе данных
     //
-    if (s_openedTransactions == 0) {
-        instance().commit();
+    auto database = instance();
+    if (!database.commit()) {
+        setLastError(database.lastError().text());
+        s_commitPending = true;
+        return false;
     }
+    --s_openedTransactions;
+    s_commitPending = false;
+    return true;
+}
+
+bool Database::hasPendingCommit()
+{
+    return s_commitPending;
 }
 
 void Database::rollback()
@@ -189,6 +214,7 @@ void Database::rollback()
     //
     if (s_openedTransactions == 0) {
         instance().rollback();
+        s_commitPending = false;
     }
 }
 

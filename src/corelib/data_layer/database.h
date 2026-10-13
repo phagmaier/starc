@@ -58,12 +58,15 @@ public:
     /**
      * @brief Запустить транзакцию, если ещё не запущена
      */
-    static void transaction();
+    static bool transaction();
 
     /**
      * @brief Зафиксировать транзакцию, если она была запущена
      */
-    static void commit();
+    static bool commit();
+
+    /** A failed root commit keeps its transaction available for Retry. */
+    static bool hasPendingCommit();
 
     /**
      * @brief Откатить начавшующя транзакцию

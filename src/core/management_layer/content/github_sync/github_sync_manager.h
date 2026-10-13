@@ -68,17 +68,17 @@ public:
      */
     QVector<QAction*> projectActions(BusinessLayer::ProjectsModelProjectItem* _project);
 
+    /**
+     * @brief Save and close an opened story before replacing its file; false prevents replacement
+     */
+    void setProjectReplacementHandler(std::function<bool(const QString&)> _handler);
+
 signals:
     void checkFinished(bool _success);
     /**
      * @brief Changes of the opened story should be written to its file
      */
     void saveCurrentProjectRequested();
-
-    /**
-     * @brief The file of the story will be replaced, so the story should be closed
-     */
-    void closeProjectRequested(const QString& _path);
 
     /**
      * @brief The user wants to set the repository and the access token

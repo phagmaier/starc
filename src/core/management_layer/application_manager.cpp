@@ -239,13 +239,15 @@ public:
 
     /**
      * @brief Сохранить изменения проекта
+     * @return Whether the story has no unsaved changes after this attempt
      */
-    void saveChanges();
+    bool saveChanges();
 
     /**
      * @brief Если проект был изменён, но не сохранён предложить пользователю сохранить его
      * @param _callback - метод, который будет вызван, если пользователь хочет (Да),
      *        или не хочет (Нет) сохранять и не будет вызван, если пользователь передумал (Отмена)
+     *        or the requested save fails
      */
     void saveIfNeeded(std::function<void()> _callback);
 
@@ -898,33 +900,34 @@ void ApplicationManager::Implementation::markChangesSaved(bool _saved)
     menuView->markChangesSaved(_saved);
 }
 
-void ApplicationManager::Implementation::saveChanges()
+bool ApplicationManager::Implementation::saveChanges()
 {
     //
     // Избегаем рекурсии
     //
     const auto canRun = RunOnce::tryRun(Q_FUNC_INFO);
     if (!canRun) {
-        return;
+        return false;
     }
 
     //
     // Сохраняем только, если приложение находится в рабочем состоянии
     //
     if (state != ApplicationState::Working) {
-        return;
+        return false;
     }
 
     //
     // Сохраняем только, если есть какие-либо изменения
     //
     if (!applicationView->isWindowModified()) {
-        return;
+        return true;
     }
 
     Log::info("Save changes triggered");
 
     constexpr int maximumSaveAttempts = 3;
+    bool saved = false;
     for (int attempt = 1; attempt <= maximumSaveAttempts; ++attempt) {
         //
         // Очищаем ошибку предыдущей транзакции
@@ -934,15 +937,20 @@ void ApplicationManager::Implementation::saveChanges()
         //
         // Управляющие должны сохранить все изменения
         //
-        DatabaseLayer::Database::transaction();
-        projectsManager->saveChanges();
-        projectManager->saveChanges();
-        DatabaseLayer::Database::commit();
+        // Retry a failed commit on its original connection. Reopening it would roll back
+        // documents whose in-memory objects have already been marked as stored.
+        const auto previousCommitSaved = !DatabaseLayer::Database::hasPendingCommit()
+            || DatabaseLayer::Database::commit();
+        if (previousCommitSaved && DatabaseLayer::Database::transaction()) {
+            projectsManager->saveChanges();
+            projectManager->saveChanges();
+            saved = DatabaseLayer::Database::commit() && !DatabaseLayer::Database::hasError();
+        }
 
         //
         // Если всё сохранилось без ошибок, продолжаем выполнение в обычном режиме
         //
-        if (!DatabaseLayer::Database::hasError()) {
+        if (saved) {
             break;
         }
 
@@ -961,7 +969,8 @@ void ApplicationManager::Implementation::saveChanges()
         // восстановления доступа к каталогу
         //
         if (const auto currentProjectFile = DatabaseLayer::Database::currentFile();
-            QFile::exists(currentProjectFile) && attempt < maximumSaveAttempts) {
+            QFile::exists(currentProjectFile) && attempt < maximumSaveAttempts
+            && !DatabaseLayer::Database::hasPendingCommit()) {
             DatabaseLayer::Database::setCurrentFile(currentProjectFile);
         }
     }
@@ -970,7 +979,7 @@ void ApplicationManager::Implementation::saveChanges()
     // Если все попытки сохранения завершились с ошибкой, то делаем дополнительные проверки и
     // работаем с пользователем
     //
-    if (DatabaseLayer::Database::hasError()) {
+    if (!saved) {
         //
         // Если файл, в который мы пробуем сохранять изменения существует
         //
@@ -991,8 +1000,10 @@ void ApplicationManager::Implementation::saveChanges()
                     [this, dialog](const Dialog::ButtonInfo& _presedButton) {
                         dialog->hideDialog();
                         if (_presedButton.type == Dialog::AcceptButton) {
-                            DatabaseLayer::Database::setCurrentFile(
-                                DatabaseLayer::Database::currentFile());
+                            if (!DatabaseLayer::Database::hasPendingCommit()) {
+                                DatabaseLayer::Database::setCurrentFile(
+                                    DatabaseLayer::Database::currentFile());
+                            }
                             saveChanges();
                         }
                     });
@@ -1019,7 +1030,7 @@ void ApplicationManager::Implementation::saveChanges()
                    "Please move the file back and retry saving.")
                     .arg(DatabaseLayer::Database::currentFile()));
         }
-        return;
+        return false;
     }
 
     //
@@ -1092,6 +1103,7 @@ void ApplicationManager::Implementation::saveChanges()
     }
 
     Log::info("All changes saved");
+    return true;
 }
 
 void ApplicationManager::Implementation::saveIfNeeded(std::function<void()> _callback)
@@ -1115,8 +1127,9 @@ void ApplicationManager::Implementation::saveIfNeeded(std::function<void()> _cal
     // Если проект облачный, то сохраняем без вопросов
     //
     if (projectsManager->currentProject()->isRemote()) {
-        saveChanges();
-        _callback();
+        if (saveChanges()) {
+            _callback();
+        }
         return;
     }
 
@@ -1150,7 +1163,9 @@ void ApplicationManager::Implementation::saveIfNeeded(std::function<void()> _cal
             // ... пользователь хочет сохранить изменения перед следующим действием
             //
             else {
-                saveChanges();
+                if (!saveChanges()) {
+                    return;
+                }
             }
 
             _callback();
@@ -2501,14 +2516,17 @@ void ApplicationManager::initConnections()
             d->gitHubSyncManager.data(), &GitHubSyncManager::sync);
     connect(d->gitHubSyncManager.data(), &GitHubSyncManager::saveCurrentProjectRequested, this,
             [this] { d->saveChanges(); });
-    connect(d->gitHubSyncManager.data(), &GitHubSyncManager::closeProjectRequested, this,
-            [this](const QString& _path) {
-                if (d->projectsManager->currentProject() != nullptr
-                    && d->projectsManager->currentProject()->path() == _path) {
-                    d->closeCurrentProject();
-                    d->showProjects();
-                }
-            });
+    d->gitHubSyncManager->setProjectReplacementHandler([this](const QString& _path) {
+        if (d->projectsManager->currentProject() != nullptr
+            && d->projectsManager->currentProject()->path() == _path) {
+            if (!d->saveChanges()) {
+                return false;
+            }
+            d->closeCurrentProject();
+            d->showProjects();
+        }
+        return true;
+    });
     connect(d->gitHubSyncManager.data(), &GitHubSyncManager::setupRequested, this, [this] {
         d->showSettings();
         d->settingsManager->showGitHubSync();

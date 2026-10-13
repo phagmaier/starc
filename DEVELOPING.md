@@ -199,6 +199,18 @@ in the running application without touching a real repository, start that server
 and launch with `STARC_GITHUB_API_URL=http://127.0.0.1:<port>`; its default
 access token is `test-token`.
 
+`./tools/check-save-failure.sh` checks the real editor and application coordinator
+when SQLite rejects document writes or a deferred constraint rejects the commit.
+It covers Save on close, failed and recovered Retry, edits made while a commit is
+pending, dismissing the saving error, Cancel, explicit Don't save, an Open-menu
+request, and a refused GitHub replacement download. A successful download control
+checks its exact backup. Fresh processes reopen every result and compare script,
+emphasis, review annotations and document identities. All files, profiles and
+fake credentials are disposable; the GitHub API is a loopback mock server and
+the session bus is absent. The default is offscreen; on a private Xvfb display,
+`STARC_SAVE_FAILURE_PLATFORM=xcb STARC_SAVE_FAILURE_SCREENSHOTS=1` adds native
+window evidence. Actions use Qt signals and dialog responses.
+
 `./tools/check-github-credential-storage.sh` uses injected asynchronous storage,
 isolated settings, actual settings/onboarding widgets, and the local mock GitHub
 server. It prints a unique evidence directory and its native test command.
