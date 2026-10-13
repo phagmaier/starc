@@ -3706,6 +3706,9 @@ void ProjectManager::saveChanges()
     //
     const auto structure = d->projectStructureModel->document();
     DataStorageLayer::StorageFacade::documentStorage()->saveDocument(structure);
+    if (DatabaseLayer::Database::hasError()) {
+        return;
+    }
 
     //
     // Сохраняем остальные документы
@@ -3713,17 +3716,26 @@ void ProjectManager::saveChanges()
     const auto loadedDocuments = d->modelsFacade.loadedDocuments();
     for (auto document : loadedDocuments) {
         DataStorageLayer::StorageFacade::documentStorage()->saveDocument(document);
+        if (DatabaseLayer::Database::hasError()) {
+            return;
+        }
     }
 
     //
     // Сохраняем изображения
     //
     d->documentImageStorage.saveChanges();
+    if (DatabaseLayer::Database::hasError()) {
+        return;
+    }
 
     //
     // Сохраняем сырые данные
     //
     d->documentRawDataStorage.saveChanges();
+    if (DatabaseLayer::Database::hasError()) {
+        return;
+    }
 
     //
     // Сохраняем все изменения документов

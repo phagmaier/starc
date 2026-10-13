@@ -1,5 +1,6 @@
 #include "document_storage.h"
 
+#include <data_layer/database.h>
 #include <data_layer/mapper/document_mapper.h>
 #include <data_layer/mapper/mapper_facade.h>
 #include <domain/document_object.h>
@@ -116,6 +117,11 @@ bool DocumentStorage::saveDocument(Domain::DocumentObject* _document)
         }
 
         d->notSavedDocuments.remove(_document->uuid());
+        DatabaseLayer::Database::onTransactionFinished([this, _document](bool _committed) {
+            if (!_committed) {
+                d->notSavedDocuments.insert(_document->uuid(), _document);
+            }
+        });
     } else {
         const auto isUpdated = DataMappingLayer::MapperFacade::documentMapper()->update(_document);
         if (!isUpdated) {
@@ -128,6 +134,9 @@ bool DocumentStorage::saveDocument(Domain::DocumentObject* _document)
 
 bool DocumentStorage::saveDocument(const QUuid& _documentUuid)
 {
+    if (DatabaseLayer::Database::isTransactionActive() && DatabaseLayer::Database::hasError()) {
+        return false;
+    }
     auto documentToSave = document(_documentUuid);
     if (documentToSave == nullptr) {
         Q_ASSERT(false);
@@ -156,6 +165,7 @@ bool DocumentStorage::removeDocument(Domain::DocumentObject* _document)
 
 void DocumentStorage::clear()
 {
+    DatabaseLayer::Database::abortTransaction();
     qDeleteAll(d->notSavedDocuments);
     d->notSavedDocuments.clear();
     DataMappingLayer::MapperFacade::documentMapper()->clear();

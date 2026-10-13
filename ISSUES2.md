@@ -328,7 +328,7 @@ delays or relaxed generation assertions.
 
 ## 4. An automatic SQLite rollback makes Save/Retry permanently fail
 
-- [ ] **P1 — confirmed with genuine SQLITE_FULL and the real editor/coordinator.**
+- [x] **P1 — fixed 2026-10-13; verified with genuine SQLITE_FULL and the real editor/coordinator.**
 
 **Locations:**
 [database.cpp](src/corelib/data_layer/database.cpp), `Database::commit` at 173–197,
@@ -374,6 +374,71 @@ edits made while saving is blocked.
 The coordinator fixture intentionally exits 1 at the failed recovery assertion;
 it is not successful ordinary-close evidence. Supplemental replay commands are
 in [the persistence findings](.build/evidence/audit2-persistence/findings.md).
+
+**Resolution (2026-10-13):** Failed saves now explicitly roll back the root
+transaction, whether SQLite left it active or already aborted it. The original
+statement/COMMIT error is retained. Transaction completion callbacks restore
+provisional updates to dirty state, revert uncommitted insert IDs/cache ownership,
+and restore new-document, ordered history, image and attachment queues. Deletions
+retain their objects until the root commit succeeds and restore them on rollback.
+Nested failure vetoes the root commit; subsequent mapper/UUID saves are refused
+until it ends, and the project manager stops processing after a storage error.
+Clearing an error cannot revive a failed outer transaction. Storage clearing and
+connection closure unwind callbacks before freeing objects.
+
+Retry starts a new transaction and resubmits the retained live state, including
+later edits. It no longer repeatedly commits a nonexistent transaction.
+Reconnection is restricted to SQLite's file-open error, preserving connection
+settings such as deferred-constraint enforcement on other failures. Explicit
+rollback follows SQLite's [documented error-recovery option](https://sqlite.org/lang_transaction.html).
+No native SQLite dependency or schema migration was added.
+
+`./tools/check-transaction-recovery.sh` passed genuine capped-database
+`SQLITE_FULL`, late automatic rollback, statement-only abort and deferred COMMIT
+failure. Every case accepts earlier updates, new documents, multiple history
+inserts, images/attachments and deletions. Two successive failures preserve the
+entire committed database byte for byte; capacity/fault recovery saves all pending
+writes plus later edits. Existing IDs and live UUIDs survive, and ordered undo/redo
+patches are exact. C++ reopen and an independent Python process check authored
+content, PNG/attachment bytes, retained deletions and history ordering.
+The original capacity reproduction and real-coordinator rollback case both failed
+to recover before this fix; their baseline logs remain in
+[rollback-fix-baseline](.build/evidence/rollback-fix-baseline/).
+
+`./tools/check-save-failure.sh` passed **42 ordinary process exits**: all 21 cases
+and a fresh-process reopen for each, including automatic rollback, failed COMMIT,
+repeated/recovered Retry, later edits, Undo/Redo, Save on close, Cancel, discard,
+file-open requests and local mock sync. Reopened script/emphasis/review XML and
+document UUIDs are exact. Source-export checks with
+`STARC_SOURCE_EXPORT_CASES='permission-retry partial-retry publish-retry'` passed
+24 ordinary exits across Fountain/TXT/FDX/FDXT, plus the direct exporter checks.
+
+`./build/dev.sh doctor`, `make qmake_all` in `.build/debug`,
+`JOBS=4 ./build/dev.sh build debug`, screenplay scope/interchange, backup
+consistency, writing-session storage, changed-code formatting, Bash syntax,
+ShellCheck and `git diff --check` passed. Runtime fixtures used disposable stories
+and profiles, offscreen Qt and an absent desktop session bus; sync used only a
+localhost mock repository. Physical desktop/GPU behavior, release builds, other
+operating systems, physical-disk exhaustion and power-loss durability remain
+unexercised. Issues 5–14 remain open.
+
+Passing evidence: [transaction recovery](.build/evidence/transaction-recovery-VCLH9E/),
+[editor/coordinator](.build/evidence/save-failure-ZpNitN/),
+[source export](.build/evidence/source-export-failure-YP3clD/),
+[screenplay scope](.build/evidence/screenplay-scope-WDZxUT/),
+[interchange](.build/evidence/screenplay-interchange-EZDZU9/),
+[backup consistency](.build/evidence/backup-consistency-ChgTfi/),
+[writing statistics](.build/evidence/writing-session-storage-AcMDd3/),
+and [debug build](.build/evidence/rollback-build-final.log).
+
+The image test initially aborted in the unchanged JPEG encoder, with bundled
+PDF-library JPEG frames called by Qt's JPEG plugin. Its
+[log and backtraces](.build/evidence/transaction-recovery-uXIVtg/) remain; that
+separate codec problem is unresolved. Transaction checks exercise the production
+PNG byte-input route. Earlier verification failures remain: the first coordinator
+run exposed lost connection settings after unconditional reconnect, and the first
+Python byte oracle compared SQLite TEXT directly with bytes. The final code
+restricts reconnects and the independent reader requests exact BLOB bytes.
 
 ## 5. A new GitHub download can overwrite a concurrently created, locked story
 

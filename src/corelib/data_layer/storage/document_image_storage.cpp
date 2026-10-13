@@ -1,5 +1,6 @@
 #include "document_image_storage.h"
 
+#include <data_layer/database.h>
 #include <data_layer/storage/document_storage.h>
 #include <data_layer/storage/storage_facade.h>
 #include <domain/document_object.h>
@@ -202,20 +203,34 @@ void DocumentImageStorage::clear()
 
 void DocumentImageStorage::saveChanges()
 {
-    for (auto imageIter = d->newImages.begin(); imageIter != d->newImages.end(); ++imageIter) {
+    const auto images = d->newImages;
+    for (auto imageIter = images.begin(); imageIter != images.end(); ++imageIter) {
         const auto isSaved = StorageFacade::documentStorage()->saveDocument(imageIter.key());
         if (!isSaved) {
             return;
         }
+        d->newImages.remove(imageIter.key());
+        DatabaseLayer::Database::onTransactionFinished(
+            [this, uuid = imageIter.key(), image = imageIter.value()](bool _committed) {
+                if (!_committed) {
+                    d->newImages.insert(uuid, image);
+                }
+            });
     }
-    d->newImages.clear();
 
     while (!d->imagesToRemove.isEmpty()) {
+        const auto uuid = d->imagesToRemove.first();
         const auto isRemoved = StorageFacade::documentStorage()->removeDocument(
-            StorageFacade::documentStorage()->document(d->imagesToRemove.takeFirst()));
+            StorageFacade::documentStorage()->document(uuid));
         if (!isRemoved) {
             return;
         }
+        d->imagesToRemove.removeFirst();
+        DatabaseLayer::Database::onTransactionFinished([this, uuid](bool _committed) {
+            if (!_committed) {
+                d->imagesToRemove.prepend(uuid);
+            }
+        });
     }
 }
 

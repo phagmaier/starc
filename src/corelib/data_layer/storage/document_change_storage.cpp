@@ -125,7 +125,9 @@ QVector<Domain::DocumentChangeObject*> DocumentChangeStorage::unsyncedDocumentCh
 
 void DocumentChangeStorage::store()
 {
-    DatabaseLayer::Database::transaction();
+    if (!DatabaseLayer::Database::transaction()) {
+        return;
+    }
     while (!d->newDocumentChanges.isEmpty()) {
         const auto change = d->newDocumentChanges.first();
         const auto isInserted
@@ -136,6 +138,11 @@ void DocumentChangeStorage::store()
         }
 
         d->newDocumentChanges.removeFirst();
+        DatabaseLayer::Database::onTransactionFinished([this, change](bool _committed) {
+            if (!_committed) {
+                d->newDocumentChanges.prepend(change);
+            }
+        });
     }
     DatabaseLayer::Database::commit();
 }
@@ -150,6 +157,7 @@ void DocumentChangeStorage::removeAll()
 
 void DocumentChangeStorage::clear()
 {
+    DatabaseLayer::Database::abortTransaction();
     qDeleteAll(d->newDocumentChanges);
     d->newDocumentChanges.clear();
     DataMappingLayer::MapperFacade::documentChangeMapper()->clear();

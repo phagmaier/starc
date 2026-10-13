@@ -159,6 +159,15 @@ void save()
 void rejectWrites(bool _reject, bool _commitFailure = false)
 {
     auto query = DatabaseLayer::Database::query();
+    if (qEnvironmentVariable("STARC_SAVE_FAILURE_MODE").startsWith("rollback-")) {
+        require(query.exec(_reject
+                               ? "CREATE TRIGGER reject_save BEFORE INSERT ON documents_changes "
+                                 "BEGIN SELECT RAISE(ROLLBACK, 'test automatic rollback'); END"
+                               : "DROP TRIGGER reject_save"),
+                _reject ? "abort transaction after document writes, while saving history"
+                        : "remove automatic rollback fault");
+        return;
+    }
     if (_commitFailure) {
         if (_reject) {
             require(query.exec("PRAGMA foreign_keys = ON")
@@ -171,7 +180,7 @@ void rejectWrites(bool _reject, bool _commitFailure = false)
         } else {
             require(query.exec("DROP TRIGGER reject_save")
                         && query.exec("INSERT INTO save_parent VALUES (404)"),
-                    "repair the deferred constraint without losing the pending transaction");
+                    "repair the deferred constraint before resubmitting pending writes");
         }
         return;
     }
@@ -514,10 +523,8 @@ int main(int argc, char** argv)
                 "failed Save retains live edits, dirty state, current story and its lock");
         require(persistedScript(path) == original,
                 "failed Save does not replace the committed screenplay");
-        if (commitFailure) {
-            require(DatabaseLayer::Database::hasPendingCommit(),
-                    "failed COMMIT remains pending instead of reporting save success");
-        }
+        require(!DatabaseLayer::Database::isTransactionActive(),
+                "failed Save unwinds its transaction so Retry can resubmit all writes");
         if (sync) {
             require(QDir(root + "/backups").entryList(QDir::Files).isEmpty(),
                     "refused replacement publishes no backup or downloaded story");
@@ -533,11 +540,12 @@ int main(int argc, char** argv)
         require(edit->toPlainText().contains("UNSAVED_MARKER"),
                 "Redo restores the unsaved edit after failed Save");
 
-        if (mode == "close-retry" || mode == "commit-retry" || fileEvent) {
+        if (mode == "close-retry" || mode == "commit-retry" || mode == "rollback-retry"
+            || fileEvent) {
             answer("internal database error", { 1, "Retry", Dialog::AcceptButton });
             require(window->isWindowModified() && edit->toPlainText().contains("UNSAVED_MARKER"),
                     "another failed Retry still retains edits");
-            if (commitFailure) {
+            if (commitFailure || mode == "rollback-retry") {
                 edit->moveCursor(QTextCursor::End);
                 edit->insertPlainText(" EDIT_AFTER_FAILED_COMMIT");
                 qobject_cast<BusinessLayer::TextDocument*>(edit->document())
@@ -555,7 +563,7 @@ int main(int argc, char** argv)
         } else {
             answer("internal database error", { 0, "OK", Dialog::RejectButton });
             require(window->isWindowModified(), "dismissing saving error retains dirty state");
-            if (mode == "close-discard" || mode == "commit-discard") {
+            if (mode == "close-discard" || mode == "commit-discard" || mode == "rollback-discard") {
                 retain(root + "/expected.xml", original);
                 window->close();
                 answer("Save changes?", { 1, "Don't save", Dialog::NormalButton });
@@ -569,13 +577,13 @@ int main(int argc, char** argv)
             save();
         }
         require(!window->isWindowModified() && !DatabaseLayer::Database::hasError()
-                    && !DatabaseLayer::Database::hasPendingCommit(),
+                    && !DatabaseLayer::Database::isTransactionActive(),
                 "saving succeeds after storage recovers");
         const auto recovered = script();
         require(recovered.contains("UNSAVED_MARKER") && recovered.contains("bold=")
                     && recovered.contains("Retain this annotation"),
                 "recovered save includes edits, emphasis and review annotations");
-        if (mode == "commit-retry") {
+        if (mode == "commit-retry" || mode == "rollback-retry") {
             require(recovered.contains("EDIT_AFTER_FAILED_COMMIT"),
                     "Retry also saves edits made after the failed commit");
         }

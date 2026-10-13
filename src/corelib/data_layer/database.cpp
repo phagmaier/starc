@@ -9,6 +9,8 @@
 #include <QStringList>
 #include <QVariant>
 
+#include <vector>
+
 namespace DatabaseLayer {
 
 namespace {
@@ -41,7 +43,25 @@ static QString s_lastError;
  * @brief Счётчик открытых транзакций
  */
 static int s_openedTransactions = 0;
-static bool s_commitPending = false;
+static bool s_rollbackRequired = false;
+static std::vector<std::function<void(bool)>> s_transactionCallbacks;
+
+void finishTransaction(bool _committed)
+{
+    s_openedTransactions = 0;
+    s_rollbackRequired = false;
+    auto callbacks = std::move(s_transactionCallbacks);
+    s_transactionCallbacks.clear();
+    if (_committed) {
+        for (const auto& callback : callbacks) {
+            callback(true);
+        }
+    } else {
+        for (auto callback = callbacks.rbegin(); callback != callbacks.rend(); ++callback) {
+            (*callback)(false);
+        }
+    }
+}
 
 /**
  * @brief Получить ключ хранения номера версии приложения
@@ -90,7 +110,7 @@ QString Database::openFileError()
 
 bool Database::hasError()
 {
-    return !s_lastError.isEmpty();
+    return s_rollbackRequired || !s_lastError.isEmpty();
 }
 
 QString Database::lastError()
@@ -100,6 +120,9 @@ QString Database::lastError()
 
 void Database::setLastError(const QString& _error)
 {
+    if (s_openedTransactions > 0 && !_error.isEmpty()) {
+        s_rollbackRequired = true;
+    }
     if (s_lastError != _error) {
         s_lastError = _error;
     }
@@ -107,6 +130,10 @@ void Database::setLastError(const QString& _error)
 
 void Database::clearLastError()
 {
+    // Clearing a message cannot make an aborted outer transaction writable again.
+    if (s_rollbackRequired) {
+        return;
+    }
     s_lastError.clear();
 }
 
@@ -133,11 +160,11 @@ void Database::setCurrentFile(const QString& _databaseFileName)
 
 void Database::closeCurrentFile()
 {
+    abortTransaction();
     if (QSqlDatabase::contains(s_connectionName)) {
         QSqlDatabase::removeDatabase(s_connectionName);
     }
     s_openedTransactions = 0;
-    s_commitPending = false;
 }
 
 QString Database::currentFile()
@@ -152,6 +179,9 @@ QSqlQuery Database::query()
 
 bool Database::transaction()
 {
+    if (s_rollbackRequired) {
+        return false;
+    }
     //
     // Для первого запроса открываем транзакцию
     //
@@ -180,30 +210,58 @@ bool Database::commit()
     //
     if (s_openedTransactions > 1) {
         --s_openedTransactions;
-        return true;
+        return !s_rollbackRequired;
     }
 
     //
     // При закрытии корневой транзакции фиксируем изменения в базе данных
     //
     auto database = instance();
-    if (!database.commit()) {
-        setLastError(database.lastError().text());
-        s_commitPending = true;
+    if (s_rollbackRequired) {
+        abortTransaction();
         return false;
     }
-    --s_openedTransactions;
-    s_commitPending = false;
+    if (!database.commit()) {
+        setLastError(database.lastError().text());
+        // A failed COMMIT may leave an active transaction or SQLite may have already
+        // rolled it back. Explicit rollback gives both cases the same recoverable state.
+        abortTransaction();
+        return false;
+    }
+    finishTransaction(true);
     return true;
 }
 
-bool Database::hasPendingCommit()
+bool Database::isTransactionActive()
 {
-    return s_commitPending;
+    return s_openedTransactions > 0;
+}
+
+void Database::onTransactionFinished(std::function<void(bool)> _callback)
+{
+    if (isTransactionActive()) {
+        s_transactionCallbacks.push_back(std::move(_callback));
+    } else {
+        _callback(true);
+    }
+}
+
+void Database::abortTransaction()
+{
+    if (!isTransactionActive()) {
+        return;
+    }
+    // Do not overwrite the original write/COMMIT error when SQLite already aborted.
+    instance().rollback();
+    finishTransaction(false);
 }
 
 void Database::rollback()
 {
+    if (!isTransactionActive()) {
+        return;
+    }
+    s_rollbackRequired = true;
     //
     // Уменьшаем счётчик транзакций
     //
@@ -214,7 +272,7 @@ void Database::rollback()
     //
     if (s_openedTransactions == 0) {
         instance().rollback();
-        s_commitPending = false;
+        finishTransaction(false);
     }
 }
 

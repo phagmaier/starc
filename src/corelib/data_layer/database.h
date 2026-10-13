@@ -3,6 +3,7 @@
 #include <QtGlobal>
 
 #include <corelib_global.h>
+#include <functional>
 
 class QString;
 class QSqlQuery;
@@ -65,8 +66,14 @@ public:
      */
     static bool commit();
 
-    /** A failed root commit keeps its transaction available for Retry. */
-    static bool hasPendingCommit();
+    static bool isTransactionActive();
+
+    /** Run on the root transaction's result, immediately if no transaction is active.
+     *  Rollback callbacks run in reverse statement order. */
+    static void onTransactionFinished(std::function<void(bool)> _callback);
+
+    /** Abandon every nested scope and restore its provisional persistence state. */
+    static void abortTransaction();
 
     /**
      * @brief Откатить начавшующя транзакцию

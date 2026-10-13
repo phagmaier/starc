@@ -19,6 +19,7 @@ namespace DataMappingLayer {
 
 void AbstractMapper::clear()
 {
+    Database::abortTransaction();
     for (auto& [key, value] : m_loadedObjectsMap) {
         delete value;
         value = nullptr;
@@ -77,12 +78,21 @@ bool AbstractMapper::abstractInsert(DomainObject* _object)
         //
         // .. если добавление оказалось успешным, определим идентификатор объекта
         //
-        _object->setId(Identifier(insertQuery.lastInsertId().toInt()));
+        const auto previousId = _object->id();
+        const auto insertedId = Identifier(insertQuery.lastInsertId().toInt());
+        _object->setId(insertedId);
         _object->markChangesStored();
         //
         // ... и добавим вновь созданный объект в список загруженных объектов
         //
         m_loadedObjectsMap.emplace(_object->id(), _object);
+        Database::onTransactionFinished([this, _object, previousId, insertedId](bool _committed) {
+            if (!_committed) {
+                m_loadedObjectsMap.erase(insertedId);
+                _object->setId(previousId);
+                _object->markChangesNotStored();
+            }
+        });
     }
     return isInsertSuccesful;
 }
@@ -122,6 +132,11 @@ bool AbstractMapper::abstractUpdate(DomainObject* _object)
     const bool isUpdateSuccesful = executeSql(updateQuery);
     if (isUpdateSuccesful) {
         _object->markChangesStored();
+        Database::onTransactionFinished([_object](bool _committed) {
+            if (!_committed) {
+                _object->markChangesNotStored();
+            }
+        });
     }
     return isUpdateSuccesful;
 }
@@ -152,14 +167,24 @@ bool AbstractMapper::abstractDelete(DomainObject* _object)
         // Удалим объекст из списка загруженных
         //
         m_loadedObjectsMap.erase(_object->id());
-        delete _object;
-        _object = nullptr;
+        Database::onTransactionFinished([this, _object](bool _committed) {
+            if (_committed) {
+                delete _object;
+            } else {
+                m_loadedObjectsMap.emplace(_object->id(), _object);
+            }
+        });
     }
     return isDeleteSuccesful;
 }
 
 bool AbstractMapper::executeSql(QSqlQuery& _sqlQuery)
 {
+    // After an automatic rollback, further writes would otherwise autocommit outside
+    // the failed Save. Leave them pending until the root scope has been unwound.
+    if (Database::isTransactionActive() && Database::hasError()) {
+        return false;
+    }
     const bool isExecutionSuccesful = _sqlQuery.exec();
     if (isExecutionSuccesful) {
         return true;

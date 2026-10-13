@@ -951,11 +951,9 @@ bool ApplicationManager::Implementation::saveChanges()
         //
         // Управляющие должны сохранить все изменения
         //
-        // Retry a failed commit on its original connection. Reopening it would roll back
-        // documents whose in-memory objects have already been marked as stored.
-        const auto previousCommitSaved = !DatabaseLayer::Database::hasPendingCommit()
-            || DatabaseLayer::Database::commit();
-        if (previousCommitSaved && DatabaseLayer::Database::transaction()) {
+        // Failed transactions restore every provisional write and queue entry. Retry
+        // serializes the live state again, including edits made after a failed Save.
+        if (DatabaseLayer::Database::transaction()) {
             projectsManager->saveChanges();
             projectManager->saveChanges();
             saved = DatabaseLayer::Database::commit() && !DatabaseLayer::Database::hasError();
@@ -984,7 +982,8 @@ bool ApplicationManager::Implementation::saveChanges()
         //
         if (const auto currentProjectFile = DatabaseLayer::Database::currentFile();
             QFile::exists(currentProjectFile) && attempt < maximumSaveAttempts
-            && !DatabaseLayer::Database::hasPendingCommit()) {
+            && DatabaseLayer::Database::lastError().contains(
+                QStringLiteral("unable to open database file"), Qt::CaseInsensitive)) {
             DatabaseLayer::Database::setCurrentFile(currentProjectFile);
         }
     }
@@ -1014,7 +1013,9 @@ bool ApplicationManager::Implementation::saveChanges()
                     [this, dialog](const Dialog::ButtonInfo& _presedButton) {
                         dialog->hideDialog();
                         if (_presedButton.type == Dialog::AcceptButton) {
-                            if (!DatabaseLayer::Database::hasPendingCommit()) {
+                            if (DatabaseLayer::Database::lastError().contains(
+                                    QStringLiteral("unable to open database file"),
+                                    Qt::CaseInsensitive)) {
                                 DatabaseLayer::Database::setCurrentFile(
                                     DatabaseLayer::Database::currentFile());
                             }

@@ -1,5 +1,6 @@
 #include "document_raw_data_storage.h"
 
+#include <data_layer/database.h>
 #include <data_layer/storage/document_storage.h>
 #include <data_layer/storage/storage_facade.h>
 #include <domain/document_object.h>
@@ -161,21 +162,34 @@ void DocumentRawDataStorage::clear()
 
 void DocumentRawDataStorage::saveChanges()
 {
-    for (auto documentIter = d->newDocuments.begin(); documentIter != d->newDocuments.end();
-         ++documentIter) {
+    const auto documents = d->newDocuments;
+    for (auto documentIter = documents.begin(); documentIter != documents.end(); ++documentIter) {
         const auto isSaved = StorageFacade::documentStorage()->saveDocument(documentIter.key());
         if (!isSaved) {
             return;
         }
+        d->newDocuments.remove(documentIter.key());
+        DatabaseLayer::Database::onTransactionFinished(
+            [this, uuid = documentIter.key(), content = documentIter.value()](bool _committed) {
+                if (!_committed) {
+                    d->newDocuments.insert(uuid, content);
+                }
+            });
     }
-    d->newDocuments.clear();
 
     while (!d->documentsToRemove.isEmpty()) {
+        const auto uuid = d->documentsToRemove.first();
         const auto isRemoved = StorageFacade::documentStorage()->removeDocument(
-            StorageFacade::documentStorage()->document(d->documentsToRemove.takeFirst()));
+            StorageFacade::documentStorage()->document(uuid));
         if (!isRemoved) {
             return;
         }
+        d->documentsToRemove.removeFirst();
+        DatabaseLayer::Database::onTransactionFinished([this, uuid](bool _committed) {
+            if (!_committed) {
+                d->documentsToRemove.prepend(uuid);
+            }
+        });
     }
 }
 

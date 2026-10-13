@@ -235,9 +235,10 @@ and launch with `STARC_GITHUB_API_URL=http://127.0.0.1:<port>`; its default
 access token is `test-token`.
 
 `./tools/check-save-failure.sh` checks the real editor and application coordinator
-when SQLite rejects document writes or a deferred constraint rejects the commit.
-It covers Save on close, failed and recovered Retry, edits made while a commit is
-pending, dismissing the saving error, Cancel, explicit Don't save, an Open-menu
+when SQLite rejects document writes, automatically rolls back while storing
+history, or a deferred constraint rejects the commit.
+It covers Save on close, failed and recovered Retry, edits made after failed saves,
+dismissing the saving error, Cancel, explicit Don't save, an Open-menu
 request, and a refused GitHub replacement download. A successful download control
 checks its exact backup. Actual `QFileOpenEvent` cases cover Save, Don't save,
 Cancel, clean and same-story requests, competing requests during the save
@@ -250,6 +251,16 @@ fake credentials are disposable; the GitHub API is a loopback mock server and
 the session bus is absent. The default is offscreen; on a private Xvfb display,
 `STARC_SAVE_FAILURE_PLATFORM=xcb STARC_SAVE_FAILURE_SCREENSHOTS=1` adds native
 window evidence. Actions use Qt signals and dialog responses.
+
+`./tools/check-transaction-recovery.sh` adds genuine `SQLITE_FULL` with a page-count
+cap on a disposable database, late `RAISE(ROLLBACK)`/`RAISE(ABORT)` faults and rejected
+COMMIT. It accepts document updates/inserts, image and attachment writes/deletions
+and nested history inserts before each fault, then checks restoration of dirty
+flags, insertion state, ownership and ordered queues. Repeated failures preserve
+the entire committed database; recovery includes subsequent edits. C++ reopen and
+an independent Python process verify exact content, attachment and history bytes
+and existing IDs. It uses PNG image input, offscreen Qt and an isolated profile;
+it does not establish physical-disk exhaustion or power-loss durability.
 
 `./tools/check-import-only-sources.sh` checks direct opens of DOCX, PDF and Markdown
 through the real application coordinator. Import-only inputs choose a new `.starc`
