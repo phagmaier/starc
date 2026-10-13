@@ -2,7 +2,7 @@
 
 Audit date: 2026-10-12 (local time). Reviewed `dev` at `12722c89`; frozen
 upstream reference: `master` at `4b9677db`. No application fixes were made during
-the initial audit. Issue 1 has since been completed; issues 2–8 remain open.
+the initial audit. Issues 1 and 2 have since been completed; issues 3–8 remain open.
 
 Eight defects were confirmed outside the passing regression suite. Existing
 upstream defects are included because they still affect this fork. The source
@@ -65,7 +65,65 @@ the destination before the lock check. Inherited from upstream.
 The adjacent harness, run script, and destroyed disposable destination are retained.
 Real coordinator and dialog path, in-process offscreen Qt; ordinary exit 0.
 
-## 2. High: choosing Save on close still discards edits when saving fails
+## 2. Completed: choosing Save on close still discards edits when saving fails
+
+- [x] **Fixed and verified on 2026-10-12; committed and pushed to `dev` as `0ef723bc`.**
+
+**Resolution:** Saving now returns success only after the database transaction
+has succeeded. Save-before-close and the other `saveIfNeeded` callbacks stop on
+failure, retaining the live editor, unsaved status and story lock. Database
+transaction-start and commit results are checked. A failed commit remains pending
+on its original connection so Retry can preserve the updates already staged there;
+after it succeeds, a new transaction saves any additional edits. Retry leaves the
+story open until the writer requests closing or switching again. Cancel keeps
+the story open; explicit Don't save still permits discarding edits.
+
+GitHub replacement downloads now require the coordinator to confirm that the
+opened target was saved and closed. A failed save aborts replacement before
+acquiring its replacement lock, publishing a backup or writing downloaded bytes,
+and reports that the live story was kept open.
+
+**Validation:** `./build/dev.sh doctor`, `make qmake_all` and
+`JOBS=4 ./build/dev.sh build debug` passed. The new
+`./tools/check-save-failure.sh` passed 18 ordinary-exit cases on private Xvfb:
+document-write rejection and deferred-constraint commit rejection; persistent
+and recovered Retry, dismissing errors, Cancel and Don't save; the Open-menu
+route; refused GitHub replacement and successful download with a byte-exact
+backup; and a fresh-process reopen of every result. Failed saves retain edits,
+Undo/Redo and the original committed screenplay. Reopens compare exact script,
+emphasis/review XML and all document identities. A separate focused Retry/reopen
+run also passed after typing additional edits while a commit was pending.
+
+All seven existing checks passed on the final code: startup (35 ordinary-exit
+cases), screenplay scope, independent Fountain/FDX interchange, project sync,
+injected credentials, backup retention/restoration and writing-session storage.
+The new save checks and startup checks used native XCB windows; the other suites
+retain their documented headless/injected boundaries. Tests used disposable
+profiles, an absent session bus and fake credentials against a loopback mock API.
+The native runner isolated both networking and the X11 socket directory.
+
+**Fix evidence:** [final build](.build/evidence/issue-2-build-2.log),
+[native runner and related checks](.build/evidence/issue-2-native-9w5hrzct/),
+[18 save/reopen cases and screenshots](.build/evidence/save-failure-aCTUS6/),
+[edits after failed commit](.build/evidence/save-failure-4JT33s/),
+[backup check](.build/evidence/issue-2-backups.log), and
+[writing-session check](.build/evidence/issue-2-writing-session.log).
+The new test reproduced the original loss before the fix in
+[the retained baseline run](.build/evidence/save-failure-g5s3Mo/).
+Earlier unsuccessful harness runs remain retained: missing test includes
+(`save-failure-brQ2EV`), sandbox socket refusal (`save-failure-xAN35H`), an edited
+running shell script's final-step error (`issue-2-native-qgu1yzww`), and a process
+stalled in XOpenDisplay before its first assertion (`issue-2-native-rk4_es90`).
+The latter was terminated after retaining
+[its backtrace](.build/evidence/issue-2-runner-startup-stall.log); it is not passing
+shutdown evidence. Initial screenshots included hidden-editor/isolated-keyring
+and animation states; final fixtures wait for the editor to be visible.
+
+This establishes Linux debug behavior with injected Qt actions and private Xvfb
+windows. Full-disk/crash faults, every SQLite failure mode, physical desktop/GPU,
+release packages and real GitHub/network/keyring integration were unexercised.
+
+The original finding and reproduction below are retained for reference.
 
 **Where:** [application_manager.cpp](src/core/management_layer/application_manager.cpp),
 lines 1153–1156 (`saveIfNeeded`), 973–1022 (save failure handling), and
@@ -279,5 +337,5 @@ bug free. Release packaging, other operating systems, the owner's physical
 desktop/GPU, real GitHub authentication/network behavior, and exhaustive
 storage/crash/concurrency faults were not exercised. No fixes, commits or pushes
 were performed during the initial audit; `master` was only read. The subsequent
-issue 1 fix and its additional evidence are recorded above; no commit or push
-was made for that fix.
+fixes and their additional evidence are recorded above. Issue 2's fix was
+committed and pushed to `dev`; its completion record was updated afterward.
