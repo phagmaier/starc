@@ -210,6 +210,18 @@ It builds
 against the debug build and runs it offscreen with a disposable project and
 profile. It needs `pdftotext` (poppler) and does not show a window.
 
+`./tools/check-track-changes.sh` checks forward and reverse selections across
+original and added screenplay text, partial paragraphs and format fragments,
+Delete/Backspace and replacement typing. It asserts exact removal/addition ranges,
+emphasis, one-step Undo/Redo, coordinator saves and fresh-process database/editor
+reopening, then independently compares the revised XML for both directions.
+The editable production editor is bound to the coordinator's loaded model;
+actions are injected Qt key events. Projects, profiles and logs are disposable
+under `.build/evidence/`, with no desktop session bus. The default is offscreen;
+`STARC_TRACK_CHANGES_PLATFORM=xcb` on a private Xvfb display adds native window
+coverage, and `STARC_TRACK_CHANGES_CASE=original-added` selects the original
+six-case reproduction. Neither mode establishes physical desktop/GPU behavior.
+
 `./tools/check-save-as-safety.sh` exercises Save As through the real coordinator
 with disposable native stories, ordinary shutdown and fresh-process reopening.
 It covers existing and absent locked destinations, replacement approval/cancellation,

@@ -613,37 +613,75 @@ upgrade, including SQLite BLOB-to-TEXT storage changes and version records.
 Successful opens therefore check exact screenplay bytes and identities;
 unopened targets still require whole-file equality. The sandbox's refused Xvfb
 socket launch is retained separately from the successful native run.
-Issues 7–14 remain open.
+At that point, issues 7–14 remained open.
 
 ## 7. Track Changes physically deletes original text depending on selection direction
 
-- [ ] **P1 — confirmed through the real screenplay editor.**
+- [x] **P1 — fixed 2026-10-13; verified through the screenplay editor, coordinator saves and fresh-process reopening.**
 
 **Location:**
 [screenplay_text_edit.cpp](src/core/management_layer/plugins/screenplay_text/text/screenplay_text_edit.cpp),
 798–831.
 
-**Trigger:** Original action text is followed by an action paragraph whose text
+**Original trigger:** Original action text is followed by an action paragraph whose text
 is marked as an addition. With Track Changes enabled, select both paragraphs
 from their beginning toward the end and press Delete.
 
-**Result:** The entire selection is classified as added text and physically
+**Original result:** The entire selection is classified as added text and physically
 deleted, including the original text that should remain as deletion marks.
 Reversing the same selection preserves the text as tracked deletions.
 The addition scan starts at `cursor.block()`, the selection's active endpoint,
 so forward selection omits earlier original paragraphs.
 
-**Debugging direction:** Start at the selection's first source block and inspect
-every selected fragment. Check forward/reverse selection across original and
-added paragraphs, partial paragraphs, Delete/Backspace and replacement typing.
-Preserve revision metadata through Undo/Redo and save/reopen.
+**Resolution:** The addition scan now starts at
+`document()->findBlock(selectionInterval.from)` and inspects the selected source
+range in either direction. A selection containing original text remains in the
+script with removal marks; selections containing only additions still delete
+normally. Existing fragment boundaries, deletion marking and replacement-typing
+behavior are retained.
 
-**Evidence:**
+The committed regression is
+[check-track-changes.sh](tools/check-track-changes.sh), backed by
+[track_changes_test.cpp](tests/track_changes_test.cpp). Its 54 cases cover both
+directions, Delete/Backspace/replacement typing, original/added/mixed paragraphs,
+an original middle paragraph, partial paragraphs and format fragments, an end
+at the next block's start, and added-only controls. It checks exact character
+ranges and emphasis, byte-exact one-step Undo/Redo, coordinator saves, retained
+document identities and exact revision XML after fresh-process database/editor
+reopening. Independent XML comparisons require equivalent results in both
+directions, accounting for separately generated review dates and default-scene
+UUIDs; within each case, Undo/Redo and reopening compare exact bytes.
+
+**Validation:** `./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`,
+`./tools/check-track-changes.sh` (54 cases and fresh-process reopening), and
+`./tools/check-screenplay-scope.sh` passed. The original six-case reproduction
+also passed with `STARC_TRACK_CHANGES_PLATFORM=xcb` on an isolated private Xvfb
+display, including fresh-process reopening and independent XML comparison.
+Bash syntax, ShellCheck, changed-code formatting and `git diff --check` passed.
+
+The pre-fix loss is retained in
+[track-changes-byHcvo](.build/evidence/track-changes-byHcvo/), with the final full
+run in [track-changes-Rc4N9E](.build/evidence/track-changes-Rc4N9E/) and native run
+in [track-changes-N2APYG](.build/evidence/track-changes-N2APYG/). Build, scope and
+debugger logs are under [issue7-fix](.build/evidence/issue7-fix/).
+Earlier fixture failures remain: an incorrect font alias, a read-only hosted
+editor, lowercase input capitalized at a paragraph start, destroyed fixture
+editors whose addresses were cached by handlers, and cross-fixture comparison
+of newly generated default-scene UUIDs. None was substituted for the retained
+pre-fix data-loss reproduction.
+
+**Limits:** The editable production editor is explicitly bound to the
+coordinator's loaded model, with injected Qt key events and disposable profiles;
+the toolbar interaction itself was not exercised. Offscreen and private Xvfb
+checks do not establish physical desktop/GPU, other-platform or release behavior.
+
+**Original audit evidence:**
 [editor probe log](.build/evidence/audit2-editor/run2.log),
 `tracked-delete-reverse-0.xml` and `tracked-delete-reverse-1.xml` under
 `.build/evidence/audit2-editor/`. The first snapshot loses original text; the
 reverse-direction snapshot retains it with `rem="true"`. These are serialized
 editor/model snapshots, not full application database-reopen evidence.
+Issues 8–14 remain open.
 
 ## 8. Adding an adjacent comment silently discards the new comment
 

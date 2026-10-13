@@ -795,7 +795,9 @@ void ScreenplayTextEdit::keyPressEvent(QKeyEvent* _event)
             //     то удалим его нормальным способом, а не будем помечать, как удалённый
             //
             const auto selectionInterval = cursor.selectionInterval();
-            auto block = cursor.block();
+            // The active endpoint may be in the last selected block. Always inspect
+            // the whole source range, regardless of the selection's direction.
+            auto block = document()->findBlock(selectionInterval.from);
             bool isAdditionSelected = true;
             while (isAdditionSelected && block.isValid()
                    && block.position() <= selectionInterval.to) {
