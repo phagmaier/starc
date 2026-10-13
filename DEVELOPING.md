@@ -240,6 +240,20 @@ reproduction and `STARC_REVIEW_COMMENTS_SCREENSHOTS=1` retains editor screenshot
 These are injected editor/model actions; toolbar input and physical desktop/GPU
 behavior are separate evidence.
 
+`./tools/check-window-restore.sh` checks window layout restoration through the
+production application view and its splitter. The window cases restore the saved
+layout of the profile that aborted startup as if it came from a much wider or
+narrower screen, where Qt refuses the saved geometry and the window is first shown
+without a size, with usable, zero, non-finite and split saved proportions; controls
+cover the same screen and the first-run window. The splitter cases cover showing
+it without a width, sizes with no total, a collapsed panel shown without a width,
+saved-state validation and ordinary resizing. Each case runs in its own process,
+so an abort is reported for that case alone, and Qt's assertion text is kept in
+its log under `.build/evidence/`. The default is offscreen;
+`STARC_WINDOW_RESTORE_PLATFORM=xcb` on a private Xvfb display adds native window
+coverage. It constructs the view directly: full application startup, window
+managers and physical desktop/GPU behavior are separate evidence.
+
 `./tools/check-save-as-safety.sh` exercises Save As through the real coordinator
 with disposable native stories, ordinary shutdown and fresh-process reopening.
 It covers existing and absent locked destinations, replacement approval/cancellation,

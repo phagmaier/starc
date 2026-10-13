@@ -304,14 +304,23 @@ void Splitter::setSizes(const QVector<int>& _sizes)
 
     auto newSizes = _sizes;
     const auto sizesMax = std::accumulate(newSizes.begin(), newSizes.end(), 0);
+    //
+    // Sizes without a total can't be turned into proportions. A panel shown while the splitter
+    // has no size yet asks for them, so keep the current proportions until there's a real size
+    //
+    if (sizesMax <= 0) {
+        return;
+    }
     const auto sizeDelta = static_cast<qreal>(width()) / sizesMax;
     auto lessThan24px
         = [sizeDelta](int _size) { return sizeDelta * _size < Ui::DesignSystem::layout().px24(); };
 
     //
     // Если одна из сторон становится меньше 24 пикселей, скроем её автоматически
+    // ... but not while the splitter has no size to measure them in, so that the proportions
+    //     aren't lost before the window gets its geometry
     //
-    if (!newSizes.contains(0)) {
+    if (width() > 0 && !newSizes.contains(0)) {
         if (newSizes.constFirst() < newSizes.constLast() && lessThan24px(newSizes.constFirst())) {
             newSizes.last() += newSizes.first();
             newSizes.first() = 0;
@@ -470,8 +479,9 @@ void Splitter::restoreState(const QByteArray& _state)
 
     //
     // Избегаем кривых данных
+    // ... including the proportions with nothing to share, saved by a splitter without a size
     //
-    if (sizes.size() != 2) {
+    if (sizes.size() != 2 || sizes.constFirst() + sizes.constLast() <= 0) {
         return;
     }
 

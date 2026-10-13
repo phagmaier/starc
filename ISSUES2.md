@@ -860,7 +860,7 @@ beat identities, heading emphasis/review comments and selection directions.
 
 ## 10. Window restoration can abort when the splitter has zero total size
 
-- [ ] **P2 — confirmed production startup abort on private Xvfb/XCB.**
+- [x] **P2 — fixed 2026-10-13; verified through the production application on private Xvfb/XCB displays of three sizes, with ordinary exits.**
 
 **Locations:**
 [splitter.cpp](src/corelib/ui/widgets/splitter/splitter.cpp), `setSizes` at
@@ -868,30 +868,94 @@ beat identities, heading emphasis/review comments and selection directions.
 [application_view.cpp](src/core/ui/application_view.cpp), `restoreState` at
 197–207.
 
-**Trigger and result:** During window restoration a child Show event can call
-`setSizes` with a zero total size. The method divides both the available extent
-and each requested size by that total, then converts non-finite results to integer
-widget geometry. Startup aborts before the story opens.
+**Original trigger and result:** During window restoration a child Show event can
+call `setSizes` with a zero total size. The method divides both the available
+extent and each requested size by that total, then converts non-finite results to
+integer widget geometry. Startup aborts before the story opens.
 
 The production debug executable reproduced this with an ordinary saved profile
 copied from the offscreen startup fixture onto private XCB. GDB showed
 `sizesMax=0` and `sizeDelta=NaN` in `Splitter::setSizes`. The stack reaches
 `QRect::setWidth` with `-2147483648`, then Qt's checked-integer overflow assertion.
-No application code was modified to produce the abort.
 
-Removing the saved window-layout section from a separate disposable profile
-allowed two production launches and normal Ctrl+Q exits. Their exact 376-byte
-screenplay content survived, and SQLite integrity checks passed. That control
-does not repair the failing state or establish physical-desktop behavior.
-The observed trigger includes an offscreen-generated profile; an exclusively
-native user-session sequence has not been established.
+**Cause:** Qt does not restore a saved window geometry when the saved screen width
+and the current one differ by more than about a fifth (a ratio below 0.8 or above
+1.25). The application view is then shown before it has any size, so its splitter
+is zero pixels wide. At that width the splitter's rule that hides a panel narrower
+than 24 pixels set the navigator's proportion to zero, the navigator's Show event
+asked for the sizes `{0, 0}`, and dividing by their total produced the NaN
+geometry. Any saved layout opened on a sufficiently wider or narrower screen
+(another monitor, resolution or scale) therefore aborted the debug build.
 
-**Debugging direction:** Reject or safely defer zero-total/non-finite splitter
-sizes before geometry arithmetic. Validate restored state and zero-extent Show
-events, retain valid proportions through layout initialization, and test native
-launch with saved layout state. Avoid accepting `{0,0}` as usable proportions.
+This is now reproduced with a native session only. Using the pre-fix build, a
+layout was saved by an ordinary first-run setup and Ctrl+Q on a 1500x950 display.
+Starting with a story on the same display worked. On 800x600 and 1920x1080
+displays the same profile aborted with the same assertion before a window
+appeared. The audit profile behaves the same way: saved on an 800 pixel wide
+screen, it aborts on a 1280 pixel one and starts on an 800 pixel one.
 
-**Evidence:**
+**Resolution:** `Splitter::setSizes` ignores sizes whose total is not positive
+and keeps the current proportions, and it no longer applies the narrow-panel
+rule while the splitter has no width. `Splitter::restoreState` ignores saved
+proportions that are both zero or not finite. A window whose geometry Qt refuses
+now opens at the existing 1200x740 fallback size with its saved panel
+proportions; unusable saved proportions leave the default 30/70 split. Ordinary
+resizing, dragging and the narrow-panel rule at a real width are unchanged.
+
+**Regression:** [window_restore_test.cpp](tests/window_restore_test.cpp) and
+[check-window-restore.sh](tools/check-window-restore.sh) restore layouts through
+the production `ApplicationView` and exercise the production `Splitter`. Seven
+window cases use the audit profile's saved bytes as if saved on a screen 2.5
+times wider or narrower, with usable, zero, non-finite and split proportions,
+plus same-screen and first-run controls. Five splitter cases cover showing it
+without a width, sizes with no total at zero and real widths, a collapsed panel
+shown without a width, saved-state validation and ordinary resizing. They check
+the window size, exact proportions, finite panel geometry inside the splitter and
+the state saved next. Each case runs in its own process.
+
+**Validation:**
+
+- `./build/dev.sh doctor` and `JOBS=6 ./build/dev.sh build debug`: passed.
+- `./tools/check-window-restore.sh`: 12 cases passed offscreen
+  (`.build/evidence/window-restore-foQevD/`) and with XCB on private 1280x900,
+  1920x1080 and 800x600 Xvfb displays.
+- Against the committed pre-fix splitter 9 of the 12 cases abort with the audit's
+  assertion and the 3 controls pass. Removing one guard at a time fails 2, 4 and
+  3 cases respectively (`mutations/`); the source was restored and rebuilt.
+- Production application with the fix, each started with a story and closed with
+  Ctrl+Q: the natively saved layout on 1500x950, 800x600 and 1920x1080 displays,
+  and the audit profile twice on 1280x900. All showed a 1200x740 window, exited
+  0, left no story lock and passed the SQLite integrity check. Screenshots show
+  the story open with the saved 30/70 split, and the audit profile's saved
+  full-width navigator with the show-panel handle.
+- `./tools/check-startup-last-story.sh`, `./tools/check-screenplay-scope.sh` and
+  `./tools/check-review-comments.sh`: passed.
+- Bash syntax, ShellCheck, changed-code formatting and `git diff --check`: passed.
+
+Traces, mutation logs, per-launch `result.json` files and screenshots are under
+[issue10-fix](.build/evidence/issue10-fix/). The retained pre-fix evidence is
+`prefix-trace/gdb.log` (every `setSizes` call up to the abort),
+`prefix-regression.log` and `native-3-prefix-narrow-screen/`.
+
+**Limits:** Xvfb has no window manager, and the application ran without network,
+session bus or keyring, so each launch showed the expected keyring notice.
+Physical desktops, window managers, Wayland, moving between monitors while
+running, and release builds were not exercised. In a release build the removed
+arithmetic had no assertion and was undefined behavior rather than a reported
+abort.
+
+Unchanged behavior worth knowing:
+
+- The fallback window is 1200x740 and centred even when the screen is smaller; on
+  the 800x600 display it extended beyond the screen.
+- A collapsed panel shown while the splitter has no width stays collapsed.
+- The splitter's resize helper receives its own proportion list by reference, so
+  its step that restores proportions after applying them does nothing for resize
+  and design-system events; the pre-fix trace shows the collapsed proportions
+  surviving it. By the code, a splitter that is briefly a few pixels wide can
+  still hide a panel until the saved state is applied. That was not reproduced.
+
+**Original audit evidence:**
 [production failure log](.build/evidence/audit2-20261013/native/application-1.log),
 [backtrace](.build/evidence/audit2-20261013/native/startup-backtrace.log),
 [verified locals](.build/evidence/audit2-20261013/native/startup-locals.log),
