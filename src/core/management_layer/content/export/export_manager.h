@@ -36,9 +36,9 @@ public:
                         int _currentModelIndex);
 
     /**
-     * @brief Экспортировать заданный документ в заданный файл
+     * @brief Save to a supported source file, returning true only on successful publication.
      */
-    void exportDocument(BusinessLayer::AbstractModel* _model, const QString& _filePath);
+    bool exportDocument(BusinessLayer::AbstractModel* _model, const QString& _filePath);
 
 private:
     class Implementation;

@@ -10,6 +10,7 @@
 #include <QLocale>
 #include <QPainter>
 #include <QPdfWriter>
+#include <QSaveFile>
 #include <QTextBlock>
 #include <QTextTable>
 #include <QtMath>
@@ -40,7 +41,7 @@ public:
      * @brief Напечатать документ
      * @note Адаптация функции QTextDocument::print
      */
-    void printDocument(QTextDocument* _document, QPdfWriter* _printer,
+    bool printDocument(QTextDocument* _document, QPdfWriter* _printer,
                        const TextTemplate& _template, const ExportOptions& _exportOptions) const;
 
 
@@ -376,15 +377,16 @@ void AbstractPdfExporter::Implementation::printPage(int _pageNumber, QPainter* _
     _painter->restore();
 }
 
-void AbstractPdfExporter::Implementation::printDocument(QTextDocument* _document,
+bool AbstractPdfExporter::Implementation::printDocument(QTextDocument* _document,
                                                         QPdfWriter* _printer,
                                                         const TextTemplate& _template,
                                                         const ExportOptions& _exportOptions) const
 {
     QPainter painter(_printer);
     // Check that there is a valid device to print to.
-    if (!painter.isActive())
-        return;
+    if (!painter.isActive()) {
+        return false;
+    }
     QScopedPointer<QTextDocument> clonedDoc;
     (void)_document->documentLayout(); // make sure that there is a layout
     QRectF body = QRectF(QPointF(0, 0), _document->pageSize());
@@ -423,8 +425,9 @@ void AbstractPdfExporter::Implementation::printDocument(QTextDocument* _document
         while (true) {
             for (int j = 0; j < pageCopies; ++j) {
                 printPage(page, &painter, _document, body, _template, _exportOptions);
-                if (j < pageCopies - 1)
-                    _printer->newPage();
+                if (j < pageCopies - 1 && !_printer->newPage()) {
+                    return false;
+                }
             }
             if (page == toPage)
                 break;
@@ -432,11 +435,15 @@ void AbstractPdfExporter::Implementation::printDocument(QTextDocument* _document
                 ++page;
             else
                 --page;
-            _printer->newPage();
+            if (!_printer->newPage()) {
+                return false;
+            }
         }
-        if (i < docCopies - 1)
-            _printer->newPage();
+        if (i < docCopies - 1 && !_printer->newPage()) {
+            return false;
+        }
     }
+    return painter.end();
 }
 
 
@@ -450,8 +457,14 @@ AbstractPdfExporter::AbstractPdfExporter()
 
 AbstractPdfExporter::~AbstractPdfExporter() = default;
 
-void AbstractPdfExporter::exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const
+bool AbstractPdfExporter::exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const
 {
+    QSaveFile pdfFile(_exportOptions.filePath);
+    pdfFile.setDirectWriteFallback(false);
+    if (!pdfFile.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+
     //
     // Настраиваем документ
     //
@@ -461,19 +474,24 @@ void AbstractPdfExporter::exportTo(AbstractModel* _model, ExportOptions& _export
     // Настраиваем принтер
     //
     const auto& exportTemplate = documentTemplate(_exportOptions);
-    QPdfWriter printer(_exportOptions.filePath);
-    printer.setPageSize(QPageSize(exportTemplate.pageSizeId()));
-    printer.setPageMargins({});
+    {
+        QPdfWriter printer(&pdfFile);
+        printer.setPageSize(QPageSize(exportTemplate.pageSizeId()));
+        printer.setPageMargins({ });
 
-    //
-    // Допишем параметры сценария в параметры экспорта
-    //
-    updateExportOptions(_model, _exportOptions);
+        //
+        // Допишем параметры сценария в параметры экспорта
+        //
+        updateExportOptions(_model, _exportOptions);
 
-    //
-    // Печатаем документ
-    //
-    d->printDocument(textDocument.data(), &printer, exportTemplate, _exportOptions);
+        //
+        // Печатаем документ
+        //
+        if (!d->printDocument(textDocument.data(), &printer, exportTemplate, _exportOptions)) {
+            return false;
+        }
+    }
+    return pdfFile.commit();
 }
 
 } // namespace BusinessLayer

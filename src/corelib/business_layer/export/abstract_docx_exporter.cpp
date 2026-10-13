@@ -13,9 +13,10 @@
 #include <utils/helpers/measurement_helper.h>
 #include <utils/helpers/text_helper.h>
 
-#include <QFile>
+#include <QBuffer>
 #include <QFontMetrics>
 #include <QLocale>
+#include <QSaveFile>
 #include <QTextBlock>
 #include <QTextLayout>
 
@@ -1237,20 +1238,28 @@ AbstractDocxExporter::AbstractDocxExporter()
 
 AbstractDocxExporter::~AbstractDocxExporter() = default;
 
-void AbstractDocxExporter::exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const
+bool AbstractDocxExporter::exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const
 {
     //
     // Открываем документ на запись
     //
-    QFile docxFile(_exportOptions.filePath);
-    if (!docxFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        return;
+    QSaveFile docxFile(_exportOptions.filePath);
+    docxFile.setDirectWriteFallback(false);
+    if (!docxFile.open(QIODevice::WriteOnly)) {
+        return false;
     }
 
     //
     // Пишем все статичные данные в файл
     //
-    QtZipWriter zip(&docxFile);
+    // QtZipWriter closes its device. Build the complete archive separately so
+    // it cannot close QSaveFile before its checked atomic publication.
+    QByteArray archive;
+    QBuffer archiveDevice(&archive);
+    if (!archiveDevice.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+    QtZipWriter zip(&archiveDevice);
     if (zip.status() == QtZipWriter::NoError) {
         //
         // Конвертируем документ в DOCX
@@ -1279,7 +1288,8 @@ void AbstractDocxExporter::exportTo(AbstractModel* _model, ExportOptions& _expor
         d->writeComments(&zip, comments);
     }
     zip.close();
-    docxFile.close();
+    return zip.status() == QtZipWriter::NoError && docxFile.write(archive) == archive.size()
+        && docxFile.commit();
 }
 
 void AbstractDocxExporter::processBlock(const TextCursor& _cursor,

@@ -10,8 +10,8 @@
 #include <ui/widgets/text_edit/page/page_text_edit.h>
 #include <utils/helpers/measurement_helper.h>
 
-#include <QFile>
 #include <QGuiApplication>
+#include <QSaveFile>
 #include <QVector>
 
 namespace BusinessLayer {
@@ -325,20 +325,21 @@ AbstractMarkdownExporter::AbstractMarkdownExporter(const QSet<QChar> _escapedCha
 
 AbstractMarkdownExporter::~AbstractMarkdownExporter() = default;
 
-void AbstractMarkdownExporter::exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const
+bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const
 {
-    exportTo(_model, kInvalidPosition, kInvalidPosition, _exportOptions);
+    return exportTo(_model, kInvalidPosition, kInvalidPosition, _exportOptions);
 }
 
-void AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition, int _toPosition,
+bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition, int _toPosition,
                                         ExportOptions& _exportOptions) const
 {
     //
     // Открываем документ на запись
     //
-    QFile markdownFile(_exportOptions.filePath);
-    if (!markdownFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        return;
+    QSaveFile markdownFile(_exportOptions.filePath);
+    markdownFile.setDirectWriteFallback(false);
+    if (!markdownFile.open(QIODevice::WriteOnly)) {
+        return false;
     }
 
     QScopedPointer<TextDocument> document(prepareDocument(_model, _exportOptions));
@@ -530,12 +531,14 @@ void AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
         if (isProcessed) {
             addIndentationAtBegin(paragraphText, previousBlockType,
                                   TextBlockStyle::forBlock(block));
-            markdownFile.write(paragraphText.toUtf8());
+            const auto bytes = paragraphText.toUtf8();
+            if (markdownFile.write(bytes) != bytes.size()) {
+                return false;
+            }
             previousBlockType = TextBlockStyle::forBlock(block);
         }
     }
-    markdownFile.write("\n");
-    markdownFile.close();
+    return markdownFile.write("\n") == 1 && markdownFile.commit();
 }
 
 void AbstractMarkdownExporter::removeWhitespaceAtBegin(QString& _paragraph) const

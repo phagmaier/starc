@@ -449,14 +449,14 @@ QMimeData* TitlePageEdit::createMimeDataFromSelection() const
         //
         // ... сохраняем в формате markdown
         //
-        BusinessLayer::SimpleTextMarkdownExporter().exportTo(d->model, selection.from, selection.to,
-                                                             options);
+        const auto exported = BusinessLayer::SimpleTextMarkdownExporter().exportTo(
+            d->model, selection.from, selection.to, options);
         //
         // ... читаем сохранённый экспорт из файла
         //
         QFile file(options.filePath);
         QByteArray text;
-        if (file.open(QIODevice::ReadOnly)) {
+        if (exported && file.open(QIODevice::ReadOnly)) {
             text = file.readAll();
             file.close();
         }

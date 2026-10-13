@@ -244,6 +244,18 @@ by the screenplay scope check. The default is offscreen;
 `STARC_IMPORT_ONLY_PLATFORM=xcb STARC_IMPORT_ONLY_SCREENSHOTS=1` on private Xvfb
 adds native window screenshots. Chooser/editor actions are injected through Qt.
 
+`./tools/check-source-export-failure.sh` checks Fountain/TXT/FDX/FDXT source saves
+through the real editor and application coordinator. Read-only sources, short
+staged writes and failed final publication keep the source byte-exact, the editor
+dirty and its lock held. It covers failed/recovered Retry, edits made before
+Retry, Save on close, Cancel, explicit Don't save and fresh-process reopening.
+It also checks failed and successful Fountain/FDX/DOCX/PDF output and clipboard
+selection export. The Linux test-only publication interposer affects only the
+selected disposable output; profiles, temporary files and evidence are isolated,
+and the desktop session bus is absent. The default is offscreen, with injected
+Qt actions; it does not establish physical-disk crash durability or desktop/GPU
+behavior. All failed runs and logs remain under `.build/evidence/`.
+
 `./tools/check-github-credential-storage.sh` uses injected asynchronous storage,
 isolated settings, actual settings/onboarding widgets, and the local mock GitHub
 server. It prints a unique evidence directory and its native test command.

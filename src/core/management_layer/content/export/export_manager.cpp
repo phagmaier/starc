@@ -157,34 +157,15 @@ QString buildExportFilePath(BusinessLayer::ExportFileFormat _fileFormat, const Q
     return exportFilePath;
 }
 
-bool canWriteToFile(const QString& _path, QWidget* _topLevelWidget)
+void showExportError(const QString& _path, QWidget* _topLevelWidget)
 {
-    QFile file(_path);
-    const bool canWrite = file.open(QIODevice::WriteOnly);
-    file.close();
-
-    if (canWrite) {
-        return true;
-    }
-
-    //
-    // ... предупреждаем
-    //
-    QString errorMessage;
-    const QFileInfo fileInfo(_path);
-    if (fileInfo.exists()) {
-        errorMessage = QObject::tr("Can't write to file. Looks like it's opened by another "
-                                   "application. Please close it and retry the export.",
-                                   "ManagementLayer::ExportManager");
-    } else {
-        errorMessage = QObject::tr("Can't write to file. Check permissions to write in the "
-                                   "chosen folder or choose another folder.",
-                                   "ManagementLayer::ExportManager");
-    }
-    StandardDialog::information(_topLevelWidget,
-                                QObject::tr("Export error", "ManagementLayer::ExportManager"),
-                                errorMessage);
-    return false;
+    StandardDialog::information(
+        _topLevelWidget, QObject::tr("Export error", "ManagementLayer::ExportManager"),
+        QObject::tr("The document could not be written to \"%1\". Check file and folder "
+                    "permissions and available space, then retry the export. Any existing "
+                    "output has been kept.",
+                    "ManagementLayer::ExportManager")
+            .arg(_path));
 }
 
 } // namespace
@@ -199,7 +180,7 @@ public:
      */
     void exportScreenplays(const QVector<QPair<QString, BusinessLayer::AbstractModel*>>& _models,
                            int _currentModelIndex);
-    void exportScreenplay(BusinessLayer::AbstractModel* _model,
+    bool exportScreenplay(BusinessLayer::AbstractModel* _model,
                           const BusinessLayer::ScreenplayExportOptions& _options);
     //
     void exportSimpleText(BusinessLayer::AbstractModel* _model);
@@ -258,7 +239,10 @@ void ExportManager::Implementation::exportScreenplays(
                     // Если файл был выбран
                     //
                     exportOptions.filePath = exportFilePath;
-                    exportScreenplay(textModel, exportOptions);
+                    if (!exportScreenplay(textModel, exportOptions)) {
+                        showExportError(exportOptions.filePath, topLevelWidget);
+                        return;
+                    }
 
                     //
                     // Если необходимо, откроем экспортированный документ
@@ -288,19 +272,12 @@ void ExportManager::Implementation::exportScreenplays(
     screenplayExportDialog->showDialog();
 }
 
-void ExportManager::Implementation::exportScreenplay(
+bool ExportManager::Implementation::exportScreenplay(
     BusinessLayer::AbstractModel* _model, const BusinessLayer::ScreenplayExportOptions& _options)
 {
     using namespace BusinessLayer;
 
     ScreenplayExportOptions exportOptions = _options;
-
-    //
-    // ... проверяем возможность записи в файл
-    //
-    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-        return;
-    }
 
     //
     // ... донастроим параметры экспорта
@@ -359,9 +336,9 @@ void ExportManager::Implementation::exportScreenplay(
     }
     }
     if (exporter.isNull()) {
-        return;
+        return false;
     }
-    exporter->exportTo(screenplayTextModel, exportOptions);
+    return exporter->exportTo(screenplayTextModel, exportOptions);
 }
 
 void ExportManager::Implementation::exportSimpleText(BusinessLayer::AbstractModel* _model)
@@ -388,13 +365,6 @@ void ExportManager::Implementation::exportSimpleText(BusinessLayer::AbstractMode
                     // Если файл был выбран
                     //
                     exportOptions.filePath = exportFilePath;
-                    //
-                    // ... проверяем возможность записи в файл
-                    //
-                    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-                        return;
-                    }
-
                     //
                     // ... донастроим параметры экспорта
                     //
@@ -430,7 +400,10 @@ void ExportManager::Implementation::exportSimpleText(BusinessLayer::AbstractMode
                     if (exporter.isNull()) {
                         return;
                     }
-                    exporter->exportTo(textModel, exportOptions);
+                    if (!exporter->exportTo(textModel, exportOptions)) {
+                        showExportError(exportOptions.filePath, topLevelWidget);
+                        return;
+                    }
 
                     //
                     // Если необходимо, откроем экспортированный документ
@@ -482,13 +455,6 @@ void ExportManager::Implementation::exportCharacter(BusinessLayer::AbstractModel
                     //
                     exportOptions.filePath = exportFilePath;
                     //
-                    // ... проверяем возможность записи в файл
-                    //
-                    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-                        return;
-                    }
-
-                    //
                     // ... обновим папку, куда в следующий раз он предположительно опять будет
                     //     экспортировать
                     //
@@ -512,7 +478,10 @@ void ExportManager::Implementation::exportCharacter(BusinessLayer::AbstractModel
                     if (exporter.isNull()) {
                         return;
                     }
-                    exporter->exportTo(characterModel, exportOptions);
+                    if (!exporter->exportTo(characterModel, exportOptions)) {
+                        showExportError(exportOptions.filePath, topLevelWidget);
+                        return;
+                    }
 
                     //
                     // Если необходимо, откроем экспортированный документ
@@ -564,13 +533,6 @@ void ExportManager::Implementation::exportCharacters(BusinessLayer::AbstractMode
                     //
                     exportOptions.filePath = exportFilePath;
                     //
-                    // ... проверяем возможность записи в файл
-                    //
-                    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-                        return;
-                    }
-
-                    //
                     // ... обновим папку, куда в следующий раз он предположительно опять будет
                     //     экспортировать
                     //
@@ -594,7 +556,10 @@ void ExportManager::Implementation::exportCharacters(BusinessLayer::AbstractMode
                     if (exporter.isNull()) {
                         return;
                     }
-                    exporter->exportTo(charactersModel, exportOptions);
+                    if (!exporter->exportTo(charactersModel, exportOptions)) {
+                        showExportError(exportOptions.filePath, topLevelWidget);
+                        return;
+                    }
 
                     //
                     // Если необходимо, откроем экспортированный документ
@@ -646,13 +611,6 @@ void ExportManager::Implementation::exportLocation(BusinessLayer::AbstractModel*
                     //
                     exportOptions.filePath = exportFilePath;
                     //
-                    // ... проверяем возможность записи в файл
-                    //
-                    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-                        return;
-                    }
-
-                    //
                     // ... обновим папку, куда в следующий раз он предположительно опять будет
                     //     экспортировать
                     //
@@ -676,7 +634,10 @@ void ExportManager::Implementation::exportLocation(BusinessLayer::AbstractModel*
                     if (exporter.isNull()) {
                         return;
                     }
-                    exporter->exportTo(locationModel, exportOptions);
+                    if (!exporter->exportTo(locationModel, exportOptions)) {
+                        showExportError(exportOptions.filePath, topLevelWidget);
+                        return;
+                    }
 
                     //
                     // Если необходимо, откроем экспортированный документ
@@ -728,13 +689,6 @@ void ExportManager::Implementation::exportLocations(BusinessLayer::AbstractModel
                     //
                     exportOptions.filePath = exportFilePath;
                     //
-                    // ... проверяем возможность записи в файл
-                    //
-                    if (!canWriteToFile(exportOptions.filePath, topLevelWidget)) {
-                        return;
-                    }
-
-                    //
                     // ... обновим папку, куда в следующий раз он предположительно опять будет
                     //     экспортировать
                     //
@@ -758,7 +712,10 @@ void ExportManager::Implementation::exportLocations(BusinessLayer::AbstractModel
                     if (exporter.isNull()) {
                         return;
                     }
-                    exporter->exportTo(locationsModel, exportOptions);
+                    if (!exporter->exportTo(locationsModel, exportOptions)) {
+                        showExportError(exportOptions.filePath, topLevelWidget);
+                        return;
+                    }
 
                     //
                     // Если необходимо, откроем экспортированный документ
@@ -883,12 +840,12 @@ bool ExportManager::canSaveScreenplayToSourceFile(const QString& _filePath)
         || suffix == ExtensionHelper::finalDraftTemplate();
 }
 
-void ExportManager::exportDocument(BusinessLayer::AbstractModel* _model, const QString& _filePath)
+bool ExportManager::exportDocument(BusinessLayer::AbstractModel* _model, const QString& _filePath)
 {
     // This convenience route saves back to an opened source, rather than an explicit export.
     // Never replace an import-only archive or document with the Fountain fallback.
     if (!canSaveScreenplayToSourceFile(_filePath) || !canExportDocument(_model)) {
-        return;
+        return false;
     }
 
     Log::info("Exporting started. Export document of type %1 to file %2",
@@ -908,12 +865,11 @@ void ExportManager::exportDocument(BusinessLayer::AbstractModel* _model, const Q
         options.includeReviewMarks = true;
         options.includeTitlePage = true;
         options.includeText = true;
-        d->exportScreenplay(_model, options);
-        break;
+        return d->exportScreenplay(_model, options);
     }
 
     default:
-        break;
+        return false;
     }
 }
 

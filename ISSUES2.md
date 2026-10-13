@@ -1,0 +1,676 @@
+# Second fork audit: remaining issues
+
+Reviewed on 2026-10-13 against clean `dev` at
+`1580693c4123650a50aa79c5f4d503a81ea51cfe`. Frozen `master` remains
+`4b9677dbfb5c1faaa91c55c415fdf12715f8521d` and was only read.
+No application fixes, commits or pushes were made during this review.
+
+The build and all nine existing focused regression scripts passed. Additional
+fault, concurrency and editor probes nevertheless confirmed the fourteen issues below.
+The eight completed entries in `ISSUES.md` were not reopened; these findings
+identify remaining paths or failure classes. Inherited upstream defects are
+included because they still affect writing in this fork.
+
+All experiments used disposable stories, profiles, fake credentials and local
+mock repositories. No personal screenplay, real GitHub account or desktop keyring
+was used. Locations refer to the reviewed revision.
+
+**Priorities:** P1 means a data-safety, recovery or crash defect to address before
+depending on the application as the only working copy of a script. P2 means a
+narrower correctness or usability defect. These are review priorities, not an
+estimate of how often a fault occurs. Keep an independent copy of important
+scripts while the P1 items remain open, particularly because issue 3 affects the
+application's own recovery copies.
+
+| Issue | Priority | Problem |
+| --- | --- | --- |
+| 1 | P1 | Failed Fountain/FDX saves appear successful; export can destroy existing output |
+| 2 | P1 | Save As overwrites another instance's locked destination |
+| 3 | P1 | Background backups can mix two committed story generations |
+| 4 | P1 | An automatic SQLite rollback leaves Save/Retry permanently stuck |
+| 5 | P1 | A new GitHub download can overwrite a concurrently created, locked story |
+| 6 | P1 | An old lock dialog can crash a different, modified story |
+| 7 | P1 | Track Changes loses original text depending on selection direction |
+| 8 | P2 | Adding an adjacent comment silently drops the new comment |
+| 9 | P2 | Deleting between visible paragraphs also deletes a hidden beat |
+| 10 | P2 | Restoring a window can divide by zero in its splitter and abort startup |
+| 11 | P1 | Importing Fountain with both emphasis and a review note crashes the debug app |
+| 12 | P1 | Fountain export/reimport removes literal brackets and backslashes from script text |
+| 13 | P2 | Fountain escaping moves review-note anchors onto the wrong text |
+| 14 | P2 | Fountain export loses forced Action types and changes their content |
+
+## 1. Failed Fountain/FDX saves appear successful; output is not protected
+
+- [x] **P1 — fixed 2026-10-13; verified through exporters and the application coordinator.**
+
+**Locations:**
+[application_manager.cpp](src/core/management_layer/application_manager.cpp),
+lines 1051–1060 and the final successful return from `saveChanges`;
+[export_manager.cpp](src/core/management_layer/content/export/export_manager.cpp),
+`canWriteToFile` at 160–166 and the void convenience export route at 886–923;
+[abstract_markdown_exporter.cpp](src/corelib/business_layer/export/abstract_markdown_exporter.cpp),
+333–342 and 531–535;
+[screenplay_fdx_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fdx_exporter.cpp),
+310–341.
+
+**Trigger and result:** Open a Fountain/FDX file directly, edit it, then lose write
+permission to that source before Save. The temporary `.starc` database commits,
+but the source export fails. `exportDocument` returns no success status, and the
+coordinator unconditionally clears the window's modified flag. Closing therefore
+needs no save question, even after permission is restored. Reopening the source
+loses the edit.
+
+Actual Fountain and FDX application probes recorded `after_save_dirty=0`,
+`database_error=0`, `source_unchanged=1`, `marker_in_source=0`, and
+`marker_in_shadow=1`. Ordinary close exited 0 without a save question, and a fresh
+process reopened the source without the marker. This is source-output failure,
+distinct from the database failures already fixed in the earlier audit.
+
+There is a second failure mode in the same output boundary: `canWriteToFile`
+opens an existing file with `WriteOnly`, truncating it just to test access. Actual
+exporters then write directly and ignore failed writes. With a file-size limit of
+zero and `SIGXFSZ` ignored, the real export manager returned normally for both
+Fountain and FDX while each existing 27-byte output became **zero bytes**. This
+models an open-success/write-failure boundary; it does not prove physical-disk
+exhaustion or crash durability.
+
+**Debugging direction:** Return an explicit result through every export layer,
+including final writes/flush/publication. Stage complete output and replace the
+destination only after successful completion; remove the destructive access
+probe. Source saving must retain dirty state and live edits when export fails.
+Verify permission failure and partial-write failure through ordinary close and
+fresh-process reopen, with exact original source bytes as the failure oracle.
+
+**Evidence:**
+[exporter log](.build/evidence/audit2-interchange/write-failure.log),
+[Fountain save/close log](.build/evidence/audit2-interchange/shadow-fountain2/write-fail.log),
+[fresh Fountain reopen log](.build/evidence/audit2-interchange/shadow-fountain2/reopen.log),
+[FDX save/close log](.build/evidence/audit2-interchange/shadow-fdx/write-fail.log),
+[fresh FDX reopen log](.build/evidence/audit2-interchange/shadow-fdx/reopen.log).
+Probe sources are `write_failure.cpp` and `shadow_save_failure.cpp` in
+`.build/evidence/audit2-interchange/`. Earlier harness failures are retained there.
+[Supplemental interchange findings](.build/evidence/audit2-interchange/findings.md)
+include compilation and execution commands for this and issues 11–14.
+
+**Resolution (2026-10-13):** Exporters now return a checked result through the
+manager to the Save coordinator. Fountain/Markdown, FDX, DOCX and PDF stage their
+output with atomic publication and direct-write fallback disabled. The destructive
+access probe is removed. Failed writes, flushes or publication preserve existing
+output; failed source saves retain the live editor, modified flag and lock and
+show a saving error with Retry. Retry is restricted to the same source/shadow
+story. Export dialogs remain open on failure, and clipboard callers consume only
+a successful selection export so they cannot reuse preserved stale output.
+
+The new `./tools/check-source-export-failure.sh` passed **88 ordinary process
+exits**: eleven cases and fresh-process reopen for each of Fountain, TXT, FDX and
+FDXT. It covers read-only output, failed/recovered Retry with later edits,
+Save on close, Cancel, explicit Don't save, short staged writes, failure at final
+publication, and successful/failed clipboard exports. Independent file-byte
+oracles verify retained originals and saved results. Direct exporter checks use
+zero- and one-byte kernel file-size limits for all six output suffixes, check
+existing/new destinations, then verify successful recovery. A Linux test-only
+interposer applies a 64-byte limit during the selected source's final flush, or
+removes destination-directory write permission only after staging; SQLite remains
+writable. These are bounded write/publication faults, not physical-disk exhaustion
+or power-loss durability evidence.
+
+`./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, the screenplay
+interchange and scope checks, Bash syntax, ShellCheck and `git diff --check`
+passed. The existing save-failure check passed its `close-retry`, `close-dismiss`,
+`close-discard`, `commit-retry`, `commit-dismiss`, `commit-discard`,
+`file-open-failure` and `file-open-commit` cases with fresh reopen. The scope check
+also independently validated DOCX archive/content and seven-page PDF output.
+All runtime checks used disposable profiles and an absent desktop session bus,
+with offscreen Qt actions. Physical desktop/GPU behavior, release builds and
+other operating systems remain unexercised.
+
+Retained passing evidence: [source export regression](.build/evidence/source-export-failure-tgGr0t/),
+[interchange](.build/evidence/screenplay-interchange-Z3eQz5/),
+[database-save failures](.build/evidence/save-failure-HJOE7G/),
+and [screenplay scope](.build/evidence/screenplay-scope-WRgBlk/).
+Earlier harness failures remain in the other `source-export-failure-*` evidence
+directories: the initial database lookup preceded import serialization, a raw
+Fountain marker comparison ignored escaping, a close question was checked before
+it appeared, and a 64-byte direct-export limit exceeded one complete minimal
+fixture. The final direct-export limit guarantees an actual short write.
+The scope run [Jrh1Iw](.build/evidence/screenplay-scope-Jrh1Iw/) started while a build
+was replacing shared libraries and failed in the loader before any test output;
+its core/backtrace remain, including the plugin build-ID mismatch. The completed
+build's scope run passed. Issues 2–14 remain open.
+
+## 2. Save As overwrites a locked destination before checking its lock
+
+- [ ] **P1 — confirmed through the real Save As coordinator.**
+
+**Location:**
+[application_manager.cpp](src/core/management_layer/application_manager.cpp),
+`Implementation::saveAs`, lines 1269–1287; the later lock check is in
+`Implementation::openProject`/`tryLockProjectOnOpen`.
+
+**Trigger:** Story A is open. Another live instance holds B's `.starc.lock`.
+Choose Save As to B and accept replacement.
+
+**Result:** `saveAs` removes B and copies A over it before trying to open and lock
+B. The subsequent opening refuses B's live lock, after the overwrite has already
+happened and A's editor/lock has been closed. B's open SQLite connection may now
+refer to the unlinked old file. If copying fails after removal, B also has no
+protected original at its path.
+
+The disposable probe used two distinct valid SQLite stories and a live
+`QLockFile` holder. It drove the real file chooser, with the overwrite question
+treated as accepted. Its byte oracle proved B changed while B's lock remained
+held; A's lock was gone. The fixture then exited ordinarily with status 0.
+The earlier conversion fix protects `createLocalProject`; Save As still uses
+this separate destructive route.
+
+**Debugging direction:** Acquire and validate the destination lock before any
+destination mutation. Stage a complete copy, publish safely, and retain both
+the old destination and the current editor on refusal or failure. Test locked
+replacement, failed copy, symlinks and a concurrent destination publisher.
+
+**Evidence:**
+[verified log](.build/evidence/audit2-20261013/save-as/verified-run/audit-save-as-lock.log),
+the destination byte oracle and both stories under that run's `stories/`, and
+`save_as_probe.cpp`/`run_probe.py` in `.build/evidence/audit2-20261013/save-as/`.
+The initial probe's incorrect source-open assertion is retained separately;
+the verified run checks the source lock, not the database's retained filename.
+
+## 3. Background backups can publish a mixture of two saved generations
+
+- [ ] **P1 — confirmed with the production backup builder and concurrent SQLite commit.**
+
+**Locations:**
+[backup_builder.cpp](src/corelib/utils/tools/backup_builder.cpp), raw copy at
+115–136, publication/pruning at 154–196;
+[application_manager.cpp](src/core/management_layer/application_manager.cpp),
+asynchronous backup launch at 1084–1107.
+
+**Trigger:** A background backup is reading the live `.starc` SQLite file while a
+later Save commits another generation. The per-source backup lock serializes
+backups with one another; normal database saves do not take it.
+
+**Result:** The backup can combine pages read before and after the commit, yet
+report success and proceed with retention pruning. Its contents need not match
+any committed version of the story.
+
+The probe paused a worker immediately after its first 64 KiB source read, made
+an ordinary SQLite UPDATE/COMMIT, and resumed the production copy. A 256 KiB
+document changed from all A bytes to all B bytes. The published recovery copy
+contained **53,671 old A bytes plus 208,473 new B bytes**. Its fingerprint matched
+neither committed source. SQLite structural integrity checks passed, showing
+that integrity checks alone do not detect this class of logical corruption.
+The fixture uses a document-content blob to expose page mixing, rather than
+parsed screenplay XML. The live source itself remained correct.
+
+**Debugging direction:** Take a consistent SQLite snapshot or coordinate saves
+with the entire source read. Retain the existing safe destination publication and
+retention rules. Validate restored document bytes against one complete committed
+generation while a second save deliberately overlaps the backup.
+
+**Evidence:**
+[backup race log](.build/evidence/audit2-persistence/backup-race.log), source and
+published databases under `backup-race-fixture/`, and `backup-race.cpp` in
+`.build/evidence/audit2-persistence/`. The pause establishes a concurrency defect,
+not its incidence during normal typing.
+[Supplemental findings](.build/evidence/audit2-persistence/findings.md) contain
+fresh-directory replay commands.
+
+## 4. An automatic SQLite rollback makes Save/Retry permanently fail
+
+- [ ] **P1 — confirmed with genuine SQLITE_FULL and the real editor/coordinator.**
+
+**Locations:**
+[database.cpp](src/corelib/data_layer/database.cpp), `Database::commit` at 173–197,
+especially 190–193;
+[application_manager.cpp](src/core/management_layer/application_manager.cpp),
+952–960, 983–987 and 1015–1019;
+[abstract_mapper.cpp](src/corelib/data_layer/mapper/abstract_mapper.cpp),
+75–85, 95–97 and 123–125;
+[document_storage.cpp](src/corelib/data_layer/storage/document_storage.cpp),
+110–120;
+[document_change_storage.cpp](src/corelib/data_layer/storage/document_change_storage.cpp),
+126–140.
+
+**Trigger:** An earlier document write succeeds inside Save, but a later write
+returns an error that rolls back the entire transaction, such as `SQLITE_FULL`.
+The underlying storage problem is then repaired and the writer chooses Retry.
+
+**Result:** `Database::commit` treats every failed COMMIT as a still-active pending
+transaction. After SQLite already rolled back, Retry commits a transaction that
+does not exist and refuses to reconnect while it considers that commit pending.
+Earlier accepted writes have also been marked stored or removed from persistence
+queues before the outer commit succeeded.
+
+A page-count cap on only the disposable database produced genuine `SQLITE_FULL`
+without filling the physical disk. After lifting the cap, retries still returned
+`cannot commit - no transaction is active`; the live document held new bytes but
+was marked stored, while disk held its old bytes. Separately, changing the
+existing coordinator fixture's trigger from `RAISE(ABORT)` to `RAISE(ROLLBACK)`
+made its recovery assertion fail after the trigger was removed. Live edits,
+annotations, Undo/Redo and the dirty flag remained, but Save never recovered.
+
+**Debugging direction:** Distinguish a failed active COMMIT from an automatic
+rollback. Restore the dirty/insertion/history state of all statements lost by
+rollback, preserving the live editor and document identities. Clearing only the
+pending flag is insufficient. Cover recovery after capacity returns and additional
+edits made while saving is blocked.
+
+**Evidence:**
+[SQLITE_FULL log](.build/evidence/audit2-persistence/sqlite-full.log),
+[coordinator failure log](.build/evidence/audit2-persistence/rollback-coordinator.log),
+`rollback-storage.cpp` and `rollback-coordinator.cpp` in
+`.build/evidence/audit2-persistence/`.
+The coordinator fixture intentionally exits 1 at the failed recovery assertion;
+it is not successful ordinary-close evidence. Supplemental replay commands are
+in [the persistence findings](.build/evidence/audit2-persistence/findings.md).
+
+## 5. A new GitHub download can overwrite a concurrently created, locked story
+
+- [ ] **P1 — confirmed with the production manager and a localhost mock API.**
+
+**Location:**
+[github_sync_manager.cpp](src/core/management_layer/content/github_sync/github_sync_manager.cpp),
+793–807 and 852–861. Only the replacement branch acquires the destination lock
+at 822–825.
+
+**Trigger:** A remote-only story is downloading to a path classified as new.
+After the existence check, another writer acquires its `.lock` and publishes a
+local story there. New and separate-copy downloads use replacing `QSaveFile`
+publication without acquiring that lock.
+
+**Result:** Download overwrites the competing writer's bytes, reports success,
+and makes no pre-replacement backup because the destination was classified as
+new. A lock held before the file exists is likewise ignored. A dangling symlink
+passes the existence check and causes the download to create its target outside
+the selected destination path.
+
+The real manager probe intercepted only `QSaveFile::open` for its disposable
+download path. At that boundary it acquired the lock and published
+`OTHER_WRITER_SAVED_SCRIPT_BYTES`. Production download replaced those bytes with
+the remote SQLite story while the competing lock remained owned. Separate controls
+confirmed an absent-file live lock and dangling symlink. The separate-copy branch
+shares this source path but was not independently raced.
+
+**Debugging direction:** Lock every destination, reject existing paths and
+symlinks, stage output, and publish new stories without replacing a concurrent
+writer. Reuse the guarded new-project workflow. Refusal must preserve the remote
+entry and sync baseline.
+
+**Evidence:**
+[collision log](.build/evidence/audit2-persistence/sync-new-destination-race-runner.log),
+[lock/symlink controls](.build/evidence/audit2-persistence/sync-new-destination-runner.log),
+`sync-new-destination.cpp`, `run-sync-race.sh` and `run-sync-destination.sh` in
+`.build/evidence/audit2-persistence/`. Runners use fresh disposable directories,
+fake credentials and loopback only; they require local socket access.
+
+## 6. An old lock dialog can crash a different, modified story
+
+- [ ] **P1 — confirmed through a real application file-open event.**
+
+**Location:**
+[application_manager.cpp](src/core/management_layer/application_manager.cpp),
+`tryLockProjectOnOpen` callback at 1535–1541; `closeCurrentProject` at 1801–1804;
+the public guarded opening route at 2273–2299 is bypassed by this callback.
+
+**Trigger:** Opening locked story B shows the “Ignore and open” question. Before
+answering, an OS file-open request opens unlocked story C. Edit C, then answer the
+still-actionable question about B.
+
+**Result:** The callback uses the shared `lockFile`, which now belongs to C,
+instead of the original attempt. It resets C's lock and calls the private opening
+route directly. Closing C then aborts at `!lockFile.isNull()`; without assertions
+the following null dereference also remains. C's unsaved edits were not offered
+a save question before this crash path.
+
+The probe confirmed C's real editor held unsaved edits, the old dialog remained
+visible, and answering it aborted at `application_manager.cpp:1801`. The warning
+immediately before the abort was `removeStaleLockFile can only be called when not
+holding the lock`, corroborating that the callback acted on C's acquired lock.
+
+**Debugging direction:** Bind lock questions to the original attempt/lock and
+invalidate stale questions when the current project changes. Route accepted
+reopening through the unsaved-edit guard. Do not reset a newer story's lock.
+Cover competing OS requests and edits before answering either dialog button.
+
+**Evidence:**
+[confirmed abort log](.build/evidence/audit2-20261013/stale-lock/verified-run3/audit-stale-lock.log),
+`stale_lock_probe.cpp` and `run_probe.py` under
+`.build/evidence/audit2-20261013/stale-lock/`. Earlier harness attempts that failed
+before reaching the lock callback remain in `verified-run/` and `verified-run2/`.
+The confirmed run aborted; it is not ordinary-close evidence.
+
+## 7. Track Changes physically deletes original text depending on selection direction
+
+- [ ] **P1 — confirmed through the real screenplay editor.**
+
+**Location:**
+[screenplay_text_edit.cpp](src/core/management_layer/plugins/screenplay_text/text/screenplay_text_edit.cpp),
+798–831.
+
+**Trigger:** Original action text is followed by an action paragraph whose text
+is marked as an addition. With Track Changes enabled, select both paragraphs
+from their beginning toward the end and press Delete.
+
+**Result:** The entire selection is classified as added text and physically
+deleted, including the original text that should remain as deletion marks.
+Reversing the same selection preserves the text as tracked deletions.
+The addition scan starts at `cursor.block()`, the selection's active endpoint,
+so forward selection omits earlier original paragraphs.
+
+**Debugging direction:** Start at the selection's first source block and inspect
+every selected fragment. Check forward/reverse selection across original and
+added paragraphs, partial paragraphs, Delete/Backspace and replacement typing.
+Preserve revision metadata through Undo/Redo and save/reopen.
+
+**Evidence:**
+[editor probe log](.build/evidence/audit2-editor/run2.log),
+`tracked-delete-reverse-0.xml` and `tracked-delete-reverse-1.xml` under
+`.build/evidence/audit2-editor/`. The first snapshot loses original text; the
+reverse-direction snapshot retains it with `rem="true"`. These are serialized
+editor/model snapshots, not full application database-reopen evidence.
+
+## 8. Adding an adjacent comment silently discards the new comment
+
+- [ ] **P2 — confirmed through the real screenplay editor/model.**
+
+**Location:**
+[text_document.cpp](src/corelib/business_layer/document/text/text_document.cpp),
+`addReviewMark` at 2053–2078; UI route in
+[screenplay_text_view.cpp](src/core/management_layer/plugins/screenplay_text/screenplay_text_view.cpp),
+1300–1303, through `ScreenplayTextEdit::addReviewMark`.
+
+**Trigger:** In `Alpha Beta Gamma`, comment on `Alpha `, then add another comment
+on `Beta`, using the same author and color.
+
+**Result:** Adjacent ranges are considered overlapping. The first mark expands
+from `[0,6)` to `[0,10)`, but its only comment remains “first comment”; “second
+comment” is never stored. The merge branch expands the old range and returns
+without consuming the incoming `_comment`.
+
+**Debugging direction:** Preserve meaningful incoming comment/thread payloads
+when ranges merge. Distinguish merging highlight or revision ranges from adding
+a comment. Check adjacent and overlapping comments, including different authors,
+colors and existing threads.
+
+**Evidence:** [editor log](.build/evidence/audit2-editor/run2.log),
+`adjacent-comments.xml` and the independent `postcheck.txt` under
+`.build/evidence/audit2-editor/`.
+
+## 9. Deleting between visible paragraphs destroys a hidden beat heading
+
+- [ ] **P2 — confirmed with an invisible beat block before deletion.**
+
+**Location:**
+[standard_key_handler.cpp](src/core/management_layer/plugins/screenplay_text/text/handlers/standard_key_handler.cpp),
+341–346 and 431; deletion through
+[text_cursor.cpp](src/corelib/business_layer/document/text/text_cursor.cpp).
+The selection-removal source retains a TODO about hidden beats.
+
+**Trigger:** Two visible action paragraphs have a beat heading between them.
+With beats hidden, select from the end of the first action to the beginning of
+the next and press Delete, intending to join the visible text.
+
+**Result:** The actions merge, but the invisible beat title is also removed from
+the model and serialized XML. Beat content can therefore disappear without being
+displayed in the selected text. Beats are hidden by default in the screenplay
+document.
+
+**Debugging direction:** Preserve hidden outline content during visible-text
+editing or make destructive outline changes explicit. Cover selection deletion,
+boundary Delete/Backspace and replacement typing, including Undo/Redo and reopen.
+
+**Evidence:** [editor log](.build/evidence/audit2-editor/run2.log) verifies that
+the heading was invisible before deletion. `before-hidden-delete.xml` contains
+`HIDDEN BEAT TITLE`; `after-hidden-delete.xml` does not. Artifacts and the reusable
+`editor_probe.cpp`/`run.sh` are under `.build/evidence/audit2-editor/`.
+
+## 10. Window restoration can abort when the splitter has zero total size
+
+- [ ] **P2 — confirmed production startup abort on private Xvfb/XCB.**
+
+**Locations:**
+[splitter.cpp](src/corelib/ui/widgets/splitter/splitter.cpp), `setSizes` at
+305–337 and 363; child Show handling at 558–563; state validation at 460–482;
+[application_view.cpp](src/core/ui/application_view.cpp), `restoreState` at
+197–207.
+
+**Trigger and result:** During window restoration a child Show event can call
+`setSizes` with a zero total size. The method divides both the available extent
+and each requested size by that total, then converts non-finite results to integer
+widget geometry. Startup aborts before the story opens.
+
+The production debug executable reproduced this with an ordinary saved profile
+copied from the offscreen startup fixture onto private XCB. GDB showed
+`sizesMax=0` and `sizeDelta=NaN` in `Splitter::setSizes`. The stack reaches
+`QRect::setWidth` with `-2147483648`, then Qt's checked-integer overflow assertion.
+No application code was modified to produce the abort.
+
+Removing the saved window-layout section from a separate disposable profile
+allowed two production launches and normal Ctrl+Q exits. Their exact 376-byte
+screenplay content survived, and SQLite integrity checks passed. That control
+does not repair the failing state or establish physical-desktop behavior.
+The observed trigger includes an offscreen-generated profile; an exclusively
+native user-session sequence has not been established.
+
+**Debugging direction:** Reject or safely defer zero-total/non-finite splitter
+sizes before geometry arithmetic. Validate restored state and zero-extent Show
+events, retain valid proportions through layout initialization, and test native
+launch with saved layout state. Avoid accepting `{0,0}` as usable proportions.
+
+**Evidence:**
+[production failure log](.build/evidence/audit2-20261013/native/application-1.log),
+[backtrace](.build/evidence/audit2-20261013/native/startup-backtrace.log),
+[verified locals](.build/evidence/audit2-20261013/native/startup-locals.log),
+[fresh-layout control](.build/evidence/audit2-20261013/native/fresh-run2/summary.json).
+The original profile is retained under `native/profile/`. The first control's
+window lookup timed out and required forced cleanup; that run remains separate
+and is not counted as ordinary shutdown.
+
+## 11. Fountain emphasis plus a review note crashes import
+
+- [ ] **P1 — confirmed by real application startup and a retained backtrace.**
+
+**Locations:**
+[abstract_fountain_importer.cpp](src/corelib/business_layer/import/abstract_fountain_importer.cpp),
+paragraph XML construction at 419–424, `appendComments` at 440–471, and final
+comment append at 1019–1026;
+[text_model_text_item.cpp](src/corelib/business_layer/model/text/text_model_text_item.cpp),
+`readXml` at 124–127, 163–219;
+[project_manager.cpp](src/core/management_layer/content/project/project_manager.cpp),
+`storeScreenplay` around 3891.
+
+**Trigger:** Open a Fountain source containing an emphasized paragraph with an
+ordinary review note, for example:
+
+```fountain
+INT. ROOM - DAY
+
+!A **bold** clue.[[Check clue]]
+```
+
+**Result:** The importer generates an action with child tags in the order
+`v`, `fms`, `rms`. The model reader expects review marks before formats and never
+returns to consume review marks after formats. The unconsumed `rms` tag then
+reaches paragraph parsing and aborts at `paragraphType != Undefined`.
+An actual `ApplicationManager` opening this disposable source exited by abort
+(134); the retained GDB stack reaches `ProjectManager::storeScreenplay` through
+the import manager. Controls removing either the emphasis or the review note
+opened and closed ordinarily with exit 0. The original source's SHA-256 remained
+unchanged; the fixture itself remains available.
+
+**Debugging direction:** Make the importer's XML order conform to the internal
+document contract, or make reading robust to supported child order. Do not mask
+the assertion while leaving review data unparsed. Check emphasis and review notes
+individually and together, including multiple styled spans/notes, export/fresh
+import, and serialized save/reopen. The debug abort is confirmed; release
+behavior has not been exercised.
+
+**Evidence:**
+[application abort](.build/evidence/audit2-interchange/format-review-app/run.log),
+[backtrace](.build/evidence/audit2-interchange/semantics-gdb2.log),
+`semantics3-run/comment-after-bold-raw.xml`, the minimal source, probe sources and
+retained core under `.build/evidence/audit2-interchange/`.
+The passing authored interchange fixture did not combine these features in the
+same paragraph; both features are within the documented Fountain support scope.
+
+## 12. Fountain export/reimport changes literal brackets and backslashes into syntax
+
+- [ ] **P1 — confirmed through the actual export manager and fresh import manager.**
+
+**Locations:**
+[screenplay_fountain_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp),
+constructor's escaped-character list at 53;
+[abstract_markdown_exporter.cpp](src/corelib/business_layer/export/abstract_markdown_exporter.cpp),
+text escaping around 515;
+[abstract_fountain_importer.cpp](src/corelib/business_layer/import/abstract_fountain_importer.cpp),
+escape processing and `[[` note parsing, including 328–335.
+
+**Trigger:** Script text contains literal Fountain metacharacters, such as
+`Screen shows [[message]] then continues.` or folder text containing backslashes.
+Save/export to Fountain and reopen/reimport it.
+
+**Result:** The exporter escapes only `*` and `_`. Literal double brackets are
+written as review-note syntax, and backslashes become importer escape markers.
+The probe's first paragraph changed to `Screen shows  then continues.`, with
+`message` moved into a review comment. Its folder paragraph lost its literal
+backslashes. Exact before/after model text proves body-content loss, independently
+of byte-level whitespace normalization.
+
+The reproduction used the real manager's convenience source-export route and a
+fresh import model. It is not a third-party Fountain compatibility test or a full
+ordinary-close application probe. Because direct Fountain saving uses this same
+route, canonical output can silently change screenplay content on the next open.
+
+**Debugging direction:** Escape all literal syntax the importer recognizes,
+including escape characters themselves, while keeping generated formatting and
+review syntax distinct. Use model text as an independent oracle for literal
+brackets, backslashes and other reserved sequences through export/fresh import
+and source Save/close/reopen. This is not an intentional interchange loss in
+`docs/INTERCHANGE.md`.
+
+**Evidence:** Before/after JSON, raw/imported XML and exported Fountain in
+[literal bracket case](.build/evidence/audit2-interchange/case-literal-comment-markers/checks/)
+and [literal backslash case](.build/evidence/audit2-interchange/case-literal-backslash/checks/).
+`semantics-status.json` records successful probe exits that confirmed these
+mismatches; probe source and runner are in `.build/evidence/audit2-interchange/`.
+
+## 13. Fountain escaping shifts a review note onto the wrong text
+
+- [ ] **P2 — confirmed with independent before/after annotation ranges.**
+
+**Locations:**
+[screenplay_fountain_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp),
+88–89;
+[abstract_markdown_exporter.cpp](src/corelib/business_layer/export/abstract_markdown_exporter.cpp),
+515 and 525.
+
+**Trigger:** A review mark covers text containing characters that export must
+escape, such as a literal pair of asterisks in `A *literal* clue.`.
+
+**Result:** Review insertion uses original model offsets after Markdown escaping
+has added characters to the output string. A mark covering `[0,17)` exported as
+`A \*literal\* clu[[Check clue]]e.` and reimported with range `[0,15)`.
+The script text and comment text survive, but the review range no longer covers
+the same source text. A text-only or comment-text-only comparison misses this.
+
+**Debugging direction:** Map source offsets to escaped output positions, or emit
+text/formatting/review delimiters together from source intervals. Check exact
+review spans alongside text, including multiple escapes and emphasis runs.
+
+**Evidence:** Before/after XML and the exported Fountain in
+[the escaped-star comment case](.build/evidence/audit2-interchange/case-comment-after-escaped-star/checks/).
+The probe used actual export/fresh-import paths; no physical desktop or full
+application database-reopen claim is made.
+
+## 14. Fountain export loses forced Action types and changes their content
+
+- [ ] **P2 — confirmed for six independently authored forced Action paragraphs.**
+
+**Location:**
+[screenplay_fountain_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp),
+Action handling at 193–200.
+
+**Trigger:** Import valid forced Action such as `!# A private instruction`,
+`!@address`, `!>A direction`, `!= A hint`, `!~ A hummed sound`, or
+`!INT. The camera opens - Day`. Save/export it and reimport.
+
+**Result:** The original model classifies all six as Action. The exporter adds
+the forcing `!` only when the whole paragraph is uppercase, so these mixed/lower
+case Action paragraphs are written without it. Fresh import reclassifies them as
+sequence heading, character, transition, beat heading, lyrics and scene heading,
+respectively. Several also lose their literal leading symbols or have their
+capitalization changed. The false scene heading acquires a scene number.
+
+**Debugging direction:** Preserve Action for every paragraph whose emitted text
+would trigger another Fountain paragraph rule; the uppercase heuristic alone is
+insufficient. Test all reserved initial markers and heading heuristics against
+independent text/type expectations through source Save and fresh reopen.
+
+**Evidence:**
+[before snapshot](.build/evidence/audit2-interchange/semantics-run/action-prefixes-before.json),
+[after snapshot](.build/evidence/audit2-interchange/semantics-run/action-prefixes-after.json),
+independent input/export fixtures in the same directory, and the separate
+`case-action-prefixes/checks/` repeat under `.build/evidence/audit2-interchange/`.
+These changes exceed documented whitespace/forced-syntax normalization, which
+does not permit unrelated text or paragraph-type differences.
+
+## Validation, coverage and remaining limits
+
+The following current commands passed; logs and the scripts' own evidence paths
+are retained under [.build/evidence/audit2-20261013/](.build/evidence/audit2-20261013/):
+
+```bash
+./build/dev.sh doctor
+JOBS=4 ./build/dev.sh build debug
+./tools/check-screenplay-scope.sh
+./tools/check-screenplay-interchange.sh
+./tools/check-backup-retention.sh
+./tools/check-github-credential-storage.sh
+./tools/check-project-sync.sh
+./tools/check-writing-session-storage.sh
+./tools/check-startup-last-story.sh
+./tools/check-save-failure.sh
+./tools/check-import-only-sources.sh
+```
+
+Qt 6.12.0 and the prepared local QtKeychain dependency were used. Optional
+`lrelease` remains absent. The isolated native Secret Service test and a separate
+unavailable-provider test both exited 0. They used a new private D-Bus and a
+disposable keyring; the owner's desktop keyring was never accessed. The native
+test's first attempt lacked the test daemon on PATH; its log remains separate
+from the successful run using the already prepared local daemon/libraries.
+The save-failure suite's first attempt was blocked by sandbox restrictions on
+localhost sockets; the full permitted loopback rerun passed. Neither setup
+failure is classified as an application defect.
+
+The passing suite covers ordinary keyboard editing, paragraph transitions,
+Undo/Redo, pagination, selected exports/imports, existing backup-retention rules,
+credential ordering/failures, sync baselines, save-failure handling, startup,
+import-only source preservation and legacy-document retention. It does not cover
+the new reproductions above; a passing suite is not a clean data-safety finding.
+Fault probes deliberately exercise additional boundaries. Several emit exit 0
+because their assertions confirm a defect; logs explain the observed invariant.
+Failed assertions, aborted processes and harness failures have been retained.
+
+Three focused review agents covered persistence/sync, editing/models and
+interchange/retirement. The parent reviewed application lifecycle, coordinated
+the baseline checks and reproduced Save As, stale lock callbacks and native
+startup. Structural discovery used the codebase-memory graph generation
+`2026-10-13T07:52:59Z` (refreshed to `2026-10-13T08:23:22Z` during report creation)
+with explicit path coverage checks and direct source
+fallback for flagged ranges and Qt lambdas. The screenplay-text manager and FDX
+importer have unusable graph coverage and were inspected directly. Graph absence
+was not used as proof that a path is unreachable.
+
+This was a risk-focused code review and Linux debug validation, with offscreen
+editor/coordinator probes and a private Xvfb production startup/close sample.
+Release packaging, other operating systems, physical desktop/GPU behavior,
+external GitHub authentication/network failures, every editor interaction,
+every legacy schema and exhaustive crash/power-loss/storage faults remain
+unexercised. Reported bugs are concrete; no claim is made that this inventory
+contains every defect or that unexercised paths are broken.
+
+Only this report is a new worktree file. Probe code, disposable data and logs
+live in ignored `.build/evidence/` directories and are local supporting artifacts,
+not committed regression tests. Preserve them when debugging these findings;
+promote the relevant reproductions into focused tests alongside future fixes.

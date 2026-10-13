@@ -9,7 +9,7 @@
 #include <business_layer/templates/templates_facade.h>
 #include <utils/helpers/measurement_helper.h>
 
-#include <QFile>
+#include <QSaveFile>
 #include <QXmlStreamWriter>
 
 
@@ -307,14 +307,15 @@ void writeTitlePage(QXmlStreamWriter& _writer, TextDocument* _screenplayText,
 } // namespace
 
 
-void ScreenplayFdxExporter::exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const
+bool ScreenplayFdxExporter::exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const
 {
     //
     // Открываем документ на запись
     //
-    QFile fdxFile(_exportOptions.filePath);
-    if (!fdxFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        return;
+    QSaveFile fdxFile(_exportOptions.filePath);
+    fdxFile.setDirectWriteFallback(false);
+    if (!fdxFile.open(QIODevice::WriteOnly)) {
+        return false;
     }
 
     QXmlStreamWriter writer(&fdxFile);
@@ -337,7 +338,7 @@ void ScreenplayFdxExporter::exportTo(AbstractModel* _model, ExportOptions& _expo
     //
     writer.writeEndDocument();
 
-    fdxFile.close();
+    return !writer.hasError() && fdxFile.commit();
 }
 
 } // namespace BusinessLayer

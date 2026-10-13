@@ -22,9 +22,9 @@ public:
     }
 
     /**
-     * @brief Экспорт сценария в файл
+     * @brief Export to a file, returning true only after successful publication.
      */
-    virtual void exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const = 0;
+    virtual bool exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const = 0;
 
 protected:
     /**

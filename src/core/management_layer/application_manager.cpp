@@ -1050,8 +1050,34 @@ bool ApplicationManager::Implementation::saveChanges()
     //
     if (projectsManager->currentProject()->projectType()
         == BusinessLayer::ProjectType::LocalShadow) {
-        exportManager->exportDocument(projectManager->firstScriptModel(),
-                                      projectsManager->currentProject()->path());
+        const auto sourcePath = projectsManager->currentProject()->path();
+        if (!exportManager->exportDocument(projectManager->firstScriptModel(), sourcePath)) {
+            const auto shadowPath = DatabaseLayer::Database::currentFile();
+            Log::warning(QStringLiteral("Saving source file failed: %1").arg(sourcePath));
+            auto dialog = new Dialog(applicationView->topLevelWidget());
+            dialog->setContentMaximumWidth(Ui::DesignSystem::dialog().normalWidth());
+            dialog->showDialog(
+                tr("Saving error"),
+                tr("Changes can't be written to the source file \"%1\". Check file and folder "
+                   "permissions and available space, then retry saving. Your changes have "
+                   "been kept open and the existing source has been kept.")
+                    .arg(sourcePath),
+                { { 0, StandardDialog::generateOkTerm(), Dialog::RejectButton },
+                  { 1, tr("Retry"), Dialog::AcceptButton } });
+            connect(
+                dialog, &Dialog::finished, q,
+                [this, dialog, sourcePath, shadowPath](const Dialog::ButtonInfo& _pressedButton) {
+                    dialog->hideDialog();
+                    const auto currentProject = projectsManager->currentProject();
+                    if (_pressedButton.type == Dialog::AcceptButton && currentProject != nullptr
+                        && currentProject->path() == sourcePath
+                        && DatabaseLayer::Database::currentFile() == shadowPath) {
+                        saveChanges();
+                    }
+                });
+            QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
+            return false;
+        }
     }
 
     //

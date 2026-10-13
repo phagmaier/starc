@@ -17,12 +17,12 @@ public:
     /**
      * @brief Экспортировать текстовый документ
      */
-    void exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const override;
+    bool exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const override;
 
     /**
      * @brief Экспортировать текстовый документ в заданном интервале текста
      */
-    void exportTo(AbstractModel* _model, int _fromPosition, int _toPosition,
+    bool exportTo(AbstractModel* _model, int _fromPosition, int _toPosition,
                   ExportOptions& _exportOptions) const;
 
 protected:

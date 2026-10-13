@@ -23,7 +23,7 @@ public:
     /**
      * @brief Экспортировать сценарий
      */
-    void exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const override;
+    bool exportTo(AbstractModel* _model, ExportOptions& _exportOptions) const override;
 
 protected:
     /**
