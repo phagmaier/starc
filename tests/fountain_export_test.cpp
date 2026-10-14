@@ -263,6 +263,7 @@ int main(int argc, char** argv)
             require(!window->isWindowModified() && snapshot(model) == imported,
                     "initial native Save preserves imported text, styles and review coverage");
             const auto original = snapshot(model);
+            const auto originalXml = model->document()->content();
             auto cursor = edit->textCursor();
             cursor.movePosition(QTextCursor::End);
             edit->setTextCursorForced(cursor);
@@ -274,15 +275,19 @@ int main(int argc, char** argv)
             require(edited != original && edit->toPlainText().contains("SAVEMARKER"),
                     "editor applies a real pending editor edit");
             if (mode == "cold-undo") {
-                // Keep the separate first-edit history probe explicit, including
-                // any failure, rather than folding it into export/save evidence.
+                // The first edit after import is one history step (ISSUES2.md issue 15):
+                // Undo and Redo restore the exact stored XML before and after it.
+                model->saveChanges();
+                const auto editedXml = model->document()->content();
+                require(editedXml != originalXml, "the first edit is recorded");
                 edit->undo();
                 QApplication::processEvents();
-                require(snapshot(model) == original,
-                        "Undo retains original text, styles and reviews");
+                require(snapshot(model) == original && model->document()->content() == originalXml,
+                        "Undo restores the exact pre-edit XML, text, styles and reviews");
                 edit->redo();
                 QApplication::processEvents();
-                require(snapshot(model) == edited, "Redo retains edited text, styles and reviews");
+                require(snapshot(model) == edited && model->document()->content() == editedXml,
+                        "Redo restores the exact edited XML, text, styles and reviews");
             }
             write(root + "/expected.json", QJsonDocument(edited).toJson());
         } else {

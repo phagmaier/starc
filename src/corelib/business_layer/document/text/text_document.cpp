@@ -64,6 +64,19 @@ void deleteBlock(TextCursor& _cursor, BlockDeleteDirection _direction)
     _cursor.setBlockFormat(blockFormat);
 }
 
+/**
+ * @brief Выделить заданный диапазон текста блока
+ * @note The ranges of a paragraph count UTF-16 code units, as block positions do, but moving the
+ *       cursor by characters steps over a whole surrogate pair or combining sequence at once
+ */
+void selectInBlock(QTextCursor& _cursor, const QTextBlock& _block, int _from, int _length)
+{
+    const auto blockEnd = _block.position() + _block.length() - 1;
+    _cursor.setPosition(std::min(_block.position() + _from, blockEnd));
+    _cursor.setPosition(std::min(_block.position() + _from + _length, blockEnd),
+                        QTextCursor::KeepAnchor);
+}
+
 
 /**
  * @brief Найти предыдущий элемент, который можно изолировать
@@ -468,9 +481,7 @@ void TextDocument::Implementation::readModelItemContent(int _itemRow, const QMod
         //
         auto formatCursor = _cursor;
         for (const auto& format : textItem->formats()) {
-            formatCursor.setPosition(formatCursor.block().position() + format.from);
-            formatCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
-                                      format.length);
+            selectInBlock(formatCursor, _cursor.block(), format.from, format.length);
             formatCursor.mergeCharFormat(format.charFormat());
         }
 
@@ -479,9 +490,7 @@ void TextDocument::Implementation::readModelItemContent(int _itemRow, const QMod
         //
         auto reviewCursor = _cursor;
         for (const auto& reviewMark : textItem->reviewMarks()) {
-            reviewCursor.setPosition(reviewCursor.block().position() + reviewMark.from);
-            reviewCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
-                                      reviewMark.length);
+            selectInBlock(reviewCursor, _cursor.block(), reviewMark.from, reviewMark.length);
             reviewCursor.mergeCharFormat(reviewMark.charFormat());
         }
 
@@ -490,9 +499,7 @@ void TextDocument::Implementation::readModelItemContent(int _itemRow, const QMod
         //
         auto resourceCursor = _cursor;
         for (const auto& resourceMark : textItem->resourceMarks()) {
-            resourceCursor.setPosition(reviewCursor.block().position() + resourceMark.from);
-            resourceCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
-                                        resourceMark.length);
+            selectInBlock(resourceCursor, _cursor.block(), resourceMark.from, resourceMark.length);
             resourceCursor.mergeCharFormat(resourceMark.charFormat());
         }
 
@@ -755,28 +762,17 @@ void TextDocument::setModel(BusinessLayer::TextModel* _model, bool _canChangeMod
                     //
                     // Применяем форматирование из форматов и редакторских заметок элемента
                     //
+                    const auto block = cursor.block();
                     for (const auto& format : textItem->formats()) {
-                        cursor.movePosition(QTextCursor::StartOfBlock);
-                        cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor,
-                                            format.from);
-                        cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
-                                            format.length);
+                        selectInBlock(cursor, block, format.from, format.length);
                         cursor.mergeCharFormat(format.charFormat());
                     }
                     for (const auto& reviewMark : textItem->reviewMarks()) {
-                        cursor.movePosition(QTextCursor::StartOfBlock);
-                        cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor,
-                                            reviewMark.from);
-                        cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
-                                            reviewMark.length);
+                        selectInBlock(cursor, block, reviewMark.from, reviewMark.length);
                         cursor.mergeCharFormat(reviewMark.charFormat());
                     }
                     for (const auto& resourceMark : textItem->resourceMarks()) {
-                        cursor.movePosition(QTextCursor::StartOfBlock);
-                        cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::MoveAnchor,
-                                            resourceMark.from);
-                        cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor,
-                                            resourceMark.length);
+                        selectInBlock(cursor, block, resourceMark.from, resourceMark.length);
                         cursor.mergeCharFormat(resourceMark.charFormat());
                     }
                 }

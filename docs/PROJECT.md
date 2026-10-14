@@ -1671,10 +1671,11 @@ Application source/export fixtures inject asynchronous in-memory credentials;
 no native keyring is used. Private Xvfb checks are additional injected/native
 window evidence, separate from physical desktop and production-binary input.
 
-Validation commands and retained failures are recorded below. Issue 15 remains
-open: its current runnable command imports into a chosen native project and
-still reproduces the same first-edit Undo XML assertion. No resolved issue entry
-was rewritten, and no other open issue was undertaken.
+Validation commands and retained failures are recorded below. Issue 15 remained
+open at that point: its current runnable command imports into a chosen native project and
+still reproduced the same first-edit Undo XML assertion. No resolved issue entry
+was rewritten, and no other open issue was undertaken. Issue 15 has since been
+fixed; its cause, fix and evidence are in `ISSUES2.md`.
 
 Validation (all files/profiles disposable under `.build/evidence/`):
 
@@ -1777,10 +1778,11 @@ The pre-guard-fix dirty cancellation case fails its exact dirty-state assertion
 in `source-mode-dirty-cancel.log`; the subsequent Open-menu probe exposed its
 second guard (`source-mode-menu-cancel-diagnostic.log`). The six final cases pass
 without clearing the model, dirty flag or Undo/Redo history. The separate cold
-Undo command still exits 1 because its child aborts at `TextModel::applyPatch`,
+Undo command still exited 1 then because its child aborts at `TextModel::applyPatch`,
 line 2887, with `newContent == toXml()`. `source-mode-cold-undo-final.log` and
-`fountain-export` case evidence retain the failure; this is the still-open issue
-15, not a passing export check or a new source-mode regression.
+`fountain-export` case evidence retain the failure; this was the then-open issue
+15, not a passing export check or a new source-mode regression. After the issue 15
+fix the same command exits 0 (see `ISSUES2.md` issue 15).
 
 Development failures remain distinct from those semantic controls. Early test
 compilations rejected a mis-scoped baseline return expression and a missing

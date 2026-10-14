@@ -65,9 +65,19 @@ output in another application process. Full/partial clipboard exports, ordinary
 close, exact per-character styles and review coverage remain covered. The
 literal fixture also has a note-like word and a path typed before export.
 Repeated explicit exports must be byte-idempotent. The separately selected
-`STARC_FOUNTAIN_EXPORT_MODES=cold-undo` mode remains a runnable reproduction of
-[issue 15](../ISSUES2.md#15-undo-of-the-first-edit-after-importing-styled-review-notes-aborts);
-it is not part of the passing export/import matrix.
+`STARC_FOUNTAIN_EXPORT_MODES=cold-undo` mode checks that Undo and Redo of the first
+edit after import restore the exact stored XML; it was the reproduction of
+[issue 15](../ISSUES2.md#15-undo-of-the-first-edit-after-importing-styled-review-notes-aborts).
+`./tools/check-first-edit-undo.sh` covers that edit before and after an initial Save
+and after a fresh native reopening, with Save and fresh-process reopening of both the
+undone and redone screenplays.
+
+Imported review notes keep their stored form while their paragraphs are unchanged:
+a note with only a background color and one range per note, as Fountain import writes
+it, is not rewritten into the editor's form (an explicit contrasting text color and a
+range per text format) just because the editor reads the paragraph again. A paragraph
+the writer edits is stored in the editor's form, which is what a note created in the
+application uses. Both forms show the same text, colors and comments threads.
 
 Every story is a `.starc` project. Fountain, TXT, FDX, FDXT and all other source
 formats are import/export inputs and outputs only. Direct opens ask for a new

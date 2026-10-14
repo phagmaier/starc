@@ -10,6 +10,7 @@ fault, concurrency and editor probes nevertheless confirmed the fourteen issues 
 Issue 15 was additionally confirmed while fixing issue 13; it is recorded separately.
 Issues 16 and 17 were confirmed while fixing issue 14 and are recorded separately.
 Issues 18, 19 and 20 were confirmed while fixing issue 12 and are recorded separately.
+Issue 21 was confirmed while fixing issue 15 and is recorded separately.
 The eight completed entries in `ISSUES.md` were not reopened; these findings
 identify remaining paths or failure classes. Inherited upstream defects are
 included because they still affect writing in this fork.
@@ -47,6 +48,7 @@ application's own recovery copies.
 | 18 | P2 | A review comment on an inline note comes back as part of the note's text |
 | 19 | P1 | Fountain import removes asterisks and underscores that are text |
 | 20 | P2 | Imported character and location names keep Fountain markup |
+| 21 | P1 | A new story's first reopen rewrites "folder" in script text as "sequence" |
 
 ## 1. Failed Fountain/FDX saves appear successful; output is not protected
 
@@ -1475,7 +1477,7 @@ third-party Fountain applications remain unexercised.
 
 ## 15. Undo of the first edit after importing styled review notes aborts
 
-- [ ] **P1 — confirmed in the real editor/coordinator and reproduced against the previous core library.**
+- [x] **P1 — fixed 2026-10-13; verified through the real coordinator, editor and history before and after an initial Save and after a fresh native reopening, with Save and fresh-process reopening of the undone and redone screenplays.**
 
 **Locations:**
 [text_model.cpp](src/corelib/business_layer/model/text/text_model.cpp),
@@ -1499,9 +1501,10 @@ Release behavior and physical keyboard input remain unexercised.
 **Reproduction:** `STARC_FOUNTAIN_EXPORT_MODES=cold-undo ./tools/check-fountain-export.sh`.
 The current flow imports into a chosen `.starc` instead of choosing Keep .FOUNTAIN;
 the first-edit Undo probe is otherwise unchanged.
-This explicit case fails rather than being included among the passing Save/reopen
-cases. It uses disposable sources/profiles, Qt editor actions and a fake
-credential backend. No user script or real keyring is involved.
+Before the fix this explicit case failed and was kept out of the passing Save/reopen
+cases; it now passes and also compares the exact stored XML after Undo and Redo. It
+uses disposable sources/profiles, Qt editor actions and a fake credential backend.
+No user script or real keyring is involved.
 
 **Evidence:**
 [normal source-format flow](.build/evidence/fountain-review-source-Q7zyOJ/),
@@ -1517,6 +1520,167 @@ Build/loader setup failures remain under the other `baseline-*` evidence paths.
 history ownership through the first edit and Undo. Preserve complete annotations,
 source text and exact model/XML equality through Undo/Redo and save/reopen;
 do not suppress the assertion, clear history, or add delays to conceal it.
+
+**Cause (2026-10-13):** `TextDocument::updateModelOnContentChange` writes each
+paragraph it reads back into the model: text, formats, review marks and resource
+marks. It reads paragraphs nobody edited too. Right after the first typed edit
+the document reported `contentsChange(0, 137, 137)`, the whole `emphasis-review`
+script with no text changed, and the screenplay corrector's changes are read back in
+the `Correcting` state, also while Undo/Redo applies a patch. That reading was not
+idempotent for imported notes. `ReviewMark::charFormat()` gives a mark with a
+background the contrasting text color, which the reading stored as an explicit
+`color="#000000"`, and the editor keeps a note as one character range per text
+format, so a note over emphasis came back as several marks. Fountain import stores
+one range per note with only a background. Notes created in the application are
+already stored in the editor's form, which is why the native review checks passed.
+
+So the first edit rewrote every reviewed paragraph, and those rewrites became part
+of its single history entry. Undo's patch restored the imported form of all of
+them. Then, still inside `applyPatch`, the corrector reported a change at
+`(16, 13)`; the reading includes the block starting where that range ends, so
+`A clue.` was rewritten again and the model no longer matched the patch target:
+the debug assertion. A temporary
+trace of `applyPatch`'s operations showed the patch did replace that paragraph
+before the reading rewrote it.
+
+The new coverage found a second cause of the same abort in the existing
+`review-offsets` fixture, whose edited last paragraph has `🙂` before bold text.
+Model ranges count UTF-16 code units, but `TextDocument` placed them with
+`QTextCursor::NextCharacter`, which steps over a whole surrogate pair or combining
+sequence. When Undo pushed the restored paragraph back into the editor, the bold
+landed one unit late, the corrector's reading stored `from="6"` instead of `5`,
+and the same assertion fired. Loading placed range starts by absolute position but
+lengths by characters.
+
+**Resolution (2026-10-13):** In
+[text_model_text_item.cpp](src/corelib/business_layer/model/text/text_model_text_item.cpp)
+the editor-reading overloads of `setFormats`, `setReviewMarks` and
+`setResourceMarks` keep the stored ranges when the reading gives every character
+the same editor format. Both sets are projected through each range's own
+`charFormat()`, merged in order like the editor does, and compared as property
+maps per segment between range bounds (`QTextFormat` equality depends on the order
+properties were set in). Empty ranges or ranges past the text never count as
+equivalent, so those are still replaced as before. A paragraph the writer edits
+still takes the editor's form. `ReviewMark::isPartiallyEqual` now compares the
+effective text color: with a background the editor and comments panel always
+derive the text color from it. Without this, the edited paragraph's note left its
+neighbour's comments panel thread after the first edit, because only the edited
+paragraph stored the explicit color.
+
+In [text_document.cpp](src/corelib/business_layer/document/text/text_document.cpp)
+format, review and resource ranges are placed at absolute UTF-16 positions,
+clamped to the paragraph, both when a model is loaded and when a model change
+updates a paragraph. The `applyPatch` assertion, annotations, history and Save
+are unchanged; no delay, retry or history clearing was added. Fountain import
+output is unchanged; see [docs/INTERCHANGE.md](docs/INTERCHANGE.md).
+
+**Regression coverage:** The new `./tools/check-first-edit-undo.sh`
+(`tests/first_edit_undo_test.cpp`) imports into a chosen native story through the
+real application coordinator, opens the production screenplay editor and types at
+the end. Cases edit first right after import, after an initial Save, and after a
+fresh process reopens the native story; each ends undone or redone. Opening the
+editor must leave the stored screenplay unchanged, and the edit may change only the
+typed paragraph's XML. Undo, Redo and Undo again go through the coordinator's
+history and must restore the exact model and stored XML, editor text and
+comments-panel threads. After half a second of editor corrections the chosen state
+must still be exact; it is saved and a fresh process compares the committed XML,
+document identities, model, editor text and threads. Python then reads each SQLite
+story independently: exact undone or redone XML, styles and review messages of the
+other paragraphs unchanged, the typed text extending the last note, stored history,
+source bytes and released locks. Fixtures: `emphasis-review`, `review-offsets`
+and `notes-dual` (dual dialogue). The existing `cold-undo` mode now also compares
+the exact stored XML after Undo and Redo.
+
+**Evidence:** Logs of every command below are kept in
+[issue15/](.build/evidence/issue15/); case directories are under `.build/evidence/`.
+All runs used disposable profiles and stories, fake credentials and no desktop
+session bus.
+
+```bash
+./build/dev.sh doctor
+(cd .build/debug && make qmake_all)
+JOBS=4 ./build/dev.sh build debug
+STARC_FOUNTAIN_EXPORT_MODES=cold-undo ./tools/check-fountain-export.sh
+./tools/check-first-edit-undo.sh
+./tools/check-fountain-export.sh
+./tools/check-screenplay-interchange.sh
+./tools/check-review-comments.sh
+./tools/check-track-changes.sh
+./tools/check-import-only-sources.sh
+./tools/check-screenplay-scope.sh
+./tools/check-hidden-beats.sh
+./tools/check-explicit-export-failure.sh
+./tools/check-startup-last-story.sh
+```
+
+- Before the fix, at `214e4f86`: doctor exit 0 (Qt 6.12.0, the prepared local
+  QtKeychain, optional `lrelease` absent); `cold-undo` exited 1, aborting at
+  `text_model.cpp:2887` in [OfcZlb](.build/evidence/fountain-export-OfcZlb/).
+  `STARC_FIRST_EDIT_UNDO_BASELINE=1` against the same library, with literal-syntax
+  added, failed every emphasis-review, review-offsets and literal-syntax case and
+  both notes-dual cases that edit before any Save, in
+  [qJKnCQ](.build/evidence/first-edit-undo-qJKnCQ/)
+  (`baseline/first-edit-undo-baseline-final.log`). Those failures are new assertions
+  before Undo (only the typed paragraph changes; opening the editor leaves the
+  screenplay unchanged), because a debug Undo there aborts before any test check.
+  The two literal-syntax native cases fail earlier, on reopening, because of issue 21.
+  notes-dual's saved and native cases pass there: its only note is on an early
+  paragraph that the editor already rewrites while opening, before the edit.
+- Temporary traces (removed): which blocks were read back during typing and Undo, and
+  `applyPatch`'s operations, in [LEkzXg](.build/evidence/fountain-export-LEkzXg/) and
+  [LcNzT3](.build/evidence/fountain-export-LcNzT3/).
+- Each part of the fix was reverted alone on the final code, rebuilt and checked in
+  baseline mode ([mutations/](.build/evidence/issue15/mutations/), restored with a
+  new modification time and checked by md5): without the equivalent-reading check
+  or with order-dependent format comparison, every selected case fails the
+  paragraph or editor-opening check; with stored-text-color thread grouping,
+  emphasis-review fails the comments-thread check; with character-step cursor
+  placement, review-offsets Undo aborts at the `applyPatch` assertion.
+- Final build, all exit 0 except as noted: `cold-undo` five fixtures and the export
+  oracle ([n4OJSH](.build/evidence/fountain-export-n4OJSH/), again in
+  [H9BL2R](.build/evidence/fountain-export-H9BL2R/) after the last rebuild);
+  `check-first-edit-undo.sh` 42 ordinary process exits plus the 18-case oracle
+  offscreen ([tw1H0W](.build/evidence/first-edit-undo-tw1H0W/), again in
+  [gFc5g0](.build/evidence/first-edit-undo-gFc5g0/) with the final test text) and on
+  a private Xvfb display with `STARC_FIRST_EDIT_UNDO_PLATFORM=xcb`
+  ([iwvbpS](.build/evidence/first-edit-undo-iwvbpS/)); Fountain export
+  ([kKhXlz](.build/evidence/fountain-export-kKhXlz/)); interchange
+  ([DAiSDs](.build/evidence/screenplay-interchange-DAiSDs/)); review comments
+  ([0Cmd0z](.build/evidence/review-comments-0Cmd0z/)); Track Changes
+  ([MyZyps](.build/evidence/track-changes-MyZyps/)); import-only sources, 157
+  ordinary exits and the Python oracle
+  ([ZVbFh2](.build/evidence/import-only-sources-ZVbFh2/)); screenplay scope
+  ([VKzI7S](.build/evidence/screenplay-scope-VKzI7S/)); hidden beats
+  ([lSu85H](.build/evidence/hidden-beats-lSu85H/)); explicit export failures, 28
+  ordinary exits ([cGkbYS](.build/evidence/explicit-export-failure-cGkbYS/)).
+- `check-startup-last-story.sh` is intermittent, with or without this fix. On the
+  final code it failed three runs
+  ([L74oss](.build/evidence/startup-last-story-L74oss/),
+  [dD0Eqq](.build/evidence/startup-last-story-dD0Eqq/),
+  [5plMz7](.build/evidence/startup-last-story-5plMz7/)) and passed in
+  [ry8HJO](.build/evidence/startup-last-story-ry8HJO/); rebuilt from `214e4f86`'s
+  sources it failed all three runs
+  ([LHSWnV](.build/evidence/startup-last-story-LHSWnV/),
+  [rliIgb](.build/evidence/startup-last-story-rliIgb/),
+  [xQpF9v](.build/evidence/startup-last-story-xQpF9v/)). Every failure is the
+  fountain or fdx case's "explicit source open remembers only the chosen native
+  story": a temporary print showed the import chooser was answered but the story
+  was created under the chooser's default name (`source.fountain.starc`) instead of
+  the name the test selected. That is decided before any text model exists; it is
+  not addressed here.
+- Changed C++ follows `src/.clang-format` (`git clang-format --diff HEAD` clean);
+  Bash syntax, ShellCheck, the embedded Python's syntax and `git diff --check` pass.
+
+These are injected Qt editor and coordinator actions, offscreen and on a private
+Xvfb display. Physical keyboard input, the desktop/GPU, release builds (which have
+no `applyPatch` assertion) and other operating systems remain unexercised. The live
+comments panel can show a different first message for imported notes it joins into
+one thread (they share author and date) once any of their paragraphs is updated;
+that predates this fix, so the checks compare panels built from the model. The new
+check calls the structure model's `saveChanges` before its Save, as other fixtures
+do for the text model: a Save and close immediately after import otherwise left the
+imported documents out of the committed structure in this harness. Issue 21 was
+found by this coverage and is recorded separately.
 
 ## 16. Fountain export leaves out Shot paragraphs
 
@@ -1698,6 +1862,55 @@ including a cue that carries a review note.
 
 **Evidence:** `names.fountain` and `probe.log` in
 [import-probe](.build/evidence/literal-syntax-fix/import-probe/).
+
+## 21. A new story's first reopen rewrites "folder" in script text as "sequence"
+
+- [ ] **P1 — confirmed through fresh-process native reopening while fixing issue 15; inherited from upstream; not fixed.**
+
+**Locations:**
+[database.cpp](src/corelib/data_layer/database.cpp), `Database::open`,
+`checkState` and `createTables`, which record no `application-version` for a
+new file; `updateDatabase`, which reads the missing version as 0.0.1 and runs
+every legacy migration; `updateDatabaseTo_0_1_3`, which applies
+`.replace("folder", "sequence")` to the whole XML of every screenplay, script
+text included. The migration and version code are unchanged from `master`.
+
+**Trigger:** Create or import a new story whose screenplay contains `folder`,
+Save, close and open it again. The `literal-syntax.fountain` fixture has
+`The folder is C:\temp.`
+
+**Result (observed):** The first time the saved file is opened again, its committed
+script reads `The sequence is C:\temp.` before anything is edited or saved, and
+`system_variables` gains `application-updated-to-version-0.8.4` with the time of
+that reopen.
+
+**From the code:** The migration rewrites the stored XML with SQL `UPDATE`
+statements while opening, with no change history entry or message. Every
+`folder` in screenplay XML changes, for example `folders` or the text of a review
+comment. The same first reopen runs the other old migrations too, such as removing
+`#000000` from the structure XML. Once the version is recorded, later opens do not
+repeat it: stories already reopened once keep the changed text, and stories never
+reopened still have no version.
+
+**Reproduction:** `STARC_FIRST_EDIT_UNDO_FIXTURES=literal-syntax STARC_FIRST_EDIT_UNDO_CASES=saved-redone ./tools/check-first-edit-undo.sh`
+fails in its fresh-process `verify` phase ("fresh process reopens the exact saved
+screenplay"). It uses disposable stories, profiles and fake credentials.
+
+**Debugging direction:** Record the application version when a database is
+created, and decide how an existing unversioned file is told apart from a
+genuinely old one before running any migration on it. Migrations that rename
+XML elements must not change text. Check exact script XML across a first and a
+second reopen, and keep backups of the earlier bytes in mind for recovery.
+
+**Evidence:** The reproduction above exited 1 on the issue 15 build in
+[kPMJe5](.build/evidence/first-edit-undo-kPMJe5/literal-syntax/saved-redone/)
+(`verify.log`, `story.starc`, `expected.xml`). The same failure appears for all six
+literal-syntax cases in [7QTnmD](.build/evidence/first-edit-undo-7QTnmD/literal-syntax/),
+whose `story.starc` holds the changed text and the reopen-time version row; the
+saving process had verified the committed XML as `The folder is C:\temp.` and did
+not save again on close. Without the issue 15 fix, the literal-syntax native-reopen
+cases fail the same comparison right after reopening in
+[qJKnCQ](.build/evidence/first-edit-undo-qJKnCQ/literal-syntax/).
 
 ## Validation, coverage and remaining limits
 

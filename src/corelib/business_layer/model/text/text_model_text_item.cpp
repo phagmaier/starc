@@ -16,10 +16,67 @@
 #include <QVariant>
 #include <QXmlStreamReader>
 
+#include <algorithm>
+#include <functional>
 #include <optional>
 
 
 namespace BusinessLayer {
+
+namespace {
+
+/**
+ * @brief Do both sets of paragraph ranges give each character of its text the same editor format
+ * @note The editor keeps the ranges of a paragraph as character formats and reads them back split
+ *       at the bounds of the other ranges, with derived properties stored explicitly (such as the
+ *       text color contrasting with a review mark's background). Such a reading describes the
+ *       paragraph the stored ranges already describe, so it must not replace them: otherwise each
+ *       time the editor reads an unchanged paragraph again, its stored annotations would change
+ */
+template<typename T>
+bool isSameEditorFormat(const QVector<T>& _lhs, const QVector<T>& _rhs, int _textLength)
+{
+    QVector<int> bounds = { 0, _textLength };
+    for (const auto& parts : { std::cref(_lhs), std::cref(_rhs) }) {
+        for (const auto& part : parts.get()) {
+            //
+            // ... the editor can't keep a range out of the text, so its reading differs from it
+            //
+            if (part.from < 0 || part.length <= 0 || part.end() > _textLength) {
+                return false;
+            }
+            bounds.append(part.from);
+            bounds.append(part.end());
+        }
+    }
+    std::sort(bounds.begin(), bounds.end());
+    bounds.erase(std::unique(bounds.begin(), bounds.end()), bounds.end());
+
+    //
+    // ... the editor merges the formats of the ranges covering a character in their order
+    //
+    // NOTE: Format equality depends on the order in which properties were set (a mark with a
+    //       stored text color sets its foreground before its background), so compare the
+    //       properties themselves
+    //
+    const auto formatAt = [](const QVector<T>& _parts, int _position) {
+        QTextCharFormat format;
+        for (const auto& part : _parts) {
+            if (part.from <= _position && _position < part.end()) {
+                format.merge(part.charFormat());
+            }
+        }
+        return format.properties();
+    };
+    for (int index = 0; index + 1 < bounds.size(); ++index) {
+        if (formatAt(_lhs, bounds.at(index)) != formatAt(_rhs, bounds.at(index))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
 
 class TextModelTextItem::Implementation
 {
@@ -614,8 +671,12 @@ bool TextModelTextItem::ReviewMark::operator==(const TextModelTextItem::ReviewMa
 
 bool TextModelTextItem::ReviewMark::isPartiallyEqual(const ReviewMark& _other) const
 {
-    return textColor == _other.textColor && backgroundColor == _other.backgroundColor
-        && isDone == _other.isDone
+    //
+    // A background sets the text color of a mark (see charFormat), whether or not that
+    // contrasting color is stored with the mark
+    //
+    return (backgroundColor.isValid() || textColor == _other.textColor)
+        && backgroundColor == _other.backgroundColor && isDone == _other.isDone
         && ((comments.isEmpty() && _other.comments.isEmpty())
             || (!comments.isEmpty() && !_other.comments.isEmpty()
                 && comments.constFirst().isPartiallyEqual(_other.comments.constFirst())));
@@ -1165,7 +1226,7 @@ void TextModelTextItem::setFormats(const QVector<QTextLayout::FormatRange>& _for
         }
     }
 
-    if (d->formats == newFormats) {
+    if (d->formats == newFormats || isSameEditorFormat(d->formats, newFormats, d->text.length())) {
         return;
     }
 
@@ -1235,6 +1296,10 @@ void TextModelTextItem::setReviewMarks(const QVector<QTextLayout::FormatRange>& 
         newReviewMarks.append(newReviewMark);
     }
 
+    if (isSameEditorFormat(d->reviewMarks, newReviewMarks, d->text.length())) {
+        return;
+    }
+
     setReviewMarks(newReviewMarks);
 }
 
@@ -1269,6 +1334,10 @@ void TextModelTextItem::setResourceMarks(const QVector<QTextLayout::FormatRange>
             = format.format.property(TextBlockStyle::PropertyResourceUuid).toUuid();
 
         newResourceMarks.append(newResourceMark);
+    }
+
+    if (isSameEditorFormat(d->resourceMarks, newResourceMarks, d->text.length())) {
+        return;
     }
 
     setResourceMarks(newResourceMarks);

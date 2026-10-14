@@ -292,8 +292,25 @@ repeated byte-identical explicit exports and ordinary close are checked. It uses
 isolated temporary clipboard files, profiles, stories and fake credentials.
 The default is offscreen; `STARC_FOUNTAIN_EXPORT_PLATFORM=xcb
 STARC_FOUNTAIN_EXPORT_SCREENSHOTS=1` on private Xvfb adds native window evidence.
-The separate `STARC_FOUNTAIN_EXPORT_MODES=cold-undo` case retains the first-edit
-Undo assertion tracked by `ISSUES2.md` issue 15; it is not a passing export check.
+The separately selected `STARC_FOUNTAIN_EXPORT_MODES=cold-undo` case also checks
+one-step Undo/Redo of the first edit after import and an initial Save against the
+exact stored XML (`ISSUES2.md` issue 15).
+
+`./tools/check-first-edit-undo.sh` covers that first edit more widely through the
+real coordinator, editor and history: immediately after import, after an initial
+Save and after a fresh process reopens the native story. Undo and Redo must restore
+the exact model XML, editor text and comments-panel threads, the edit may change only
+the typed paragraph, and asynchronous editor corrections must keep the chosen state.
+Each undone or redone story is saved and reopened by a fresh process, which compares
+the committed XML, document identities, editor text and panel threads; Python then
+checks the SQLite story, styles, review messages, source bytes and released locks
+independently. Fixtures default to `emphasis-review`, `review-offsets` (bold across a
+note, replies, an emoji) and `notes-dual`; `STARC_FIRST_EDIT_UNDO_FIXTURES` and
+`STARC_FIRST_EDIT_UNDO_CASES` select others. `STARC_FIRST_EDIT_UNDO_BASELINE=1` runs
+every case against an application without the fix and reports each failure; it never
+passes. It uses disposable offscreen profiles and fake credentials;
+`STARC_FIRST_EDIT_UNDO_PLATFORM=xcb` on a private Xvfb display adds native windows.
+Actions are injected Qt editor calls, not physical keyboard input.
 
 `./tools/check-project-sync.sh` checks the GitHub story sync logic, client and
 actual sync manager. It covers status/context actions after successful transfers,
