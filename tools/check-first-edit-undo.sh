@@ -24,36 +24,34 @@ export QT_QPA_PLATFORM=${STARC_FIRST_EDIT_UNDO_PLATFORM:-offscreen}
 export QT_FORCE_STDERR_LOGGING=1
 export LD_LIBRARY_PATH="$OUTPUT:$OUTPUT/libs:$OUTPUT/plugins${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
-# literal-syntax is left out by default: its fresh reopen hits the separate legacy-migration
-# defect recorded as WORKLIST.md issue 21 ("folder" in script text becomes "sequence").
-FIXTURES=${STARC_FIRST_EDIT_UNDO_FIXTURES:-emphasis-review review-offsets notes-dual}
+FIXTURES=${STARC_FIRST_EDIT_UNDO_FIXTURES:-emphasis-review review-offsets notes-dual literal-syntax}
 CASES=${STARC_FIRST_EDIT_UNDO_CASES:-import-undone import-redone saved-undone saved-redone \
 native-undone native-redone}
 BASELINE=${STARC_FIRST_EDIT_UNDO_BASELINE:-}
 # Each phase is a separate application process with its own disposable profile.
 run_phase() {
-    local case_root=$1 phase=$2
-    export STARC_PROFILE_DIR="$case_root/$phase-profile"
+    local case_root=$1 phase=$2 label=${3:-$2}
+    export STARC_PROFILE_DIR="$case_root/$label-profile"
     export XDG_CONFIG_HOME="$STARC_PROFILE_DIR/config"
     export XDG_DATA_HOME="$STARC_PROFILE_DIR/data"
     export XDG_CACHE_HOME="$STARC_PROFILE_DIR/cache"
     mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_CACHE_HOME" "$STARC_PROFILE_DIR/documents"
     printf 'XDG_DOCUMENTS_DIR="%s"\n' "$STARC_PROFILE_DIR/documents" > "$XDG_CONFIG_HOME/user-dirs.dirs"
     local status=0
-    "$EVIDENCE/first-edit-undo-test" "$case_root" "$phase" > "$case_root/$phase.log" 2>&1 \
+    "$EVIDENCE/first-edit-undo-test" "$case_root" "$phase" > "$case_root/$label.log" 2>&1 \
         || status=$?
     if [[ $status -ne 0 ]]; then
         if [[ -n $BASELINE ]]; then
-            printf 'BASELINE FAIL: %s/%s exit %s: %s\n' "${case_root#"$EVIDENCE"/}" "$phase" \
-                "$status" "$(grep -m1 -E '^FAIL: |ASSERT' "$case_root/$phase.log" || true)"
+            printf 'BASELINE FAIL: %s/%s exit %s: %s\n' "${case_root#"$EVIDENCE"/}" "$label" \
+                "$status" "$(grep -m1 -E '^FAIL: |ASSERT' "$case_root/$label.log" || true)"
             return 1
         fi
-        tail -80 "$case_root/$phase.log" >&2
-        printf 'FAIL: %s/%s (log retained: %s)\n' "${case_root#"$EVIDENCE"/}" "$phase" \
-            "$case_root/$phase.log" >&2
+        tail -80 "$case_root/$label.log" >&2
+        printf 'FAIL: %s/%s (log retained: %s)\n' "${case_root#"$EVIDENCE"/}" "$label" \
+            "$case_root/$label.log" >&2
         exit 1
     fi
-    printf 'PASS: %s/%s (ordinary exit 0)\n' "${case_root#"$EVIDENCE"/}" "$phase"
+    printf 'PASS: %s/%s (ordinary exit 0)\n' "${case_root#"$EVIDENCE"/}" "$label"
 }
 for fixture in $FIXTURES; do
     for case_name in $CASES; do
@@ -65,6 +63,7 @@ for fixture in $FIXTURES; do
         fi
         run_phase "$case_root" "$case_name" || continue
         run_phase "$case_root" verify || continue
+        run_phase "$case_root" verify verify-again || continue
     done
 done
 # Baseline mode runs every case against an application without the fix and retains each
@@ -135,6 +134,10 @@ for fixture in sys.argv[3].split():
                              notes + [notes[-1] if notes else ()] * len(TYPED)), (root, after[-1])
         assert any(any(paragraph[3]) for paragraph in before), (root, "fixture has review notes")
         with sqlite3.connect(f"{(root / 'story.starc').as_uri()}?mode=ro", uri=True) as db:
+            assert db.execute("SELECT value FROM system_variables WHERE variable ="
+                              " 'application-version'").fetchall() == [('0.8.4',)], root
+            assert not db.execute("SELECT variable FROM system_variables WHERE variable LIKE"
+                                  " 'application-updated-to-version-%'").fetchall(), root
             stored = [content if isinstance(content, bytes) else content.encode() for (content,)
                       in db.execute("SELECT content FROM documents WHERE type = 10104")]
             changes = db.execute(

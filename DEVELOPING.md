@@ -146,6 +146,7 @@ Run the check matching the change; details follow. All retain logs under `.build
 | Fountain export / first-edit Undo | `./tools/check-fountain-export.sh`, `./tools/check-first-edit-undo.sh` |
 | Project sync | `./tools/check-project-sync.sh` |
 | Save failure / transactions | `./tools/check-save-failure.sh`, `./tools/check-transaction-recovery.sh` |
+| Database creation / legacy migration | `./tools/check-database-migrations.sh` |
 | Import-only sources / explicit export failure | `./tools/check-import-only-sources.sh`, `./tools/check-explicit-export-failure.sh` |
 | GitHub credentials | `./tools/check-github-credential-storage.sh` |
 
@@ -325,12 +326,25 @@ Each undone or redone story is saved and reopened by a fresh process, which comp
 the committed XML, document identities, editor text and panel threads; Python then
 checks the SQLite story, styles, review messages, source bytes and released locks
 independently. Fixtures default to `emphasis-review`, `review-offsets` (bold across a
-note, replies, an emoji) and `notes-dual`; `STARC_FIRST_EDIT_UNDO_FIXTURES` and
+note, replies, an emoji), `notes-dual` and `literal-syntax`; `STARC_FIRST_EDIT_UNDO_FIXTURES` and
 `STARC_FIRST_EDIT_UNDO_CASES` select others. `STARC_FIRST_EDIT_UNDO_BASELINE=1` runs
 every case against an application without the fix and reports each failure; it never
 passes. It uses disposable offscreen profiles and fake credentials;
 `STARC_FIRST_EDIT_UNDO_PLATFORM=xcb` on a private Xvfb display adds native windows.
 Actions are injected Qt editor calls, not physical keyboard input.
+
+Each saved state is reopened twice in separate processes; newly created stories must
+retain their creation-time application version without a legacy-upgrade record.
+`./tools/check-database-migrations.sh` separately checks new, unversioned modern and
+synthetic legacy database schemas, including the 0.1.3 dev-version boundary. Its independent
+SQLite oracle checks exact document bytes, identities, history, BOM/CRLF, text and review
+comments across two opens. Old screenplay/comic element names change without rewriting
+their surrounding XML; malformed XML, invalid UTF-8, renamed elements expanded from
+entities, write failures and version-stamp failures report database errors and roll back
+content, schema and version together. A locked new database retains its exact bytes and
+can be created normally once the lock is released.
+All files and logs are disposable under `.build/evidence/`; the database check uses
+separate non-GUI processes and does not exercise desktop or power-loss behavior.
 
 `./tools/check-project-sync.sh` checks the GitHub story sync logic, client and
 actual sync manager. It covers status/context actions after successful transfers,

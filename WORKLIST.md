@@ -116,7 +116,13 @@ Limits: Linux debug/offscreen, actual project lists, option flags, repeated pars
 
 ### 21. P1 — New story first reopen rewrites "folder" as "sequence"
 
-- [ ] Fix and verify.
+- [x] Fix and verify.
+
+Resolution: Creation stamps the app version; unversioned modern schemas skip old content migrations. Legacy renames change only XML element names, with content/schema/version rollback on failure.
+Files: `database.cpp`, database migration harness/oracle, `check-first-edit-undo.sh`, `DEVELOPING.md` and `docs/CODEBASE.md`.
+Oracle: doctor, `make -C .build/debug qmake_all`, `JOBS=4 ./build/dev.sh build debug`, `./tools/check-database-migrations.sh` (13 cases), `./tools/check-first-edit-undo.sh` (24 cases + focused literal repeats), `./tools/check-transaction-recovery.sh`, syntax/format checks and `git diff --check` passed.
+Evidence: `.build/evidence/database-version-fix-1qCUrj/` indexes passing migration/editor/transaction evidence and retained baseline failures.
+Limits: Linux debug/offscreen, injected editor Save/Undo/Redo/ordinary close and separate-process SQLite reopen; synthetic legacy schemas. Physical desktop/GPU, release, other OS and power-loss behavior unexercised.
 
 **Locations:** `src/corelib/data_layer/database.cpp` (`open`/`checkState`/`createTables` record no `application-version` for new files; `updateDatabase` treats missing as 0.0.1 and runs all migrations; `updateDatabaseTo_0_1_3` `.replace("folder","sequence")` over whole screenplay XML).
 

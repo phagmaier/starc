@@ -2,12 +2,14 @@
 
 #include <QApplication>
 #include <QDateTime>
+#include <QHash>
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QSqlRecord>
 #include <QStringList>
 #include <QVariant>
+#include <QXmlStreamReader>
 
 #include <vector>
 
@@ -69,6 +71,78 @@ void finishTransaction(bool _committed)
 static QString applicationVersionKey()
 {
     return "application-version";
+}
+
+QString unversionedDatabaseVersion(const QSqlDatabase& _database)
+{
+    // These columns were added by the last two schema migrations. New files from
+    // earlier builds already have them, even though creation omitted the version.
+    if (_database.record("documents_changes").contains("is_synced")) {
+        return _database.record("documents").contains("synced_at") ? "0.6.2" : "0.2.4";
+    }
+    return "0.0.1";
+}
+
+bool renameXmlElements(QByteArray& _content, const QHash<QString, QString>& _names)
+{
+    if (_content.isEmpty()) {
+        return true;
+    }
+    const auto bom
+        = _content.startsWith("\xef\xbb\xbf") ? QByteArray("\xef\xbb\xbf") : QByteArray();
+    const auto original = _content.mid(bom.size());
+    const auto xml = QString::fromUtf8(original);
+    if (xml.toUtf8() != original) {
+        Database::setLastError("Cannot migrate a document that is not UTF-8 XML.");
+        return false;
+    }
+
+    struct Rename {
+        qsizetype start;
+        qsizetype length;
+        QString name;
+    };
+    QVector<Rename> renames;
+    QXmlStreamReader reader(xml);
+    while (!reader.atEnd()) {
+        const auto previousOffset = reader.characterOffset();
+        reader.readNext();
+        if (!reader.isStartElement() && !reader.isEndElement()) {
+            continue;
+        }
+        // An empty element has a synthetic EndElement at the same source offset.
+        if (reader.isEndElement() && reader.characterOffset() == previousOffset) {
+            continue;
+        }
+        const auto name = reader.qualifiedName().toString();
+        const auto replacement = _names.constFind(name);
+        if (replacement == _names.cend()) {
+            continue;
+        }
+        const auto tokenEnd = reader.characterOffset();
+        const auto tagStart = xml.lastIndexOf('<', tokenEnd - 1);
+        const auto nameStart = tagStart + (reader.isEndElement() ? 2 : 1);
+        // Elements expanded from an entity have no literal tag at this offset.
+        // Refuse them rather than editing a preceding tag or the entity declaration.
+        if (tokenEnd <= 0 || tokenEnd > xml.size() || xml.at(tokenEnd - 1) != '>' || tagStart < 0
+            || xml.mid(nameStart, name.size()) != name
+            || (!renames.isEmpty() && nameStart <= renames.last().start)) {
+            Database::setLastError("Cannot locate an XML element for migration.");
+            return false;
+        }
+        renames.append({ nameStart, name.size(), replacement.value() });
+    }
+    if (reader.hasError()) {
+        Database::setLastError(reader.errorString());
+        return false;
+    }
+    // Keep the original representation (CDATA, whitespace, attributes and comments).
+    auto result = xml;
+    for (auto rename = renames.crbegin(); rename != renames.crend(); ++rename) {
+        result.replace(rename->start, rename->length, rename->name);
+    }
+    _content = bom + result.toUtf8();
+    return true;
 }
 } // namespace
 
@@ -310,12 +384,16 @@ void Database::open(QSqlDatabase& _database, const QString& _connectionName,
 
     if (!states.testFlag(SchemeFlag))
         createTables(_database);
+    if (hasError())
+        return;
     if (!states.testFlag(IndexesFlag))
         createIndexes(_database);
     if (!states.testFlag(EnumsFlag))
         createEnums(_database);
     if (states.testFlag(OldVersionFlag))
         updateDatabase(_database);
+    if (hasError())
+        return;
 
     validateDatabase(_database);
 }
@@ -373,46 +451,74 @@ Database::States Database::checkState(QSqlDatabase& _database)
 void Database::createTables(QSqlDatabase& _database)
 {
     QSqlQuery query(_database);
-    _database.transaction();
+    if (!_database.transaction()) {
+        setLastError(_database.lastError().text());
+        return;
+    }
 
     //
     // Таблица системных переменных
     //
-    query.exec("CREATE TABLE system_variables "
-               "("
-               "variable TEXT PRIMARY KEY ON CONFLICT REPLACE, "
-               "value TEXT NOT NULL "
-               ");");
+    if (!query.exec("CREATE TABLE system_variables "
+                    "("
+                    "variable TEXT PRIMARY KEY ON CONFLICT REPLACE, "
+                    "value TEXT NOT NULL "
+                    ");")) {
+        setLastError(query.lastError().text());
+        _database.rollback();
+        return;
+    }
 
     //
     // Таблица с документами
     //
-    query.exec("CREATE TABLE documents "
-               "("
-               "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-               "uuid TEXT UNIQUE NOT NULL, "
-               "type INTEGER NOT NULL DEFAULT(0), "
-               "content BLOB DEFAULT(NULL), "
-               "synced_at TEXT DEFAULT(NULL) "
-               ")");
+    if (!query.exec("CREATE TABLE documents "
+                    "("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "uuid TEXT UNIQUE NOT NULL, "
+                    "type INTEGER NOT NULL DEFAULT(0), "
+                    "content BLOB DEFAULT(NULL), "
+                    "synced_at TEXT DEFAULT(NULL) "
+                    ")")) {
+        setLastError(query.lastError().text());
+        _database.rollback();
+        return;
+    }
 
     //
     // Таблица с изменениями документов
     //
-    query.exec("CREATE TABLE documents_changes "
-               "("
-               "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-               "fk_document_uuid TEXT NOT NULL, "
-               "uuid TEXT UNIQUE NOT NULL, "
-               "undo_patch BLOB NOT NULL, " // отмена изменения
-               "redo_patch BLOB NOT NULL, " // повтор изменения
-               "date_time TEXT NOT NULL, " // yyyy.mm.dd.hh.mm.ss.zzz
-               "user_name TEXT NOT NULL, "
-               "user_email TEXT DEFAULT(NULL), "
-               "is_synced INTEGER NOT NULL DEFAULT(0) "
-               ")");
+    if (!query.exec("CREATE TABLE documents_changes "
+                    "("
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    "fk_document_uuid TEXT NOT NULL, "
+                    "uuid TEXT UNIQUE NOT NULL, "
+                    "undo_patch BLOB NOT NULL, " // отмена изменения
+                    "redo_patch BLOB NOT NULL, " // повтор изменения
+                    "date_time TEXT NOT NULL, " // yyyy.mm.dd.hh.mm.ss.zzz
+                    "user_name TEXT NOT NULL, "
+                    "user_email TEXT DEFAULT(NULL), "
+                    "is_synced INTEGER NOT NULL DEFAULT(0) "
+                    ")")) {
+        setLastError(query.lastError().text());
+        _database.rollback();
+        return;
+    }
 
-    _database.commit();
+    // A new database already uses the current schema and must never run legacy
+    // content migrations on its first reopening.
+    query.prepare("INSERT INTO system_variables (variable, value) VALUES (?, ?)");
+    query.addBindValue(applicationVersionKey());
+    query.addBindValue(QApplication::applicationVersion());
+    if (!query.exec()) {
+        setLastError(query.lastError().text());
+        _database.rollback();
+        return;
+    }
+    if (!_database.commit()) {
+        setLastError(_database.lastError().text());
+        _database.rollback();
+    }
 }
 
 void Database::createIndexes(QSqlDatabase& _database)
@@ -445,9 +551,15 @@ void Database::updateDatabase(QSqlDatabase& _database)
     //
     query.prepare("SELECT value as version FROM system_variables WHERE variable = ? ");
     query.addBindValue(applicationVersionKey());
-    query.exec();
-    query.next();
-    auto databaseVersion = query.record().value("version").toString();
+    if (!query.exec()) {
+        setLastError(query.lastError().text());
+        return;
+    }
+    auto databaseVersion = query.next() ? query.value(0).toString() : QString();
+    if (databaseVersion.isEmpty()) {
+        databaseVersion = unversionedDatabaseVersion(_database);
+    }
+    query.finish();
     //
     // Извлекаем информацию о dev-версии
     //
@@ -502,6 +614,11 @@ void Database::updateDatabase(QSqlDatabase& _database)
         }
     }
 
+    if (!_database.transaction()) {
+        setLastError(_database.lastError().text());
+        return;
+    }
+
     //
     // Вызываются необходимые процедуры обновления БД в зависимости от её версии
     //
@@ -517,6 +634,10 @@ void Database::updateDatabase(QSqlDatabase& _database)
             //
             if (versionMajor < 0 || versionMinor < 0 || versionBuild <= 9) {
                 updateDatabaseTo_0_0_10(_database);
+                if (hasError()) {
+                    _database.rollback();
+                    return;
+                }
             }
         }
         //
@@ -528,6 +649,10 @@ void Database::updateDatabase(QSqlDatabase& _database)
             //
             if (versionMajor < 0 || versionMinor < 1 || versionBuild <= 2) {
                 updateDatabaseTo_0_1_3(_database);
+                if (hasError()) {
+                    _database.rollback();
+                    return;
+                }
             }
         }
         //
@@ -539,6 +664,10 @@ void Database::updateDatabase(QSqlDatabase& _database)
             //
             if (versionMajor < 0 || versionMinor < 2 || versionBuild <= 3) {
                 updateDatabaseTo_0_2_4(_database);
+                if (hasError()) {
+                    _database.rollback();
+                    return;
+                }
             }
         }
         //
@@ -550,6 +679,10 @@ void Database::updateDatabase(QSqlDatabase& _database)
             //
             if (versionMajor < 0 || versionMinor < 6 || versionBuild <= 1) {
                 updateDatabaseTo_0_6_2(_database);
+                if (hasError()) {
+                    _database.rollback();
+                    return;
+                }
             }
         }
     }
@@ -557,17 +690,30 @@ void Database::updateDatabase(QSqlDatabase& _database)
     //
     // Сохраняем информацию об обновлении версии
     //
-    query.exec(
-        QString("INSERT INTO system_variables VALUES ('application-updated-to-version-%1', '%2')")
-            .arg(QApplication::applicationVersion())
-            .arg(QDateTime::currentDateTime().toString(Qt::ISODate)));
+    query.prepare("INSERT INTO system_variables (variable, value) VALUES (?, ?)");
+    query.addBindValue("application-updated-to-version-" + QApplication::applicationVersion());
+    query.addBindValue(QDateTime::currentDateTime().toString(Qt::ISODate));
+    if (!query.exec()) {
+        setLastError(query.lastError().text());
+        _database.rollback();
+        return;
+    }
 
     //
     // Обновляется версия программы
     //
-    query.exec(QString("INSERT INTO system_variables VALUES ('%1', '%2')")
-                   .arg(applicationVersionKey())
-                   .arg(QApplication::applicationVersion()));
+    query.prepare("INSERT INTO system_variables (variable, value) VALUES (?, ?)");
+    query.addBindValue(applicationVersionKey());
+    query.addBindValue(QApplication::applicationVersion());
+    if (!query.exec()) {
+        setLastError(query.lastError().text());
+        _database.rollback();
+        return;
+    }
+    if (!_database.commit()) {
+        setLastError(_database.lastError().text());
+        _database.rollback();
+    }
 }
 
 void Database::updateDatabaseTo_0_0_10(QSqlDatabase& _database)
@@ -578,13 +724,14 @@ void Database::updateDatabaseTo_0_0_10(QSqlDatabase& _database)
 
     QSqlQuery q_updater(_database);
 
-    _database.transaction();
-
     {
         //
         // Извлекаем структуру проекта
         //
-        q_updater.exec("SELECT content FROM documents WHERE type = 1");
+        if (!q_updater.exec("SELECT content FROM documents WHERE type = 1")) {
+            setLastError(q_updater.lastError().text());
+            return;
+        }
         QString structure;
         if (q_updater.next()) {
             structure = q_updater.record().value("content").toString();
@@ -598,17 +745,15 @@ void Database::updateDatabaseTo_0_0_10(QSqlDatabase& _database)
         //
         q_updater.prepare("UPDATE documents SET content = ? WHERE type = 1");
         q_updater.addBindValue(structure);
-        q_updater.exec();
+        if (!q_updater.exec()) {
+            setLastError(q_updater.lastError().text());
+        }
     }
-
-    _database.commit();
 }
 
 void Database::updateDatabaseTo_0_1_3(QSqlDatabase& _database)
 {
     QSqlQuery q_updater(_database);
-
-    _database.transaction();
 
     //
     // Изменить в комиксах блоки page_name & panel_name на page_heading & panel_heading
@@ -618,15 +763,22 @@ void Database::updateDatabaseTo_0_1_3(QSqlDatabase& _database)
         //
         // Извлекаем документы комиксов
         //
-        std::map<QString, QString> comicBooks;
-        q_updater.exec("SELECT id, content FROM documents WHERE type = 10203");
+        std::map<QString, QByteArray> comicBooks;
+        if (!q_updater.exec("SELECT id, content FROM documents WHERE type = 10203")) {
+            setLastError(q_updater.lastError().text());
+            return;
+        }
         while (q_updater.next()) {
-            comicBooks[q_updater.record().value("id").toString()]
-                = q_updater.record()
-                      .value("content")
-                      .toString()
-                      .replace("page_name", "page_heading")
-                      .replace("panel_name", "panel_heading");
+            const auto original = q_updater.value("content").toByteArray();
+            auto content = original;
+            if (!renameXmlElements(
+                    content,
+                    { { "page_name", "page_heading" }, { "panel_name", "panel_heading" } })) {
+                return;
+            }
+            if (content != original) {
+                comicBooks[q_updater.value("id").toString()] = content;
+            }
         }
 
         //
@@ -636,7 +788,10 @@ void Database::updateDatabaseTo_0_1_3(QSqlDatabase& _database)
             q_updater.prepare("UPDATE documents SET content = ? WHERE id = ?");
             q_updater.addBindValue(content);
             q_updater.addBindValue(id);
-            q_updater.exec();
+            if (!q_updater.exec()) {
+                setLastError(q_updater.lastError().text());
+                return;
+            }
         }
     }
 
@@ -649,54 +804,59 @@ void Database::updateDatabaseTo_0_1_3(QSqlDatabase& _database)
 
     {
         //
-        // Извлекаем документы комиксов
+        // Извлекаем документы сценариев
         //
-        std::map<QString, QString> comicBooks;
-        q_updater.exec("SELECT id, content FROM documents WHERE type = 10104");
+        std::map<QString, QByteArray> screenplays;
+        if (!q_updater.exec("SELECT id, content FROM documents WHERE type = 10104")) {
+            setLastError(q_updater.lastError().text());
+            return;
+        }
         while (q_updater.next()) {
-            comicBooks[q_updater.record().value("id").toString()]
-                = q_updater.record()
-                      .value("content")
-                      .toString()
-                      .replace("folder_header", "sequence_heading")
-                      .replace("folder_footer", "sequence_footer")
-                      .replace("folder", "sequence");
+            const auto original = q_updater.value("content").toByteArray();
+            auto content = original;
+            if (!renameXmlElements(content,
+                                   { { "folder_header", "sequence_heading" },
+                                     { "folder_footer", "sequence_footer" },
+                                     { "folder", "sequence" } })) {
+                return;
+            }
+            if (content != original) {
+                screenplays[q_updater.value("id").toString()] = content;
+            }
         }
 
         //
         // Обновим данные
         //
-        for (const auto& [id, content] : comicBooks) {
+        for (const auto& [id, content] : screenplays) {
             q_updater.prepare("UPDATE documents SET content = ? WHERE id = ?");
             q_updater.addBindValue(content);
             q_updater.addBindValue(id);
-            q_updater.exec();
+            if (!q_updater.exec()) {
+                setLastError(q_updater.lastError().text());
+                return;
+            }
         }
     }
-
-    _database.commit();
 }
 
 void Database::updateDatabaseTo_0_2_4(QSqlDatabase& _database)
 {
     QSqlQuery q_updater(_database);
 
-    _database.transaction();
-
-    q_updater.exec("ALTER TABLE documents_changes ADD is_synced INTEGER NOT NULL DEFAULT(0)");
-
-    _database.commit();
+    if (!q_updater.exec(
+            "ALTER TABLE documents_changes ADD is_synced INTEGER NOT NULL DEFAULT(0)")) {
+        setLastError(q_updater.lastError().text());
+    }
 }
 
 void Database::updateDatabaseTo_0_6_2(QSqlDatabase& _database)
 {
     QSqlQuery q_updater(_database);
 
-    _database.transaction();
-
-    q_updater.exec("ALTER TABLE documents ADD synced_at TEXT DEFAULT(NULL)");
-
-    _database.commit();
+    if (!q_updater.exec("ALTER TABLE documents ADD synced_at TEXT DEFAULT(NULL)")) {
+        setLastError(q_updater.lastError().text());
+    }
 }
 
 void Database::validateDatabase(QSqlDatabase& _database)

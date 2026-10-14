@@ -102,6 +102,14 @@ uses `loadCurrentProject` and `modelFor` again. Immediate-save fixtures must
 explicitly serialize models first, then clear storage and close the database
 before claiming reopen evidence.
 
+`Database::createTables` stamps the current application version in the creation
+transaction. For an existing file with no version, `is_synced` and `synced_at` identify
+schemas from 0.2.4 and 0.6.2 so modern content avoids earlier legacy migrations.
+Version-driven migrations and their version stamp commit together. The 0.1.3
+screenplay/comic renames use parsed XML element positions and retain the original
+text, attributes, comments, CDATA, BOM and whitespace. Failed parsing or writes roll
+back the upgrade and set the database error.
+
 `ExportManager::Implementation::exportScreenplay` copies production information
 and export options and selects the format exporter. Both exporters use
 `AbstractExporter::prepareDocument` / `ScreenplayExporter` to build a detached
@@ -345,7 +353,7 @@ Audioplay, stageplay, comic book, novel, screenplay series, and World/Worlds sup
 | No model, no rewrite | `ProjectModelsFacade::modelFor` in [project_models_facade.cpp](../src/core/management_layer/content/project/project_models_facade.cpp) | Returns `nullptr` for a retired type before a document is created or parsed, so its content is never loaded into a model or saved back. |
 | What the user sees | `ProjectManager::showView` and [ProjectView::showUnsupportedFormatPage](../src/core/ui/project/project_view.h) | Selecting such a document shows a notice instead of an editor. It cannot be created, dragged, given drafts, or changed from the context menu. |
 | Structure tree | [StructureModel](../src/corelib/business_layer/model/structure/structure_model.h) | `addDocument` refuses retired types; existing items are still parsed, shown, and serialized. |
-| Old project files | [Database](../src/corelib/data_layer/database.h) | The upstream upgrade steps stay, including the one that renames comic book blocks in projects from before 0.1.3. They treat script documents as text. |
+| Old project files | [Database](../src/corelib/data_layer/database.h) | The legacy upgrade steps remain, including comic block renames before 0.1.3. Element renames preserve text and surrounding XML; failed upgrades roll back without stamping the new version. |
 
 Several tables in `project_manager.cpp` still list the retired type identifiers (text items, items that cannot be removed separately, sharing). They classify existing structure items and need no retired source code.
 
