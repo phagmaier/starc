@@ -1496,7 +1496,9 @@ model XML differs from the patch target. This is an Undo/history defect, separat
 from Fountain output offsets; no assertion was disabled for the issue 13 fix.
 Release behavior and physical keyboard input remain unexercised.
 
-**Reproduction:** `STARC_REVIEW_SOURCE_MODES=cold-undo ./tools/check-fountain-review-source.sh`.
+**Reproduction:** `STARC_FOUNTAIN_EXPORT_MODES=cold-undo ./tools/check-fountain-export.sh`.
+The current flow imports into a chosen `.starc` instead of choosing Keep .FOUNTAIN;
+the first-edit Undo probe is otherwise unchanged.
 This explicit case fails rather than being included among the passing Save/reopen
 cases. It uses disposable sources/profiles, Qt editor actions and a fake
 credential backend. No user script or real keyring is involved.

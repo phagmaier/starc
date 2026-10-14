@@ -21,7 +21,6 @@ class ProjectsModelProjectItem::Implementation
 public:
     ProjectType type = ProjectType::Invalid;
     QString path;
-    QString realPath;
 
     mutable QPixmap poster;
     QString posterPath;
@@ -29,7 +28,6 @@ public:
     QString name;
     QString logline;
     QDateTime lastEditTime;
-    bool canAskAboutSwitch = true;
     bool canBeSynced = true;
     ProjectSyncStatus syncStatus = ProjectSyncStatus::Undefined;
     int id = Domain::kInvalidId;
@@ -78,7 +76,7 @@ ProjectsModelItemType ProjectsModelProjectItem::type() const
 
 bool ProjectsModelProjectItem::isLocal() const
 {
-    return d->type == ProjectType::Local || d->type == ProjectType::LocalShadow;
+    return d->type == ProjectType::Local;
 }
 
 bool ProjectsModelProjectItem::isRemote() const
@@ -105,21 +103,11 @@ void ProjectsModelProjectItem::setPath(const QString& _path)
 {
     d->path = _path;
 
-    if (d->type == ProjectType::Local || d->type == ProjectType::LocalShadow) {
+    if (d->type == ProjectType::Local) {
         d->editingMode = QFileInfo(d->path).isWritable()
             ? ManagementLayer::DocumentEditingMode::Edit
             : ManagementLayer::DocumentEditingMode::Read;
     }
-}
-
-QString ProjectsModelProjectItem::realPath() const
-{
-    return d->realPath;
-}
-
-void ProjectsModelProjectItem::setRealPath(const QString& _path)
-{
-    d->realPath = _path;
 }
 
 const QPixmap& ProjectsModelProjectItem::poster() const
@@ -221,16 +209,6 @@ QDateTime ProjectsModelProjectItem::lastEditTime() const
 void ProjectsModelProjectItem::setLastEditTime(const QDateTime& _time)
 {
     d->lastEditTime = _time;
-}
-
-bool ProjectsModelProjectItem::canAskAboutSwitch() const
-{
-    return d->canAskAboutSwitch;
-}
-
-void ProjectsModelProjectItem::setCanAskAboutSwitch(bool _can)
-{
-    d->canAskAboutSwitch = _can;
 }
 
 bool ProjectsModelProjectItem::canBeSynced() const

@@ -23,10 +23,10 @@ struct ComplianceRule;
  * @brief Тип проекта
  */
 enum class ProjectType {
-    Invalid,
-    Local,
-    LocalShadow,
-    Cloud,
+    Invalid = 0,
+    Local = 1,
+    // Value 2 was LocalShadow in persisted story lists; the loader migrates it to Local.
+    Cloud = 3,
 };
 
 /**
@@ -89,12 +89,6 @@ public:
     void setPath(const QString& _path);
 
     /**
-     * @brief Доподлинный путь к проекту
-     */
-    QString realPath() const;
-    void setRealPath(const QString& _path);
-
-    /**
      * @brief Путь к постеру проекта
      */
     const QPixmap& poster() const;
@@ -125,12 +119,6 @@ public:
     QString displayLastEditTime() const;
     QDateTime lastEditTime() const;
     void setLastEditTime(const QDateTime& _time);
-
-    /**
-     * @brief Можно ли показывать диалог с вопросом о смене типа теневого проекта
-     */
-    bool canAskAboutSwitch() const;
-    void setCanAskAboutSwitch(bool _can);
 
     /**
      * @brief Может ли проект быть синхронизированным

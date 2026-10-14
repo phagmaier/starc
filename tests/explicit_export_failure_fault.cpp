@@ -20,8 +20,8 @@ bool QSaveFile::commit()
     if (!commitFile) {
         std::abort();
     }
-    const auto fault = qEnvironmentVariable("STARC_SOURCE_EXPORT_FAULT");
-    if (fault.isEmpty() || fileName() != qEnvironmentVariable("STARC_SOURCE_EXPORT_TARGET")) {
+    const auto fault = qEnvironmentVariable("STARC_EXPLICIT_EXPORT_FAULT");
+    if (fault.isEmpty() || fileName() != qEnvironmentVariable("STARC_EXPLICIT_EXPORT_TARGET")) {
         return commitFile(this);
     }
 
@@ -34,7 +34,12 @@ bool QSaveFile::commit()
             std::abort();
         }
         auto limited = original;
-        limited.rlim_cur = 64;
+        // The output size differs across format/input pairs. Reject the second half
+        // of this actual output, rather than assuming it exceeds a fixed byte count.
+        if (pos() < 2) {
+            std::abort();
+        }
+        limited.rlim_cur = static_cast<rlim_t>(pos() / 2);
         const auto handler = std::signal(SIGXFSZ, SIG_IGN);
         if (setrlimit(RLIMIT_FSIZE, &limited) != 0) {
             std::abort();
@@ -60,6 +65,6 @@ bool QSaveFile::commit()
     } else {
         std::abort();
     }
-    std::printf("fault: %s at source publication; result=%d\n", qPrintable(fault), result);
+    std::printf("fault: %s at explicit export publication; result=%d\n", qPrintable(fault), result);
     return result;
 }

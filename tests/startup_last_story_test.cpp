@@ -193,24 +193,23 @@ QByteArray readFile(const QString& _path)
     return file.readAll();
 }
 
-void verifyConversion(ManagementLayer::ApplicationManager* _manager, const QString& _root,
-                      const QString& _mode)
+void verifyImportCreation(ManagementLayer::ApplicationManager* _manager, const QString& _root,
+                          const QString& _mode)
 {
     const auto folder = _root + "/" + _mode;
-    require(QDir().mkpath(folder), "create isolated conversion directory");
+    require(QDir().mkpath(folder), "create isolated import directory");
     const auto original = _root + "/remembered.starc";
     const auto originalBytes = readFile(original);
     const auto source = folder + "/source.fountain";
     const auto target = source + ".starc";
-    if (_mode.startsWith("conversion-copy")) {
+    if (_mode.startsWith("import-copy")) {
         auto menu = widget<Ui::MenuView>();
         menu->createProjectPressed();
         auto dialog = widget<Ui::CreateProjectDialog>();
         dialog->setProjectName("copy");
         dialog->setProjectFolder(folder);
         dialog->setProjectType(static_cast<int>(Domain::DocumentObjectType::Screenplay));
-        const auto import
-            = _mode == "conversion-copy-failure" ? folder + "/missing.starc" : original;
+        const auto import = _mode == "import-copy-failure" ? folder + "/missing.starc" : original;
         for (auto field : dialog->findChildren<TextField*>()) {
             if (field->text().isEmpty()) {
                 field->setText(import);
@@ -218,7 +217,7 @@ void verifyConversion(ManagementLayer::ApplicationManager* _manager, const QStri
         }
         require(dialog->importFilePath() == import, "create dialog imports the intended story");
         dialog->createProjectPressed();
-        if (_mode == "conversion-copy-failure") {
+        if (_mode == "import-copy-failure") {
             require(!QFile::exists(folder + "/copy.starc") && remembered() == original
                         && DatabaseLayer::Database::currentFile() == original,
                     "failed source copy publishes nothing and retains the current story");
@@ -230,84 +229,99 @@ void verifyConversion(ManagementLayer::ApplicationManager* _manager, const QStri
         verifyScript(_root);
         require(readFile(original) == originalBytes, "story copy preserves its source bytes");
     } else {
-        const QByteArray sourceBytes
-            = "INT. LAB - DAY\n\nConversion retains the source screenplay.\n";
+        const QByteArray sourceBytes = "INT. LAB - DAY\n\nImport retains the source screenplay.\n";
         QFile input(source);
         require(input.open(QIODevice::WriteOnly) && input.write(sourceBytes) == sourceBytes.size(),
                 "create disposable Fountain source");
         input.close();
-        const bool existing = _mode == "conversion-existing" || _mode == "conversion-locked";
-        const bool symlink = _mode == "conversion-symlink" || _mode == "conversion-dangling";
+        const bool existing = _mode == "import-existing" || _mode == "import-locked";
+        const bool symlink = _mode == "import-symlink" || _mode == "import-dangling";
         if (existing) {
             require(QFile::copy(original, target), "prepare existing saved destination");
         } else if (symlink) {
-            require(
-                QFile::link(_mode == "conversion-dangling" ? folder + "/absent.starc" : original,
-                            target),
-                "prepare conversion destination symlink");
+            require(QFile::link(_mode == "import-dangling" ? folder + "/absent.starc" : original,
+                                target),
+                    "prepare import destination symlink");
         }
         QLockFile held(target + ".lock");
-        if (_mode == "conversion-locked" || _mode == "conversion-lock-only") {
+        if (_mode == "import-locked" || _mode == "import-lock-only") {
             require(held.tryLock(), "hold destination lock on behalf of another instance");
         }
-        require(_manager->openProject(source), "open source through the real coordinator");
-        const auto shadow = DatabaseLayer::Database::currentFile();
-        Dialog* conversion = nullptr;
-        for (auto candidate : QApplication::allWidgets()) {
-            if (auto dialog = qobject_cast<Dialog*>(candidate)) {
-                for (auto label : dialog->findChildren<AbstractLabel*>()) {
-                    if (label->text().contains(".FOUNTAIN")) {
-                        conversion = dialog;
+        const auto folderPermissions = QFile::permissions(folder);
+        QTimer picker;
+        picker.setInterval(10);
+        bool pickerSeen = false;
+        QObject::connect(&picker, &QTimer::timeout, [&] {
+            for (auto candidate : QApplication::allWidgets()) {
+                if (auto confirmation = qobject_cast<QMessageBox*>(candidate);
+                    confirmation && confirmation->isVisible()) {
+                    if (auto yes = confirmation->button(QMessageBox::Yes)) {
+                        yes->click();
                     }
+                    return;
+                }
+                if (auto chooser = qobject_cast<QFileDialog*>(candidate);
+                    chooser && chooser->isVisible() && !pickerSeen) {
+                    pickerSeen = true;
+                    if (chooser->focusWidget()) {
+                        chooser->focusWidget()->clearFocus();
+                    }
+                    chooser->selectFile(target);
+                    if (_mode == "import-unwritable") {
+                        QObject::connect(chooser, &QDialog::accepted, [&] {
+                            require(QFile::setPermissions(
+                                        folder, QFileDevice::ReadOwner | QFileDevice::ExeOwner),
+                                    "deny destination writes after chooser acceptance");
+                        });
+                    }
+                    QMetaObject::invokeMethod(chooser, "accept", Qt::QueuedConnection);
+                    return;
                 }
             }
-        }
-        require(conversion, "source offers the normal Switch to .STARC choice");
-        const auto folderPermissions = QFile::permissions(folder);
-        if (_mode == "conversion-unwritable") {
-            require(QFile::setPermissions(folder, QFileDevice::ReadOwner | QFileDevice::ExeOwner),
-                    "make only the disposable conversion directory unwritable");
-        }
-        conversion->finished({ 2, "Switch to .STARC", Dialog::AcceptButton });
-        if (_mode == "conversion-unwritable") {
+        });
+        picker.start();
+        const auto opened = _manager->openProject(source);
+        picker.stop();
+        if (_mode == "import-unwritable") {
             require(QFile::setPermissions(folder, folderPermissions),
                     "restore disposable directory permissions");
         }
-        require(readFile(source) == sourceBytes,
-                "conversion attempt leaves source bytes unchanged");
-        if (_mode == "conversion-success") {
+        require(pickerSeen && opened == (_mode == "import-success"),
+                "explicit source import chooses a native destination and reports publication");
+        require(readFile(source) == sourceBytes, "import attempt leaves source bytes unchanged");
+        if (_mode == "import-success") {
             require(remembered() == target && DatabaseLayer::Database::currentFile() == target,
-                    "successful conversion opens the new destination");
+                    "successful import opens the new destination");
             widget<Ui::MenuView>()->saveProjectChangesPressed();
             auto query = DatabaseLayer::Database::query();
             require(query.exec("SELECT content FROM documents WHERE type = 10104") && query.next(),
                     "converted story contains a screenplay");
             const auto bytes = query.value(0).toByteArray();
-            require(bytes.contains("Conversion retains the source screenplay."),
-                    "conversion retains the imported script");
+            require(bytes.contains("Import retains the source screenplay."),
+                    "import retains the imported script");
             require(_manager->openProject(original) && _manager->openProject(target),
-                    "saved conversion reopens successfully");
+                    "saved import reopens successfully");
             query = DatabaseLayer::Database::query();
             require(query.exec("SELECT content FROM documents WHERE type = 10104") && query.next()
                         && query.value(0).toByteArray() == bytes,
                     "converted script survives save and reopen byte exactly");
         } else {
-            require(remembered() == source && DatabaseLayer::Database::currentFile() == shadow
-                        && QFile::exists(source + ".lock"),
-                    "refused conversion retains the open source and its lock");
+            require(remembered() == original && DatabaseLayer::Database::currentFile() == original
+                        && QFile::exists(original + ".lock") && !QFile::exists(source + ".lock"),
+                    "refused import retains the original native story and never locks the source");
             if (existing) {
                 require(readFile(target) == originalBytes,
                         "existing destination is preserved byte exactly");
-            } else if (_mode == "conversion-race") {
+            } else if (_mode == "import-race") {
                 require(readFile(target) == "Another writer owns these bytes.\n",
                         "publication collision preserves the other writer's exact bytes");
             } else if (symlink) {
                 require(QFileInfo(target).isSymLink() && readFile(original) == originalBytes,
-                        "refused conversion preserves the symlink and its referent");
+                        "refused import preserves the symlink and its referent");
                 require(!QFile::exists(folder + "/absent.starc"),
                         "dangling destination symlink creates no referent");
             } else {
-                require(!QFile::exists(target), "refused conversion creates no destination");
+                require(!QFile::exists(target), "refused import creates no destination");
             }
             if (held.isLocked()) {
                 require(QFile::exists(target + ".lock"), "other instance retains its lock file");
@@ -321,7 +335,7 @@ void verifyConversion(ManagementLayer::ApplicationManager* _manager, const QStri
          QDir(folder).entryList({ "*.starc.*", ".starc-create-*" }, QDir::Files | QDir::Hidden)) {
         noStagingFiles = noStagingFiles && entry.endsWith(".lock");
     }
-    require(noStagingFiles, "conversion leaves no staging files");
+    require(noStagingFiles, "import leaves no staging files");
 }
 
 void selectSaveAs(const QString& _target, Ui::MenuView* _menu, bool _fail = false)
@@ -573,6 +587,11 @@ int main(int argc, char** argv)
             setSettingsValue(DataStorageLayer::kApplicationOpenLastStoryKey, mode != "disabled");
             setSettingsValue(DataStorageLayer::kApplicationLastStoryPathKey,
                              mode == "unavailable" ? root + "/absent.starc" : path);
+            if (mode.startsWith("legacy-")) {
+                setSettingsValue(
+                    DataStorageLayer::kApplicationLastStoryPathKey,
+                    root + (mode == "legacy-fountain" ? "/source.fountain" : "/source.fdx"));
+            }
             if (mode.startsWith("auto-")) {
                 setSettingsValue(DataStorageLayer::kApplicationLastStoryPathKey,
                                  root
@@ -603,6 +622,19 @@ int main(int argc, char** argv)
         QFileOpenEvent event(explicitPath);
         QCoreApplication::sendEvent(&app, &event);
     }
+    bool sourceChooserSeen = false;
+    QTimer sourcePicker;
+    sourcePicker.setInterval(10);
+    QObject::connect(&sourcePicker, &QTimer::timeout, [&] {
+        if (auto chooser = widget<QFileDialog>(); chooser && chooser->isVisible()
+            && (mode == "fountain" || mode == "fdx" || mode == "failures")) {
+            sourceChooserSeen = true;
+            const auto destination = root + "/" + mode + "-import.starc";
+            chooser->selectFile(destination);
+            QMetaObject::invokeMethod(chooser, "accept", Qt::QueuedConnection);
+        }
+    });
+    sourcePicker.start();
     manager->exec(request);
     if (mode == "queued-event" || mode == "duplicate") {
         QCoreApplication::postEvent(&app,
@@ -621,7 +653,7 @@ int main(int argc, char** argv)
                 if (label->text() == "Project was modified. Save changes?") {
                     closeQuestion.stop();
                     std::puts(
-                        "ok: ordinary source close offers Save; choose Save through its dialog");
+                        "ok: ordinary story close offers Save; choose Save through its dialog");
                     dialog->finished({ 2, "Save", Dialog::AcceptButton });
                     return;
                 }
@@ -637,14 +669,14 @@ int main(int argc, char** argv)
                     "onboarding is not displaced by automatic or explicit opening");
             widget<Ui::OnboardingNavigator>()->skipGitHubSyncRequested();
         }
-        const bool noOpen = mode.startsWith("auto-") || mode == "persisted-disabled"
-            || mode == "persisted-unavailable" || mode == "create" || mode == "disabled"
-            || mode == "unavailable" || mode == "explicit-failure" || mode == "locked"
-            || mode == "onboarding";
+        const bool noOpen = mode.startsWith("legacy-") || mode.startsWith("auto-")
+            || mode == "persisted-disabled" || mode == "persisted-unavailable" || mode == "create"
+            || mode == "disabled" || mode == "unavailable" || mode == "explicit-failure"
+            || mode == "locked" || mode == "onboarding";
         const bool sourceReopen = mode == "persisted-fountain" || mode == "persisted-fdx";
         const auto expectedPath = mode == "persisted-save-as" ? remembered()
             : sourceReopen
-            ? root + (mode == "persisted-fountain" ? "/source.fountain" : "/source.fdx")
+            ? root + (mode == "persisted-fountain" ? "/fountain-import.starc" : "/fdx-import.starc")
             : mode == "persisted-explicit" || mode == "explicit" || mode == "early-event"
                 || mode == "queued-event" || mode == "onboarding-explicit"
             ? explicitPath
@@ -659,9 +691,9 @@ int main(int argc, char** argv)
             require(remembered() == expectedPath,
                     "startup selects the expected story and remembers only its source path");
             if (sourceReopen) {
-                require(DatabaseLayer::Database::currentFile() != expectedPath,
-                        "automatic source reopening uses an internal shadow while remembering the "
-                        "source");
+                require(DatabaseLayer::Database::currentFile() == expectedPath
+                            && !sourceChooserSeen,
+                        "automatic reopening opens the native import copy without a chooser");
                 widget<Ui::MenuView>()->saveProjectChangesPressed();
                 auto query = DatabaseLayer::Database::query();
                 require(
@@ -669,7 +701,7 @@ int main(int argc, char** argv)
                         && query.value(0).toByteArray().contains(mode == "persisted-fountain"
                                                                      ? "A source story survives."
                                                                      : "It's safe now."),
-                    "automatic source reopening imports the screenplay again");
+                    "automatic native reopening retains the imported screenplay");
             } else {
                 verifyScript(root);
                 if (mode == "read-only") {
@@ -694,6 +726,15 @@ int main(int argc, char** argv)
             require(!QFile::exists(root + "/absent.starc")
                         && !QFile::exists(root + "/absent-explicit.starc"),
                     "missing startup paths do not create empty project files");
+        }
+        if (mode.startsWith("legacy-")) {
+            const auto source
+                = root + (mode == "legacy-fountain" ? "/source.fountain" : "/source.fdx");
+            require(!sourceChooserSeen
+                        && (!widget<QFileDialog>() || !widget<QFileDialog>()->isVisible())
+                        && DatabaseLayer::Database::currentFile() == ":memory:"
+                        && remembered() == source && !QFile::exists(source + ".lock"),
+                    "legacy last-source setting leaves the story list without a chooser or lock");
         }
         auto settings = widget<Ui::SettingsView>();
         CheckBox* option = nullptr;
@@ -756,12 +797,15 @@ int main(int argc, char** argv)
         if (mode == "fountain" || mode == "fdx") {
             const auto source = root + (mode == "fountain" ? "/source.fountain" : "/source.fdx");
             require(manager->openProject(source), "source screenplay opens successfully");
-            require(remembered() == source && DatabaseLayer::Database::currentFile() != source,
-                    "remember meaningful source instead of temporary shadow database");
+            const auto target = root + "/" + mode + "-import.starc";
+            require(sourceChooserSeen && remembered() == target
+                        && DatabaseLayer::Database::currentFile() == target
+                        && !QFile::exists(source + ".lock"),
+                    "explicit source open remembers only the chosen native story");
             widget<Ui::MenuView>()->saveProjectChangesPressed();
         }
-        if (mode.startsWith("conversion-")) {
-            verifyConversion(manager, root, mode);
+        if (mode.startsWith("import-")) {
+            verifyImportCreation(manager, root, mode);
         }
         if (!noOpen && mode != "failures" && mode != "fountain" && mode != "fdx") {
             const auto before = DatabaseLayer::Database::currentFile();
@@ -808,8 +852,7 @@ int main(int argc, char** argv)
                         "retain native settings screenshot with startup checkbox");
             }
         }
-        if (mode == "fountain" || mode == "fdx" || sourceReopen
-            || mode.startsWith("conversion-")) {
+        if (mode == "fountain" || mode == "fdx" || sourceReopen || mode.startsWith("import-")) {
             closeQuestion.start();
         }
         widget<Ui::ApplicationView>()->close();

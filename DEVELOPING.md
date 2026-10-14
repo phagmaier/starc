@@ -159,12 +159,13 @@ profiles and retains all logs under `.build/evidence/`. The default is offscreen
 `STARC_STARTUP_PLATFORM=xcb STARC_STARTUP_SCREENSHOTS=1` on a private Xvfb display
 adds native window screenshots. Test actions use Qt signals and dialog responses;
 production executable and desktop keyboard checks are separate evidence.
-It also checks safe new-story creation and **Switch to .STARC** conversion:
-existing destinations, live locks, symlinks, unwritable folders and failed source
-copies leave the source open and existing data intact. Successful conversion and
-story copying retain screenplay content through save/reopen. A Linux test-only
-interposer creates a conflicting destination immediately before publication;
-that writer's bytes must survive and the conversion must be refused.
+It also checks safe new-story creation and source import into a new `.starc`:
+existing destinations, live locks, symlinks, unwritable folders and failed native
+story copies keep the current native story and existing data intact. Successful
+imports and story copying retain screenplay content through save/reopen. A Linux
+test-only interposer creates a conflicting destination immediately before
+publication; that writer's bytes survive and the import is refused.
+Legacy last-story source paths leave the story list without a chooser.
 
 `./tools/check-screenplay-scope.sh` checks the screenplay-only scope: creation
 choices and settings offer no retired format, the real screenplay editor handles
@@ -283,16 +284,16 @@ with Python, input failures, options, and unchanged fixture hashes. See
 loss and remaining limits. It uses a new disposable profile/project and an
 absent private session-bus address so it cannot contact the desktop keyring.
 
-`./tools/check-fountain-review-source.sh` checks annotated Fountain, forced
-Action paragraphs and literal syntax through the
-real application Save coordinator, pending editor edits, full/partial clipboard
-exports, ordinary close and fresh-process source reopening. Repeated saves must
-retain exact output bytes. It uses isolated temporary clipboard files, profiles,
-sources and a fake credential backend. The default is offscreen;
-`STARC_REVIEW_SOURCE_PLATFORM=xcb STARC_REVIEW_SOURCE_SCREENSHOTS=1` on private
-Xvfb adds native application/window evidence. The separately selected
-`STARC_REVIEW_SOURCE_MODES=cold-undo` case reproduces the still-open first-edit
-Undo assertion tracked as `ISSUES2.md` issue 15; it is not a passing export check.
+`./tools/check-fountain-export.sh` checks annotated Fountain, forced Action and
+literal syntax through the real application coordinator and editor. Sources
+import into chosen native projects; typed text survives native Save, explicit
+Fountain Export and a fresh application import. Full/partial clipboard exports,
+repeated byte-identical explicit exports and ordinary close are checked. It uses
+isolated temporary clipboard files, profiles, stories and fake credentials.
+The default is offscreen; `STARC_FOUNTAIN_EXPORT_PLATFORM=xcb
+STARC_FOUNTAIN_EXPORT_SCREENSHOTS=1` on private Xvfb adds native window evidence.
+The separate `STARC_FOUNTAIN_EXPORT_MODES=cold-undo` case retains the first-edit
+Undo assertion tracked by `ISSUES2.md` issue 15; it is not a passing export check.
 
 `./tools/check-project-sync.sh` checks the GitHub story sync logic, client and
 actual sync manager. It covers status/context actions after successful transfers,
@@ -339,32 +340,40 @@ an independent Python process verify exact content, attachment and history bytes
 and existing IDs. It uses PNG image input, offscreen Qt and an isolated profile;
 it does not establish physical-disk exhaustion or power-loss durability.
 
-`./tools/check-import-only-sources.sh` checks direct opens of DOCX, PDF and Markdown
-through the real application coordinator. Import-only inputs choose a new `.starc`
-copy before editing; the original file is left byte-exact. Cases cover file
-arguments, actual `QFileOpenEvent` objects, onboarding, cancellation, existing and
-locked destinations, read-only inputs, omitted destination suffixes and competing
-file events during the chooser. Each case prepares a disposable profile through
-onboarding and ordinary close, exercises the open/edit/Save route, then reopens
-in a fresh process. Tests compare exact script/emphasis/review XML and document
-identities; Python also checks all source hashes, retained DOCX ZIP parts and
-released locks. Source-save export controls reject unsupported suffixes while
-retaining Fountain/TXT/FDX/FDXT selection. Explicit DOCX/PDF exports remain covered
-by the screenplay scope check. The default is offscreen;
-`STARC_IMPORT_ONLY_PLATFORM=xcb STARC_IMPORT_ONLY_SCREENSHOTS=1` on private Xvfb
-adds native window screenshots. Chooser/editor actions are injected through Qt.
+`./tools/check-import-only-sources.sh` checks direct opens of DOCX, PDF, Markdown,
+Fountain, TXT, FDX and FDXT through the real application coordinator. Every input
+chooses a new `.starc` before editing, and Save writes only that project. Exact
+source bytes and absence of a source `.lock` are checked after open, edit, Save
+and ordinary close. Cases cover startup arguments, actual `QFileOpenEvent`,
+Open story, legacy story-list entries (stored type 2 and `can_ask`), onboarding,
+cancellation (including dirty stories through events, the menu and old list entries),
+existing/locked destinations, read-only inputs, case-insensitive
+suffixes, omitted destination suffixes and competing events during the chooser.
+Remembered source paths leave automatic startup on the story list with no chooser.
+Fresh processes check exact script/emphasis/review XML and document identities;
+Python checks all source hashes, retained DOCX ZIP parts and released locks.
+`STARC_IMPORT_ONLY_BASELINE=1 STARC_IMPORT_ONLY_CASES='fountain-event fdx-event
+fountain-cancel fountain-automatic'` retains independent contract failures when
+run against an unchanged application. `STARC_IMPORT_ONLY_OUTPUT` can select an
+isolated baseline library directory. Baseline mode reports failure, never a pass.
+The default is offscreen; `STARC_IMPORT_ONLY_PLATFORM=xcb
+STARC_IMPORT_ONLY_SCREENSHOTS=1` on private Xvfb adds native window screenshots.
+Chooser/editor actions are injected through Qt with an asynchronous in-memory
+credential backend; no native keyring is used.
 
-`./tools/check-source-export-failure.sh` checks Fountain/TXT/FDX/FDXT source saves
-through the real editor and application coordinator. Read-only sources, short
-staged writes and failed final publication keep the source byte-exact, the editor
-dirty and its lock held. It covers failed/recovered Retry, edits made before
-Retry, Save on close, Cancel, explicit Don't save and fresh-process reopening.
-It also checks failed and successful Fountain/FDX/DOCX/PDF output and clipboard
-selection export. The Linux test-only publication interposer affects only the
-selected disposable output; profiles, temporary files and evidence are isolated,
-and the desktop session bus is absent. The default is offscreen, with injected
-Qt actions; it does not establish physical-disk crash durability or desktop/GPU
-behavior. All failed runs and logs remain under `.build/evidence/`.
+`./tools/check-explicit-export-failure.sh` replaces the old source-save failure
+suite. It checks the real explicit Export dialog for Fountain/FDX/DOCX/PDF,
+read-only output, short staged writes, failed final publication and recovery.
+Low-level exporters also face kernel file-size limits. Existing output stays
+byte-exact; failed exports preserve the live editor and unsaved state, and failed
+new outputs remain absent. Clipboard failures exclude stale Fountain data while
+retaining current plain text; recovery and editor paste are exercised. Native
+Save and ordinary close leave the imported source unchanged and unlocked.
+The Linux test-only interposer affects only the chosen disposable output. All
+profiles, sources, outputs, temporary files and logs are isolated under
+`.build/evidence/`, with no desktop session bus. The default is offscreen with
+injected Qt actions; desktop/GPU and power-loss durability are separate evidence.
+`check-fountain-review-source.sh` and `check-source-export-failure.sh` are retired.
 
 `./tools/check-github-credential-storage.sh` uses injected asynchronous storage,
 isolated settings, actual settings/onboarding widgets, and the local mock GitHub

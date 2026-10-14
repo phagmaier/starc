@@ -1,5 +1,5 @@
 // Linux test-only interposer: another writer creates the destination immediately
-// before publication. It is loaded only for the disposable conversion-race case.
+// before publication. It is loaded only for the disposable import-race case.
 #include <QFile>
 #include <QTemporaryFile>
 
@@ -15,8 +15,8 @@ bool QTemporaryFile::rename(const QString& _newName)
     if (!renameFile) {
         std::abort();
     }
-    if (qEnvironmentVariable("STARC_STARTUP_TEST_MODE") == "conversion-race"
-        && _newName.endsWith("/conversion-race/source.fountain.starc")) {
+    if (qEnvironmentVariable("STARC_STARTUP_TEST_MODE") == "import-race"
+        && _newName.endsWith("/import-race/source.fountain.starc")) {
         QFile otherWriter(_newName);
         const QByteArray bytes("Another writer owns these bytes.\n");
         if (!otherWriter.open(QIODevice::WriteOnly | QIODevice::NewOnly)

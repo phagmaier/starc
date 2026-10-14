@@ -2251,7 +2251,14 @@ int main(int argc, char** argv)
         projects.saveProjects();
         const auto saved = QJsonDocument::fromJson(QByteArray::fromHex(
             settingsValue(DataStorageLayer::kApplicationProjectsKey).toByteArray())).array();
-        require(saved == cachedProjects, "cached team and project records survive exactly");
+        auto expectedProject = cachedProject;
+        expectedProject.remove("can_ask"); // Obsolete source-format preference only.
+        auto expectedTeam = cachedProjects.first().toObject();
+        expectedTeam["projects"] = QJsonArray{ expectedProject };
+        require(saved == QJsonArray{ expectedTeam },
+                "cached records survive exactly apart from retired can_ask preference");
+        require(static_cast<int>(BusinessLayer::ProjectType::Cloud) == 3,
+                "persisted Cloud type keeps its original integer value");
         require(settingsValue(DataStorageLayer::kAccountEmailKey).toString()
                     == "historical@example.invalid", "historical account label retained");
         projects.createProject();

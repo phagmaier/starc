@@ -1597,3 +1597,221 @@ so expected GitHub credential warnings can appear in screenshots; no credential
 or remote repository was used. Fountain/FDX retain their existing interchange
 limits, including source-format annotation losses documented above. This item
 changes neither those formats nor recovery/backup policy.
+
+## Stories are native projects; source files are import/export only
+
+Implemented 2026-10-13, starting from clean `dev` at `9d2b49e8`.
+This supersedes the source-path and shadow-project behavior recorded in the
+optional last-story startup section above. `master` remains the frozen reference.
+
+A story is always a `.starc` project. Save, autosave and Save on close write only
+its SQLite project. Fountain, TXT, FDX and FDXT now take the same direct-open route
+as DOCX, PDF, Markdown and the other importable formats: **Import .X as a .STARC
+story** chooses a new native destination before the current story is closed.
+Cancel keeps the current story, its exact unsaved model, dirty flag, lock and
+Undo/Redo history. Existing, locked, symlink and otherwise refused destinations
+keep the current story and existing destination intact.
+
+Startup file arguments, actual application file-open events, Open story, story
+cards and their context action share the coordinator. Old source entries start
+that import on an explicit click. Automatic last-story startup opens native
+projects only; an old source path leaves the story list visible without a chooser
+or source lock. The old setting remains stored until a successful native open
+replaces it. Dropped files on the project navigator use the existing Import
+dialog inside the current story. Unsupported suffixes are refused before
+closing the current story or taking a source lock. The create-story dialog still
+accepts an import input; native story copying continues to use its safe copy route.
+
+The temporary shadow database, separate story/real paths, source-write branch and
+its retry/error dialog, source-save convenience export API and suffix predicate,
+keep-format question, Switch to .STARC conversion, shadow Save As branch and
+shadow-file cleanup have been removed. Atomic temporary files used to publish a
+new native story or Save As remain necessary. Explicit exporters and clipboard
+Fountain output retain their separate temporary files and atomic publication.
+The first-script model accessor remains used by native backup/scope fixtures;
+it no longer participates in a source-save route.
+
+Story types were serialized as JSON integers. Invalid remains 0, Local remains 1
+and Cloud remains 3; value 2 is reserved for the retired LocalShadow. The loader
+maps old value 2 to Local, while dispatching its source path through the import
+chooser. The obsolete `can_ask` preference is ignored and omitted on list save.
+The scope check compares all cached team/cloud fields exactly, apart from that
+explicitly retired preference, and pins Cloud's original numeric value.
+
+Open/create guards no longer mark a live story saved merely because Don't save
+was chosen before a chooser. The Open story chooser returns its selected path
+to the already-approved callback, avoiding a second save guard while the first
+question disappears. Story-card and application file events still use their
+single ordinary unsaved-edit guard. This is needed to keep cancellation truthful.
+
+The two source-save checks are retired:
+
+- `check-fountain-review-source.sh` / `fountain_review_source_test.cpp` become
+  `check-fountain-export.sh` / `fountain_export_test.cpp`: real-editor typed text,
+  exact styles/review spans, canonical forced Action/literal syntax, native Save,
+  explicit Fountain Export, full/partial clipboard, ordinary close and a fresh
+  application import. Repeated explicit exports are byte-identical.
+- `check-source-export-failure.sh` / its test and fault adapter become
+  `check-explicit-export-failure.sh` / `explicit_export_failure_test.cpp` and
+  `explicit_export_failure_fault.cpp`: explicit Export UI and actual exporters,
+  existing-output preservation, refused/short writes, failed publication,
+  recovery, clipboard failure/recovery and actual editor paste. Each output
+  format has its own bounded process, rather than sharing one shutdown watchdog.
+
+The interchange manager controls now use the explicit Export dialog, including
+FDX format dispatch and literal Fountain output. Startup destination-safety
+cases now use import creation, including a renamed `import_publish_collision`
+interposer; native story-copy controls remain. `check-import-only-sources.sh`
+covers all four newly import-only suffixes, uppercase forms, read-only inputs,
+menu/card/event/startup routes, onboarding, competing events, cancellation,
+Import/drop, source bytes/no source lock at open/edit/Save/close and native
+fresh-process content/UUID checks. Source fixtures deliberately retain BOM,
+CRLF, DOCX private parts and FDX metadata that an export would replace.
+Application source/export fixtures inject asynchronous in-memory credentials;
+no native keyring is used. Private Xvfb checks are additional injected/native
+window evidence, separate from physical desktop and production-binary input.
+
+Validation commands and retained failures are recorded below. Issue 15 remains
+open: its current runnable command imports into a chosen native project and
+still reproduces the same first-edit Undo XML assertion. No resolved issue entry
+was rewritten, and no other open issue was undertaken.
+
+Validation (all files/profiles disposable under `.build/evidence/`):
+
+```bash
+./build/dev.sh doctor
+(cd .build/debug && make qmake_all)
+JOBS=4 ./build/dev.sh build debug
+./tools/check-import-only-sources.sh
+./tools/check-startup-last-story.sh
+./tools/check-fountain-export.sh
+./tools/check-explicit-export-failure.sh
+./tools/check-screenplay-interchange.sh
+./tools/check-screenplay-scope.sh
+./tools/check-save-as-safety.sh
+./tools/check-save-failure.sh
+bash -n tools/check-import-only-sources.sh tools/check-startup-last-story.sh tools/check-fountain-export.sh tools/check-explicit-export-failure.sh
+shellcheck tools/check-import-only-sources.sh tools/check-startup-last-story.sh tools/check-fountain-export.sh tools/check-explicit-export-failure.sh
+git diff --check
+```
+
+- Doctor, qmake regeneration and debug builds: exit 0. Qt 6.12.0 and the already
+  prepared local QtKeychain dependency were used; optional `lrelease` remains
+  absent. Final build log: `source-mode-build-verified.log`.
+- Import-only matrix: exit 0, 53 cases / 157 ordinary process exits, then the
+  independent Python source-hash, archive, exact screenplay/UUID and lock oracle.
+  Final `source-mode-import-final-stable.log` points to
+  `import-only-sources-C9gsy1/`. The separately selected six dirty cancellation
+  cases also passed in `import-only-sources-NwXoZ3/`.
+- Startup: exit 0, 37 ordinary process exits; `startup-last-story-cqFj6o/` and
+  `source-mode-startup-final.log` include old source settings, native reopen,
+  import publication/collision safety and retained native story-copy controls.
+- Fountain editor/export/fresh import: exit 0, ten ordinary process exits plus
+  independent canonical syntax/style/review checks, `fountain-export-HWJbfc/`.
+- Explicit export and clipboard failures: exit 0, 28 ordinary process exits,
+  `explicit-export-failure-CI032o/`. Every selected failure must report refusal
+  and preserve an existing output; successful retry and paste are separate controls.
+- Interchange: exit 0, including independent Python output/fixture hashes and
+  separate-process XML/UUID/annotation reopening, `screenplay-interchange-7gOKmf/`.
+- Full screenplay scope: exit 0, `screenplay-scope-OW3t4B/`; native Save As:
+  exit 0, `save-as-safety-GhTgVV/`; Save/close/file-event/lock failures:
+  exit 0, `save-failure-O5hY7q/`. The latter requires its authorized disposable
+  localhost server outside the socket-restricting sandbox. Their final logs are
+  `source-mode-scope-final.log`, `source-mode-save-as-final.log` and
+  `source-mode-save-failure-final.log`.
+- Changed-code formatting uses `src/.clang-format`; Bash syntax, ShellCheck and
+  whitespace checks pass. Dynamic symbol inspection of the final core plugin
+  finds only the explicit vector/index `ExportManager::exportDocument` overload;
+  the source-path overload, predicate, switch preference and real-path APIs are absent.
+
+Additional native checks:
+
+```bash
+python3 .build/evidence/source-mode-native/check.py
+python3 .build/evidence/source-mode-cli-complete/check.py
+```
+
+Both exited 0 on private, automatically allocated Xvfb displays with TCP
+listening disabled. The first runs twelve source routes / 36 ordinary process
+exits with `STARC_IMPORT_ONLY_PLATFORM=xcb STARC_IMPORT_ONLY_SCREENSHOTS=1`;
+`import-only-sources-EsVr7R/` retains the images and complete byte/XML/lock
+oracles. Chooser and saved-story screenshots were inspected; the fixture's saved window
+shows an expanded navigator, so those images do not establish editor layout or
+physical keyboard behavior. Real editor actions and persisted content are
+checked separately. The second runs
+the actual production command `STARC_PROFILE_DIR=<disposable profile>
+./build/dev.sh run debug <source>` for each of Fountain, TXT, FDX and FDXT,
+accepting and canceling the destination chooser in separate processes.
+All eight exits were ordinary status 0. Accepted cases verify native SQLite
+screenplay content after Ctrl+S; their ordinary Save-on-close question is answered
+through the visible Save button. Source bytes and source/native lock release
+are checked again after close. `source-mode-cli-complete/manifest.json` retains
+the exact argument arrays, hashes, exit results and Save-on-close outcomes.
+These production launches inject only an in-memory credential backend via a
+test preload library; native keyring integration is not credited.
+
+Negative controls and retained failures:
+
+```bash
+STARC_IMPORT_ONLY_BASELINE=1 STARC_IMPORT_ONLY_CASES=fountain-event ./tools/check-import-only-sources.sh
+STARC_IMPORT_ONLY_BASELINE=1 STARC_IMPORT_ONLY_CASES=fdx-event ./tools/check-import-only-sources.sh
+STARC_IMPORT_ONLY_BASELINE=1 STARC_IMPORT_ONLY_CASES=fountain-cancel ./tools/check-import-only-sources.sh
+STARC_IMPORT_ONLY_BASELINE=1 STARC_IMPORT_ONLY_CASES=fountain-automatic ./tools/check-import-only-sources.sh
+STARC_IMPORT_ONLY_BASELINE=1 STARC_IMPORT_ONLY_OUTPUT="$PWD/.build/evidence/source-mode-baseline-build/output" STARC_IMPORT_ONLY_CASES='fountain-event txt-event fdx-event fdxt-event fountain-cancel txt-cancel fdx-cancel fdxt-cancel fountain-startup fdx-startup fountain-menu fdx-menu fountain-list fdx-list fountain-automatic txt-automatic fdx-automatic fdxt-automatic' ./tools/check-import-only-sources.sh
+STARC_IMPORT_ONLY_CASES='fountain-dirty-cancel fdx-dirty-cancel fountain-menu-dirty-cancel fdx-menu-dirty-cancel fountain-list-dirty-cancel fdx-list-dirty-cancel' ./tools/check-import-only-sources.sh
+STARC_FOUNTAIN_EXPORT_MODES=cold-undo ./tools/check-fountain-export.sh
+```
+
+The unchanged-coordinator controls deliberately exit 1. Its four original
+controller/model objects from `9d2b49e8` are rebuilt in a separate core plugin,
+using the current unchanged dependencies; the exact archive/compiler/linker
+argument arrays are retained in `source-mode-baseline-build/commands.json`.
+The final 18-case control is `source-mode-baseline-final-stable.log` /
+`import-only-sources-x4S0Th/`. For all four suffixes, the new source-byte/no-lock
+assertions fail at open, edit, Save and close; native-path/native-only Save,
+cancellation and automatic-startup assertions fail too. An independent extraction
+checks every named failure in `source-mode-baseline-assertions.json`. Startup,
+menu and legacy card routes also fail their native-copy contracts.
+
+The pre-guard-fix dirty cancellation case fails its exact dirty-state assertion
+in `source-mode-dirty-cancel.log`; the subsequent Open-menu probe exposed its
+second guard (`source-mode-menu-cancel-diagnostic.log`). The six final cases pass
+without clearing the model, dirty flag or Undo/Redo history. The separate cold
+Undo command still exits 1 because its child aborts at `TextModel::applyPatch`,
+line 2887, with `newContent == toXml()`. `source-mode-cold-undo-final.log` and
+`fountain-export` case evidence retain the failure; this is the still-open issue
+15, not a passing export check or a new source-mode regression.
+
+Development failures remain distinct from those semantic controls. Early test
+compilations rejected a mis-scoped baseline return expression and a missing
+`QAbstractItemModel` include. Early export probes sampled queued dialogs before
+their controls were visible; a standalone host also needed to be shown. The
+first baseline relink included stale unused objects; the corrected link uses
+qmake's actual object list. A fixed 64-byte fault did not reject a shorter
+FDX-derived Fountain output; the final injector rejects the second half of the
+actual staged output. An aggregate multi-format test exhausted its one watchdog;
+format cases now have separate processes with the original watchdog unchanged.
+An early immediate-close probe ran while the previous save question was still
+being destroyed; final tests observe that lifecycle before requesting close.
+The first scope oracle expected the deliberately removed `can_ask` field.
+
+Two running shell suites were edited during development and failed parsing, and
+an overlapping relink caused one launch to report a temporarily short library.
+Those attempts are not credited as passes; their individual case directories
+and the corresponding `source-mode-*.log` records remain. The first native
+wrapper log was subsequently replaced, so its shell-tail parse error is recorded
+here; its disposable case artifacts remain. Final verification used stable
+scripts and a completed build. Initial Xvfb/localhost attempts were refused by
+the sandbox's socket policy and were rerun with authorized local sockets.
+The optional CLI driver first lacked its local library path, then failed to
+answer the observed normal close question; its forced teardown is not ordinary
+shutdown evidence. A capture helper lacked Pillow. The final driver uses the
+installed ffmpeg capture tool and answers that visible question once. All CLI
+attempt directories and their logs remain separate.
+
+Physical desktop/GPU, release builds/packaging, other operating systems,
+third-party Fountain/Final Draft clients, every importable format's content
+fidelity and crash/power-loss durability remain unexercised. Import/export's
+existing normalization and unsupported semantics are unchanged. The source
+preservation claim is backed by real coordinator, editor, filesystem and native
+window/production-launch checks on the bounded disposable fixtures above.

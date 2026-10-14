@@ -15,11 +15,10 @@ serialized, saved, closed and reopened from SQLite, exported to a separate path,
 and imported into a fresh model. Both the original and fresh imports cross the
 save/reopen boundary. An independently constructed application model exercises
 both exporters without an imported seed, including a multiline dialogue item.
-The ordinary shadow-project save route (`ExportManager::exportDocument` with a
-destination path) is checked too: an FDX destination must contain FDX XML and
-freshly import with the production information settings, rather than being
-replaced with Fountain text. The default information setting hides scene numbers;
-the direct format checks separately enable number export.
+The explicit Export dialog in `ExportManager` is checked too: selecting FDX
+must produce FDX XML that freshly imports with the production information
+settings. The default information setting hides scene numbers; direct format
+checks separately enable number export.
 
 `emphasis-review.fountain` combines emphasis and review notes in the same
 paragraph, including multiple spans/notes and styled dialogue. It checks both
@@ -56,27 +55,37 @@ brackets, a slash between words and ordinary emphasis beside them are controls
 that stay unescaped. A model-authored script holds the same kinds of text as typed
 into the application, with an inline note, a comment with paired stars and a
 paragraph ending in spaces of two styles; it goes out through the exporter and
-through the manager's source Save route. Expected text is written out without
+through the manager's explicit Export dialog. Expected text is written out without
 escapes in the tests, and Python reads the imported XML without the application.
 
-`./tools/check-fountain-review-source.sh` separately exercises the real application
-Save coordinator with edited versions of the review, forced Action and literal
-syntax fixtures, full/partial clipboard exports, ordinary close and a fresh
-application reopening the saved source. For the literal syntax fixture the editor
-also types a note-like word and a path before saving.
-Repeated saves must be byte-idempotent, with exact per-character style and review
-coverage. The explicit `cold-undo` mode still fails with the separate
-[issue 15](../ISSUES2.md#15-undo-of-the-first-edit-after-importing-styled-review-notes-aborts)
-assertion; the passing export/source checks do not credit first-edit Undo.
+`./tools/check-fountain-export.sh` separately exercises the real application
+coordinator: import each fixture into a chosen `.starc`, type in the real editor,
+Save that native project, explicitly export Fountain and freshly import that
+output in another application process. Full/partial clipboard exports, ordinary
+close, exact per-character styles and review coverage remain covered. The
+literal fixture also has a note-like word and a path typed before export.
+Repeated explicit exports must be byte-idempotent. The separately selected
+`STARC_FOUNTAIN_EXPORT_MODES=cold-undo` mode remains a runnable reproduction of
+[issue 15](../ISSUES2.md#15-undo-of-the-first-edit-after-importing-styled-review-notes-aborts);
+it is not part of the passing export/import matrix.
 
-Ordinary source saves accept only `.fountain`, `.txt`, `.fdx` and `.fdxt` (case
-insensitive). Other destinations are refused before opening a file for writing.
-Directly opened import-only formats, including DOCX, PDF and Markdown, ask for a
-new `.starc` story destination before editing. Their source files are never saved
-back through the Fountain fallback. `check-import-only-sources.sh` exercises the
-coordinator, complete source-byte preservation and native copy save/reopen. This
-policy does not claim lossless import of every source feature; those original
-bytes stay available separately. Explicit DOCX/PDF exports remain supported.
+Every story is a `.starc` project. Fountain, TXT, FDX, FDXT and all other source
+formats are import/export inputs and outputs only. Direct opens ask for a new
+`.starc` destination before editing; cancellation keeps the current story. Save
+writes only the native project, never the source. Source files acquire no story
+lock and are not retained as the live or remembered story path. Old list entries
+start the same import when clicked; remembered source paths leave automatic
+startup on the story list without opening a chooser.
+
+`check-import-only-sources.sh` exercises the coordinator, exact source bytes and
+lock state at open/edit/Save/close, chooser cancellation, legacy list/startup,
+and native save/fresh-process reopen. Original BOM, CRLF, archive parts and FDX
+metadata stay available separately; this policy does not promise lossless import
+of every source feature. `check-explicit-export-failure.sh` checks the explicit
+Export dialog and actual Fountain/FDX/DOCX/PDF exporters: read-only output,
+rejected/short staged writes and failed publication leave existing output intact
+and preserve the editor's unsaved text. It also checks failed clipboard export,
+recovery and editor paste. The old source-save suites and APIs are retired.
 
 The serialization boundary is explicit: `AbstractModel::saveChanges()` updates
 the `DocumentObject` before `ProjectManager::saveChanges()` writes it through

@@ -25,8 +25,8 @@ if ! "$CXX" -std=c++17 -g -fPIC -I "$ROOT/src" -I "$ROOT/src/core" -I "$ROOT/src
     exit 1
 fi
 if ! "$CXX" -std=c++17 -g -fPIC -shared "${QT_CFLAGS[@]}" \
-    "$ROOT/tests/conversion_publish_collision.cpp" "${QT_LIBS[@]}" -ldl \
-    -o "$EVIDENCE/conversion-collision.so" > "$EVIDENCE/collision-compile.log" 2>&1; then
+    "$ROOT/tests/import_publish_collision.cpp" "${QT_LIBS[@]}" -ldl \
+    -o "$EVIDENCE/import-collision.so" > "$EVIDENCE/collision-compile.log" 2>&1; then
     cat "$EVIDENCE/collision-compile.log" >&2
     exit 1
 fi
@@ -37,8 +37,8 @@ export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
 run_case() {
     local mode=$1 profile=$2
     local preload=${LD_PRELOAD:-}
-    if [[ $mode == conversion-race ]]; then
-        preload="$EVIDENCE/conversion-collision.so${preload:+:$preload}"
+    if [[ $mode == import-race ]]; then
+        preload="$EVIDENCE/import-collision.so${preload:+:$preload}"
     fi
     export STARC_PROFILE_DIR="$EVIDENCE/$profile"
     if [[ ! -d "$STARC_PROFILE_DIR" && $mode != create && $mode != onboarding* ]]; then
@@ -81,10 +81,10 @@ names = ['malformed.fdx', 'unsupported.xyz', 'corrupt.starc', 'newer.starc']
 PY
 run_case persisted shared-profile
 for mode in disabled explicit explicit-failure unavailable early-event queued-event duplicate \
-    onboarding onboarding-explicit locked failures save-as fountain fdx \
-    auto-corrupt auto-malformed auto-newer conversion-existing conversion-locked \
-    conversion-lock-only conversion-symlink conversion-dangling conversion-unwritable \
-    conversion-race conversion-success conversion-copy conversion-copy-failure; do
+    onboarding onboarding-explicit locked failures save-as fountain fdx legacy-fountain legacy-fdx \
+    auto-corrupt auto-malformed auto-newer import-existing import-locked \
+    import-lock-only import-symlink import-dangling import-unwritable \
+    import-race import-success import-copy import-copy-failure; do
     run_case "$mode" "$mode-profile"
 done
 run_case persisted-disabled disabled-profile

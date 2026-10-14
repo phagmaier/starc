@@ -832,45 +832,4 @@ void ExportManager::exportDocument(
     }
 }
 
-bool ExportManager::canSaveScreenplayToSourceFile(const QString& _filePath)
-{
-    const auto suffix = QFileInfo(_filePath).suffix().toLower();
-    return suffix == ExtensionHelper::fountain() || suffix == ExtensionHelper::plainText()
-        || suffix == ExtensionHelper::finalDraft()
-        || suffix == ExtensionHelper::finalDraftTemplate();
-}
-
-bool ExportManager::exportDocument(BusinessLayer::AbstractModel* _model, const QString& _filePath)
-{
-    // This convenience route saves back to an opened source, rather than an explicit export.
-    // Never replace an import-only archive or document with the Fountain fallback.
-    if (!canSaveScreenplayToSourceFile(_filePath) || !canExportDocument(_model)) {
-        return false;
-    }
-
-    Log::info("Exporting started. Export document of type %1 to file %2",
-              Domain::mimeTypeFor(_model->document()->type()).constData(), _filePath);
-
-    switch (_model->document()->type()) {
-    case Domain::DocumentObjectType::ScreenplayText: {
-        BusinessLayer::ScreenplayExportOptions options;
-        options.filePath = _filePath;
-        const auto isFinalDraft
-            = _filePath.endsWith(ExtensionHelper::finalDraft(), Qt::CaseInsensitive)
-            || _filePath.endsWith(ExtensionHelper::finalDraftTemplate(), Qt::CaseInsensitive);
-        options.fileFormat = isFinalDraft ? BusinessLayer::ExportFileFormat::Fdx
-                                          : BusinessLayer::ExportFileFormat::Fountain;
-        options.includeFolders = true;
-        options.includeInlineNotes = true;
-        options.includeReviewMarks = true;
-        options.includeTitlePage = true;
-        options.includeText = true;
-        return d->exportScreenplay(_model, options);
-    }
-
-    default:
-        return false;
-    }
-}
-
 } // namespace ManagementLayer

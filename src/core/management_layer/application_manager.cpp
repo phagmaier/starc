@@ -715,7 +715,11 @@ void ApplicationManager::Implementation::openStartupProject()
     } else if (startupRestoreAllowed
                && settingsValue(DataStorageLayer::kApplicationOpenLastStoryKey).toBool()) {
         const auto path = settingsValue(DataStorageLayer::kApplicationLastStoryPathKey).toString();
-        if (!path.isEmpty() && !openProject(path)) {
+        // Legacy remembered source files require an explicit import destination.
+        // Never show a save chooser as part of automatic startup.
+        if (!path.isEmpty()
+            && (QFileInfo(path).suffix().compare(ExtensionHelper::starc(), Qt::CaseInsensitive) != 0
+                || !openProject(path))) {
             showProjects();
         }
     }
@@ -930,15 +934,6 @@ bool ApplicationManager::Implementation::saveChanges()
         return true;
     }
 
-    if (const auto project = projectsManager->currentProject();
-        project->projectType() == BusinessLayer::ProjectType::LocalShadow
-        && !ExportManager::canSaveScreenplayToSourceFile(project->path())) {
-        StandardDialog::information(applicationView, tr("Saving error"),
-                                    tr("This source format cannot be saved in place. "
-                                       "Your changes have been kept open."));
-        return false;
-    }
-
     Log::info("Save changes triggered");
 
     constexpr int maximumSaveAttempts = 3;
@@ -1047,41 +1042,6 @@ bool ApplicationManager::Implementation::saveChanges()
                     .arg(DatabaseLayer::Database::currentFile()));
         }
         return false;
-    }
-
-    //
-    // Если работает с теневым проектом, то экспортируем его при сохранении
-    //
-    if (projectsManager->currentProject()->projectType()
-        == BusinessLayer::ProjectType::LocalShadow) {
-        const auto sourcePath = projectsManager->currentProject()->path();
-        if (!exportManager->exportDocument(projectManager->firstScriptModel(), sourcePath)) {
-            const auto shadowPath = DatabaseLayer::Database::currentFile();
-            Log::warning(QStringLiteral("Saving source file failed: %1").arg(sourcePath));
-            auto dialog = new Dialog(applicationView->topLevelWidget());
-            dialog->setContentMaximumWidth(Ui::DesignSystem::dialog().normalWidth());
-            dialog->showDialog(
-                tr("Saving error"),
-                tr("Changes can't be written to the source file \"%1\". Check file and folder "
-                   "permissions and available space, then retry saving. Your changes have "
-                   "been kept open and the existing source has been kept.")
-                    .arg(sourcePath),
-                { { 0, StandardDialog::generateOkTerm(), Dialog::RejectButton },
-                  { 1, tr("Retry"), Dialog::AcceptButton } });
-            connect(
-                dialog, &Dialog::finished, q,
-                [this, dialog, sourcePath, shadowPath](const Dialog::ButtonInfo& _pressedButton) {
-                    dialog->hideDialog();
-                    const auto currentProject = projectsManager->currentProject();
-                    if (_pressedButton.type == Dialog::AcceptButton && currentProject != nullptr
-                        && currentProject->path() == sourcePath
-                        && DatabaseLayer::Database::currentFile() == shadowPath) {
-                        saveChanges();
-                    }
-                });
-            QObject::connect(dialog, &Dialog::disappeared, dialog, &Dialog::deleteLater);
-            return false;
-        }
     }
 
     //
@@ -1238,15 +1198,6 @@ void ApplicationManager::Implementation::saveAs()
 
     switch (currentProject->projectType()) {
     //
-    // Для теневых проектов добавляем расширение старка, чтобы пользователя не пугал вопрос о
-    // перезаписи основного файла
-    //
-    case BusinessLayer::ProjectType::LocalShadow: {
-        projectPath += "." + ExtensionHelper::starc();
-        break;
-    }
-
-    //
     // Для удаленных проектов используем имя проекта + id проекта
     // и сохраняем в папку вновь создаваемых проектов
     //
@@ -1338,7 +1289,7 @@ void ApplicationManager::Implementation::saveAs()
         return;
     }
 
-    QFile source(currentProject->realPath());
+    QFile source(currentProject->path());
     if (!source.open(QIODevice::ReadOnly)) {
         reportSavingError();
         return;
@@ -1393,7 +1344,8 @@ void ApplicationManager::Implementation::saveAs()
 void ApplicationManager::Implementation::createProject()
 {
     auto callback = [this] { projectsManager->createProject(); };
-    saveIfNeeded(callback);
+    // The creation/import dialog can be canceled while the current story remains open.
+    saveIfNeeded(callback, false);
 }
 
 bool ApplicationManager::Implementation::createLocalProject(const QString& _projectName,
@@ -1494,8 +1446,15 @@ bool ApplicationManager::Implementation::createLocalProject(const QString& _proj
 
 void ApplicationManager::Implementation::openProject()
 {
-    auto callback = [this] { projectsManager->openProject(); };
-    saveIfNeeded(callback);
+    auto callback = [this] {
+        const auto path = projectsManager->openProject();
+        if (!path.isEmpty()) {
+            // This selection already passed the unsaved-story guard. A second guard
+            // would drop it while the first question is disappearing.
+            openProject(path);
+        }
+    };
+    saveIfNeeded(callback, false);
 }
 
 bool ApplicationManager::Implementation::openProject(const QString& _path)
@@ -1510,7 +1469,7 @@ bool ApplicationManager::Implementation::openProject(const QString& _path)
         return false;
     }
 
-    // Opening an unavailable source must not create an empty project or shadow story.
+    // Opening an unavailable source must not create an empty project.
     const QFileInfo source(_path);
     QFile sourceFile(_path);
     if (!source.isFile() || !sourceFile.open(QIODevice::ReadOnly)) {
@@ -1524,15 +1483,15 @@ bool ApplicationManager::Implementation::openProject(const QString& _path)
         return false;
     }
 
-    if (_path.endsWith(ExtensionHelper::starc(), Qt::CaseInsensitive)
-        && !DatabaseLayer::Database::canOpenFile(_path)) {
+    const bool isNativeProject
+        = source.suffix().compare(ExtensionHelper::starc(), Qt::CaseInsensitive) == 0;
+    if (isNativeProject && !DatabaseLayer::Database::canOpenFile(_path)) {
         StandardDialog::information(applicationView, { }, DatabaseLayer::Database::openFileError());
         return false;
     }
 
-    if (ImportManager::canImportScreenplay(_path)
-        && !ExportManager::canSaveScreenplayToSourceFile(_path)) {
-        // Import-only sources are never editable shadow projects. Choose a native copy before
+    if (!isNativeProject && ImportManager::canImportScreenplay(_path)) {
+        // Choose a native copy before
         // closing the current story; the creation route refuses existing/locked destinations.
         QScopedValueRollback<bool> pending(importCopyPending, true);
         auto destination = QFileDialog::getSaveFileName(
@@ -1548,6 +1507,11 @@ bool ApplicationManager::Implementation::openProject(const QString& _path)
         return createLocalProject(QFileInfo(destination).completeBaseName(), destination, _path);
     }
 
+    // Unsupported inputs cannot become project databases or acquire source locks.
+    if (!isNativeProject) {
+        return false;
+    }
+
     //
     // ... закроем текущий проект
     //
@@ -1560,27 +1524,8 @@ bool ApplicationManager::Implementation::openProject(const QString& _path)
         return false;
     }
 
-    //
-    // Если это не проект старка, то создаём временный файл проекта и в последующем импортируем
-    // данные в него
-    //
-    QString projectFilePath = _path;
-    QString importFilePath;
-    if (!projectFilePath.endsWith(ExtensionHelper::starc(), Qt::CaseInsensitive)) {
-        QTemporaryFile tempProject;
-        tempProject.setAutoRemove(false);
-        if (!tempProject.open()) {
-            return false;
-        }
-
-        projectFilePath = tempProject.fileName();
-        importFilePath = _path;
-    }
-
-    //
-    // ... переключаемся на работу с выбранным файлом
-    //
-    projectsManager->setCurrentProject(_path, projectFilePath);
+    // Open only the native project itself; imported source paths never become story paths.
+    projectsManager->setCurrentProject(_path);
 
     //
     // ... сохраняем открытый проект в списке недавних
@@ -1591,7 +1536,7 @@ bool ApplicationManager::Implementation::openProject(const QString& _path)
     // ... перейдём к редактированию
     //
     constexpr auto afterProjectCreation = false;
-    if (!goToEditCurrentProject(afterProjectCreation, importFilePath)) {
+    if (!goToEditCurrentProject(afterProjectCreation, { })) {
         closeCurrentProject();
         showProjects();
         return false;
@@ -1740,8 +1685,7 @@ bool ApplicationManager::Implementation::goToEditCurrentProject(bool _afterProje
         }
 
         //
-        // ... а после импорта пробуем повторно восстановить состояние,
-        //     особенно актуально для кейса с теневым проектом
+        // Restore the imported document selection in the new native project.
         //
         projectManager->restoreCurrentProjectState(currentProject->path());
     }
@@ -1763,70 +1707,6 @@ bool ApplicationManager::Implementation::goToEditCurrentProject(bool _afterProje
             tr("A file you are trying to open does not have write permissions. Check out file "
                "properties and allow it to be edited. Since it isn't editable, it will be opened "
                "in a read-only mode."));
-    }
-
-    if (currentProject->projectType() == BusinessLayer::ProjectType::LocalShadow) {
-        //
-        // Покажем диалог с предупреждением о том, что не все функции могут работать и предложим
-        // сохранить в формате старка
-        //
-        if (currentProject->canAskAboutSwitch()) {
-            const int kNeverAskAgainButtonId = 0;
-            const int kKeepButtonId = 1;
-            const int kYesButtonId = 2;
-            Dialog* informationDialog = new Dialog(applicationView);
-            const auto projectFileSuffix = QFileInfo(currentProject->path()).suffix().toUpper();
-            informationDialog->showDialog(
-                tr("Do you want continue to use .%1 file format?").arg(projectFileSuffix),
-                tr("Some project data cannot be saved in .%1 format. We recommend you to use Story "
-                   "Architect .%2 format so all the project data will be saved properly.")
-                    .arg(projectFileSuffix.toUpper(), ExtensionHelper::starc().toUpper()),
-                { { kNeverAskAgainButtonId, tr("Never ask again"), Dialog::NormalButton },
-                  { kKeepButtonId, tr("Keep .%1").arg(projectFileSuffix), Dialog::RejectButton },
-                  { kYesButtonId, tr("Switch to .STARC"), Dialog::AcceptButton } });
-            QObject::connect(informationDialog, &Dialog::finished, informationDialog,
-                             [this, informationDialog, kNeverAskAgainButtonId,
-                              kKeepButtonId](const Dialog::ButtonInfo& _buttonInfo) {
-                                 informationDialog->hideDialog();
-
-                                 //
-                                 // Пользователь хочет использовать оригинальный формат и просит
-                                 // больше его не беспокоить
-                                 //
-                                 if (_buttonInfo.id == kNeverAskAgainButtonId) {
-                                     projectsManager->setCurrentProjectNeverAskAboutSwitch();
-                                     return;
-                                 }
-
-                                 //
-                                 // Пользователь хочет использовать оригинальный формат в текущей
-                                 // сессии
-                                 //
-                                 if (_buttonInfo.id == kKeepButtonId) {
-                                     return;
-                                 }
-
-                                 //
-                                 // Пользователь хочет перейти на формат старка
-                                 //
-                                 // ... создаём новый документ и туда импортируем данные текущего
-                                 //
-                                 const auto project = projectsManager->currentProject();
-                                 const auto sourcePath = project->path();
-                                 const QString projectPath
-                                     = sourcePath + "." + ExtensionHelper::starc();
-                                 //
-                                 // ... скрываем текущий из списка недавних
-                                 //
-                                 if (createLocalProject(project->name(), projectPath, sourcePath)) {
-                                     projectsManager->hideProject(sourcePath);
-                                 }
-                             });
-            QObject::connect(informationDialog, &Dialog::disappeared, informationDialog,
-                             &Dialog::deleteLater);
-
-            QApplication::alert(applicationView);
-        }
     }
 
     //
@@ -2417,7 +2297,7 @@ bool ApplicationManager::openProject(const QString& _path)
     // approves switching and any requested save succeeds. The result must outlive this call
     // when the save question is asynchronous; false then means no immediate opening occurred.
     auto opened = std::make_shared<bool>(false);
-    d->saveIfNeeded([this, _path, opened] { *opened = d->openProject(_path); });
+    d->saveIfNeeded([this, _path, opened] { *opened = d->openProject(_path); }, false);
     return *opened;
 }
 
@@ -2671,7 +2551,7 @@ void ApplicationManager::initConnections()
                 }
 
                 auto callback = [this, _path] { d->openProject(_path); };
-                d->saveIfNeeded(callback);
+                d->saveIfNeeded(callback, false);
             });
     connect(d->projectsManager.data(), &ProjectsManager::closeCurrentProjectRequested, this,
             [this] { d->closeCurrentProject(); });

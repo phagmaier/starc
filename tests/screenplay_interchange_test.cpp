@@ -1,3 +1,5 @@
+#include "explicit_screenplay_export.h"
+
 #include <business_layer/export/screenplay/screenplay_export_options.h>
 #include <business_layer/export/screenplay/screenplay_fdx_exporter.h>
 #include <business_layer/export/screenplay/screenplay_fountain_exporter.h>
@@ -397,6 +399,8 @@ int main(int argc, char** argv)
 
     ManagementLayer::PluginsBuilder plugins;
     QWidget host; // Existing plugin instances retain raw view pointers: host outlives managers.
+    host.resize(1200, 800);
+    host.show();
     TaskBar::registerTaskBar(&host, Qt::black, Qt::white, Qt::blue);
     ManagementLayer::ProjectManager manager(nullptr, &host, plugins);
     ManagementLayer::ImportManager importer(nullptr, &host, plugins);
@@ -531,7 +535,8 @@ int main(int argc, char** argv)
     // extension must select FDX, rather than replacing an FDX file with Fountain text.
     ManagementLayer::ExportManager exportManager(nullptr, &host);
     const auto managerFdx = root + "/manager-export.fdx";
-    exportManager.exportDocument(select(fdxUuid), managerFdx);
+    require(explicitScreenplayExport(exportManager, select(fdxUuid), managerFdx, "FDX"),
+            "explicit manager FDX export succeeds");
     require(read(managerFdx).startsWith("<?xml"), "manager selects FDX for FDX destination");
     importer.importScreenplay(managerFdx, false);
     auto managerExpected = fdx;
@@ -710,8 +715,9 @@ int main(int argc, char** argv)
         check(select(fresh), literalModel, root + "/model-literal-fresh.json");
         persist(fresh, literalModel, "model-literal-fresh");
         const auto managerFountain = root + "/manager-literal.fountain";
-        require(exportManager.exportDocument(select(literalUuid), managerFountain),
-                "manager source Save of literal syntax");
+        require(explicitScreenplayExport(exportManager, select(literalUuid), managerFountain,
+                                         "Fountain"),
+                "explicit manager export of literal syntax");
         importer.importScreenplay(managerFountain, false);
         auto managerLiteral = literalModel;
         managerLiteral.numbers = { "1" }; // Ordinary information settings hide scene numbers.

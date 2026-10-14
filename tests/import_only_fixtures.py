@@ -24,6 +24,17 @@ with zipfile.ZipFile(root / "source.docx", "w") as archive:
     archive.writestr("customXml/retained.xml", "<retained>Preserve this source-only content.</retained>")
 (root / "source.DOCX").write_bytes((root / "source.docx").read_bytes())
 (root / "source.md").write_bytes(b"INT. LAB - DAY\n\nImport-only source survives.\n")
+for suffix in ("fountain", "txt", "FOUNTAIN", "TXT"):
+    (root / ("source." + suffix)).write_bytes(
+        b"\xef\xbb\xbfINT. LAB - DAY\r\n\r\n!Import-only source survives.\r\n\r\n"
+        b"/* Source-only spelling and CRLF must remain untouched. */\r\n")
+for suffix in ("fdx", "fdxt", "FDX", "FDXT"):
+    (root / ("source." + suffix)).write_bytes(b'''<?xml version="1.0" encoding="UTF-8"?>\r
+<FinalDraft DocumentType="Script" Version="1"><Content>\r
+<Paragraph Type="Scene Heading"><Text>INT. LAB - DAY</Text></Paragraph>\r
+<Paragraph Type="Action"><Text>Import-only source survives.</Text></Paragraph>\r
+</Content><RetainedMetadata>Never rewrite this source-only data.</RetainedMetadata></FinalDraft>\r
+''')
 
 stream = b"BT /F1 12 Tf 72 720 Td (INT. LAB - DAY) Tj 0 -36 Td (Import-only source survives.) Tj ET\n"
 objects = [

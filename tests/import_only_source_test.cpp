@@ -1,3 +1,5 @@
+#include "isolated_github_credentials.h"
+
 #include <app/application.h>
 #include <business_layer/document/text/text_document.h>
 #include <business_layer/model/structure/structure_model.h>
@@ -8,25 +10,38 @@
 #include <data_layer/storage/storage_facade.h>
 #include <domain/document_object.h>
 #include <management_layer/application_manager.h>
-#include <management_layer/content/export/export_manager.h>
+#include <management_layer/content/projects/projects_manager.h>
+#include <management_layer/content/projects/projects_model.h>
+#include <management_layer/content/projects/projects_model_project_item.h>
 #include <management_layer/plugins/screenplay_text/text/screenplay_text_edit.h>
 #include <ui/application_view.h>
+#include <ui/import/import_dialog.h>
 #include <ui/menu_view.h>
 #include <ui/onboarding/onboarding_navigator.h>
 #include <ui/project/project_navigator.h>
 #include <ui/projects/create_project_dialog.h>
+#include <ui/projects/projects_cards_graphics_view.h>
+#include <ui/projects/projects_view.h>
+#include <ui/widgets/combo_box/combo_box.h>
 #include <ui/widgets/dialog/dialog.h>
 #include <ui/widgets/label/label.h>
 #include <ui/widgets/tree/tree.h>
 
 #include <QAbstractButton>
 #include <QDir>
+#include <QDragEnterEvent>
+#include <QDropEvent>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileOpenEvent>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLockFile>
 #include <QMessageBox>
+#include <QMimeData>
+#include <QPointer>
 #include <QScreen>
 #include <QSortFilterProxyModel>
 #include <QSqlQuery>
@@ -38,6 +53,18 @@
 #include <functional>
 
 namespace {
+int baselineFailures = 0;
+void invariant(bool _ok, const char* _label)
+{
+    std::printf("%s: %s\n", _ok ? "ok" : "FAIL", _label);
+    if (!_ok) {
+        if (!qEnvironmentVariableIsSet("STARC_IMPORT_ONLY_BASELINE")) {
+            std::exit(1);
+        }
+        ++baselineFailures;
+    }
+}
+
 void require(bool _ok, const char* _label)
 {
     std::printf("%s: %s\n", _ok ? "ok" : "FAIL", _label);
@@ -84,8 +111,10 @@ void retain(const QString& _path, const QByteArray& _bytes)
 QByteArray script()
 {
     auto query = DatabaseLayer::Database::query();
-    require(query.exec("SELECT content FROM documents WHERE type = 10104") && query.next(),
-            "read persistent screenplay XML");
+    require(
+        query.exec("SELECT content FROM documents WHERE type = 10104 ORDER BY rowid DESC LIMIT 1")
+            && query.next(),
+        "read persistent screenplay XML");
     return query.value(0).toByteArray();
 }
 
@@ -103,7 +132,8 @@ QByteArray identities()
 Ui::ScreenplayTextEdit* editor()
 {
     auto query = DatabaseLayer::Database::query();
-    require(query.exec("SELECT uuid FROM documents WHERE type = 10104") && query.next(),
+    require(query.exec("SELECT uuid FROM documents WHERE type = 10104 ORDER BY rowid DESC LIMIT 1")
+                && query.next(),
             "imported story contains a screenplay");
     auto navigator = widget<Ui::ProjectNavigator>();
     auto proxy = qobject_cast<QSortFilterProxyModel*>(navigator->findChild<Tree*>()->model());
@@ -164,23 +194,25 @@ int main(int argc, char** argv)
     const auto root = qEnvironmentVariable("STARC_IMPORT_ONLY_ROOT");
     const auto mode = qEnvironmentVariable("STARC_IMPORT_ONLY_MODE");
     require(!root.isEmpty() && !mode.isEmpty(), "disposable root and test mode provided");
-    const auto suffix = mode.startsWith("pdf-") ? "pdf"
-        : mode.startsWith("md-")                ? "md"
-        : mode.startsWith("DOCX-")              ? "DOCX"
-                                                : "docx";
+    const auto suffix = mode.contains('-') ? mode.section('-', 0, 0) : QString("docx");
+    const auto action = mode.section('-', 1);
     const auto source = root + "/source." + suffix;
     const auto original = read(source);
     const auto base = root + "/base.starc";
-    const auto target = root + "/copies/copy.starc";
+    const bool insideImport = action == "import" || action == "drop";
+    const auto target = insideImport ? base : root + "/copies/copy.starc";
     const bool reopen = mode == "reopen";
-    const bool startup = mode == "docx-startup" || mode == "docx-onboarding";
-    const bool cancel = mode == "docx-cancel";
-    const bool existing = mode == "docx-existing";
-    const bool locked = mode == "docx-locked";
+    const bool automatic = action == "automatic";
+    const bool onboarding = action == "onboarding";
+    const bool startup = action == "startup" || onboarding;
+    const bool dirtyCancel = action.endsWith("dirty-cancel");
+    const bool cancel = action == "cancel" || dirtyCancel;
+    const bool existing = action == "existing";
+    const bool locked = action == "locked";
     const bool refusal = cancel || existing || locked;
-    const auto selected = existing    ? base
-        : mode == "docx-no-extension" ? root + "/copies/copy"
-                                      : target;
+    const auto selected = existing ? base
+        : action == "no-extension" ? root + "/copies/copy"
+                                   : target;
     bool pickerSeen = false;
     QTimer picker;
     picker.setInterval(10);
@@ -194,9 +226,21 @@ int main(int argc, char** argv)
                 return;
             }
         }
+        if (auto dialog = widget<QFileDialog>(); dialog && dialog->isVisible()
+            && (dialog->windowTitle() == "Choose the file to open"
+                || dialog->windowTitle() == "Choose files to import")) {
+            if (dialog->focusWidget())
+                dialog->focusWidget()->clearFocus();
+            dialog->selectFile(source);
+            require(dialog->selectedFiles() == QStringList{ source },
+                    "source chooser selects the intended input");
+            QMetaObject::invokeMethod(dialog, "accept", Qt::QueuedConnection);
+            return;
+        }
         if (auto dialog = widget<QFileDialog>(); dialog && dialog->isVisible() && !pickerSeen) {
+            invariant(!automatic, "remembered source never opens an automatic import chooser");
             pickerSeen = true;
-            if (mode == "docx-repeated") {
+            if (action == "repeated") {
                 const auto current = DatabaseLayer::Database::currentFile();
                 QFileOpenEvent competing(root + "/source.md");
                 require(QCoreApplication::sendEvent(&app, &competing),
@@ -218,9 +262,19 @@ int main(int argc, char** argv)
             }
         }
     });
-    setSettingsValue(DataStorageLayer::kApplicationConfiguredKey,
-                     mode != "prepare" && mode != "docx-onboarding");
-    setSettingsValue(DataStorageLayer::kApplicationOpenLastStoryKey, false);
+    setSettingsValue(DataStorageLayer::kApplicationConfiguredKey, mode != "prepare" && !onboarding);
+    setSettingsValue(DataStorageLayer::kApplicationOpenLastStoryKey, automatic);
+    if (automatic) {
+        setSettingsValue(DataStorageLayer::kApplicationLastStoryPathKey, source);
+    }
+    if (action.startsWith("list")) {
+        // Exactly the old persisted integer and obsolete preference, not the current enum.
+        QJsonObject entry{
+            { "type", 2 }, { "path", source }, { "name", "Legacy source" }, { "can_ask", false }
+        };
+        setSettingsValue(DataStorageLayer::kApplicationProjectsKey,
+                         QJsonDocument(QJsonArray{ entry }).toJson().toHex());
+    }
     setSettingsValue(DataStorageLayer::kApplicationUseAutoSaveKey, false);
     setSettingsValue(DataStorageLayer::kApplicationSaveBackupsKey, false);
     setSettingsValue(DataStorageLayer::kGitHubSyncUploadOnExitKey, false);
@@ -255,7 +309,7 @@ int main(int argc, char** argv)
     steps.setInterval(10);
     QObject::connect(&steps, &QTimer::timeout, [&] {
         auto window = widget<Ui::ApplicationView>();
-        if (mode == "docx-onboarding" && !onboardingDone) {
+        if (onboarding && !onboardingDone) {
             if (!widget<Ui::OnboardingNavigator>()->isVisible()) {
                 return;
             }
@@ -265,8 +319,12 @@ int main(int argc, char** argv)
             widget<Ui::OnboardingNavigator>()->skipGitHubSyncRequested();
             return;
         }
+        if (startup && qEnvironmentVariableIsSet("STARC_IMPORT_ONLY_BASELINE")
+            && settingsValue(DataStorageLayer::kApplicationLastStoryPathKey).toString() != source) {
+            return;
+        }
         // Let the startup chooser unwind and creation complete before editing in a new event.
-        if (startup
+        if (startup && !qEnvironmentVariableIsSet("STARC_IMPORT_ONLY_BASELINE")
             && (DatabaseLayer::Database::currentFile() != target
                 || settingsValue(DataStorageLayer::kApplicationLastStoryPathKey).toString()
                     != target)) {
@@ -282,10 +340,32 @@ int main(int argc, char** argv)
             return;
         }
         if (reopen) {
+            if (request.isEmpty()) {
+                waitFor([] { return widget<Ui::ProjectsView>()->isVisible(); });
+                require(widget<Ui::ProjectsView>()->isVisible(),
+                        "fresh startup remains on story list");
+                window->close();
+                return;
+            }
             waitFor([&] { return DatabaseLayer::Database::currentFile() == request; });
             require(script() == read(root + "/expected.xml")
                         && identities() == read(root + "/identities.txt"),
                     "fresh process reopens exact script, emphasis, review and document identities");
+            window->close();
+            return;
+        }
+        if (automatic) {
+            QCoreApplication::processEvents();
+            if (!qEnvironmentVariableIsSet("STARC_IMPORT_ONLY_BASELINE")) {
+                waitFor([] { return widget<Ui::ProjectsView>()->isVisible(); });
+            }
+            invariant(
+                !pickerSeen && widget<Ui::ProjectsView>()->isVisible()
+                    && DatabaseLayer::Database::currentFile() == ":memory:"
+                    && !QFile::exists(source + ".lock"),
+                "remembered source leaves story list visible, no database and no source lock");
+            retain(root + "/opened-path.txt", QByteArray());
+            closeQuestion.start();
             window->close();
             return;
         }
@@ -303,33 +383,134 @@ int main(int argc, char** argv)
             // Finish the queued startup decision before testing an event during editing.
             QCoreApplication::processEvents();
             const auto baseBytes = read(base);
-            QFileOpenEvent event(source);
-            require(QCoreApplication::sendEvent(&app, &event), "deliver actual QFileOpenEvent");
-            if (refusal) {
+            QByteArray dirtyModel;
+            if (dirtyCancel) {
+                auto currentEditor = editor();
+                currentEditor->moveCursor(QTextCursor::End);
+                currentEditor->insertPlainText(" CANCEL_DIRTY_MARKER");
+                auto model = qobject_cast<BusinessLayer::TextDocument*>(currentEditor->document())
+                                 ->model();
+                model->saveChanges();
+                dirtyModel = model->document()->content();
+                require(window->isWindowModified(),
+                        "current story has unsaved text before canceled import");
+            }
+            QPointer<Dialog> discardQuestion;
+            if (insideImport) {
+                if (action == "import") {
+                    widget<Ui::MenuView>()->importPressed();
+                } else {
+                    QMimeData files;
+                    files.setUrls({ QUrl::fromLocalFile(source) });
+                    auto navigator = widget<Ui::ProjectNavigator>();
+                    const auto position = navigator->rect().center();
+                    QDragEnterEvent enter(position, Qt::CopyAction, &files, Qt::LeftButton,
+                                          Qt::NoModifier);
+                    QDropEvent drop(position, Qt::CopyAction, &files, Qt::LeftButton,
+                                    Qt::NoModifier);
+                    QCoreApplication::sendEvent(navigator, &enter);
+                    QCoreApplication::sendEvent(navigator, &drop);
+                    require(drop.isAccepted(), "actual file drop reaches project import route");
+                }
+                waitFor([] {
+                    return widget<Ui::ImportDialog>() && widget<Ui::ImportDialog>()->isVisible();
+                });
+                auto importing = widget<Ui::ImportDialog>();
+                auto type = importing->findChild<ComboBox*>();
+                require(type, "Import dialog exposes the document type");
+                type->setCurrentText("Screenplay");
+                importing->importRequested();
                 require(
+                    DatabaseLayer::Database::currentFile() == base && !pickerSeen,
+                    "Import dialog adds to the current native story without a new-story chooser");
+            } else if (action.startsWith("menu")) {
+                widget<Ui::MenuView>()->openProjectPressed();
+            } else if (action.startsWith("list")) {
+                auto projects = qobject_cast<BusinessLayer::ProjectsModel*>(
+                    widget<Ui::ProjectsCardsGraphicsView>()->model());
+                BusinessLayer::ProjectsModelProjectItem* legacy = nullptr;
+                for (int row = 0; row < projects->rowCount(); ++row) {
+                    auto item = projects->itemForIndex(projects->index(row));
+                    if (item->type() == BusinessLayer::ProjectsModelItemType::Project) {
+                        auto project = static_cast<BusinessLayer::ProjectsModelProjectItem*>(item);
+                        if (project->path() == source)
+                            legacy = project;
+                    }
+                }
+                require(legacy && legacy->isLocal(), "old source list entry loads as local");
+                widget<Ui::ProjectsView>()->openProjectRequested(legacy);
+            } else {
+                QFileOpenEvent event(source);
+                require(QCoreApplication::sendEvent(&app, &event), "deliver actual QFileOpenEvent");
+            }
+            if (dirtyCancel) {
+                for (auto candidate : QApplication::allWidgets()) {
+                    if (auto dialog = qobject_cast<Dialog*>(candidate)) {
+                        for (auto label : dialog->findChildren<AbstractLabel*>()) {
+                            if (label->text().contains("Save changes?"))
+                                discardQuestion = dialog;
+                        }
+                    }
+                }
+                require(discardQuestion, "source open honors the unsaved-story guard");
+                discardQuestion->finished({ 1, "Don't save", Dialog::NormalButton });
+            }
+            if (refusal) {
+                invariant(
                     pickerSeen && DatabaseLayer::Database::currentFile() == base
                         && read(base) == baseBytes && read(source) == original
-                        && QFile::exists(base + ".lock") && !QFile::exists(target),
+                        && !QFile::exists(source + ".lock") && QFile::exists(base + ".lock")
+                        && !QFile::exists(target),
                     "canceled or refused import keeps current story, lock and exact source bytes");
+                if (dirtyCancel) {
+                    auto currentEditor = widget<Ui::ScreenplayTextEdit>();
+                    auto model
+                        = qobject_cast<BusinessLayer::TextDocument*>(currentEditor->document())
+                              ->model();
+                    invariant(window->isWindowModified()
+                                  && model->document()->content() == dirtyModel
+                                  && currentEditor->toPlainText().contains("CANCEL_DIRTY_MARKER"),
+                              "chooser cancellation preserves exact unsaved model and dirty state");
+                    currentEditor->undo();
+                    require(!currentEditor->toPlainText().contains("CANCEL_DIRTY_MARKER"),
+                            "chooser cancellation preserves Undo history");
+                    currentEditor->redo();
+                    require(currentEditor->toPlainText().contains("CANCEL_DIRTY_MARKER"),
+                            "chooser cancellation preserves Redo history");
+                    save();
+                }
+                if (qEnvironmentVariableIsSet("STARC_IMPORT_ONLY_BASELINE")) {
+                    dismissFormatQuestion();
+                    widget<Ui::MenuView>()->saveProjectChangesPressed();
+                }
                 retain(root + "/opened-path.txt", base.toUtf8());
                 retain(root + "/expected.xml", script());
                 retain(root + "/identities.txt", identities());
+                // The prior guard stays active until its animated dialog is destroyed.
+                // Complete that observable lifecycle before issuing ordinary close.
+                if (discardQuestion)
+                    waitFor([&] { return discardQuestion.isNull(); });
+                closeQuestion.start();
                 window->close();
                 return;
             }
         }
-        if (startup) {
+        if (startup && !qEnvironmentVariableIsSet("STARC_IMPORT_ONLY_BASELINE")) {
             waitFor([&] { return QFile::exists(target + ".lock"); });
         }
         dismissFormatQuestion();
+        invariant(read(source) == original && !QFile::exists(source + ".lock"),
+                  "after open: source bytes identical and no source lock");
         widget<Ui::MenuView>()->saveProjectChangesPressed();
         retain(root + "/source-after-first-save", read(source));
-        require(read(source) == original, "opening and Save leave the complete source byte-exact");
-        require(pickerSeen && DatabaseLayer::Database::currentFile() == target
-                    && settingsValue(DataStorageLayer::kApplicationLastStoryPathKey).toString()
-                        == target
-                    && QFile::exists(target + ".lock") && !QFile::exists(source + ".lock"),
-                "import-only source opens as a native copy with native path and lock");
+        invariant(read(source) == original,
+                  "opening and Save leave the complete source byte-exact");
+        invariant((insideImport ? !pickerSeen : pickerSeen)
+                      && DatabaseLayer::Database::currentFile() == target
+                      && settingsValue(DataStorageLayer::kApplicationLastStoryPathKey).toString()
+                          == target
+                      && QFile::exists(target + ".lock") && !QFile::exists(source + ".lock"),
+                  "import-only source opens as a native copy with native path and lock");
         auto edit = editor();
         require(edit->toPlainText().contains("Import-only source survives."),
                 "native story contains the imported screenplay text");
@@ -354,7 +535,14 @@ int main(int argc, char** argv)
         comment.text = "Review annotation on imported copy";
         mark.comments.append(comment);
         cursor.mergeCharFormat(mark.charFormat());
+        invariant(read(source) == original && !QFile::exists(source + ".lock"),
+                  "after edit: source bytes identical and no source lock");
         save();
+        invariant(read(source) == original && !QFile::exists(source + ".lock"),
+                  "after Save: source bytes identical and no source lock");
+        invariant(DatabaseLayer::Database::currentFile() == target
+                      && read(target).startsWith("SQLite"),
+                  "Save writes only the native .starc project");
         const auto expected = script();
         require(expected.contains("SOURCE_EDIT_MARKER") && expected.contains("bold=")
                     && expected.contains("Review annotation on imported copy"),
@@ -362,41 +550,18 @@ int main(int argc, char** argv)
         retain(root + "/opened-path.txt", target.toUtf8());
         retain(root + "/expected.xml", expected);
         retain(root + "/identities.txt", identities());
-        ManagementLayer::ExportManager exporter(nullptr, window);
-        auto model = qobject_cast<BusinessLayer::TextDocument*>(edit->document())->model();
-        exporter.exportDocument(model, source);
-        require(read(source) == original,
-                "source-save export route also refuses rewriting the source");
-        for (const auto& extension : { "docx", "DOCX", "pdf", "md", "odt", "rtf", "celtx", "trelby",
-                                       "kitsp", "unknown", "" }) {
-            const auto destination = root + "/guarded"
-                + (QString(extension).isEmpty() ? "" : "." + QString(extension));
-            retain(destination, original);
-            exporter.exportDocument(model, destination);
-            require(read(destination) == original,
-                    "unsupported source-save destinations retain exact bytes");
-        }
-        for (const auto& extension : { "fountain", "TXT", "fdx", "FDXT" }) {
-            const auto destination = root + "/supported." + extension;
-            exporter.exportDocument(model, destination);
-            const auto bytes = read(destination);
-            const bool isFdx = QString(extension).startsWith("fd", Qt::CaseInsensitive);
-            require(bytes.contains(isFdx ? "SOURCE_EDIT_MARKER" : "SOURCE\\_EDIT\\_MARKER")
-                        && bytes.startsWith("<?xml") == isFdx,
-                    "supported source formats still select Fountain or FDX correctly");
-        }
         screenshot(root, "saved-native-copy");
-        // The first supported export initializes the existing empty title-page document.
-        // Answer its normal save question; reopen still requires unchanged screenplay XML.
+        // Answer an ordinary save question if editor normalization made the story dirty.
         closeQuestion.start();
         window->close();
     });
     steps.start();
     QTimer::singleShot(45000, &app, [] { require(false, "ordinary shutdown watchdog"); });
     const auto result = app.exec();
-    require(result == 0 && read(source) == original && !QFile::exists(base + ".lock")
-                && (locked || !QFile::exists(target + ".lock")),
-            "ordinary exit releases application locks and leaves the source byte-exact");
-    std::puts("PASS: import-only source regression");
-    return result;
+    invariant(result == 0 && !QFile::exists(source + ".lock") && read(source) == original
+                  && !QFile::exists(base + ".lock") && (locked || !QFile::exists(target + ".lock")),
+              "ordinary exit releases application locks and leaves the source byte-exact");
+    std::puts(baselineFailures ? "FAIL: baseline contract violations retained"
+                               : "PASS: import-only source regression");
+    return baselineFailures ? 1 : result;
 }

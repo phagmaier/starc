@@ -451,7 +451,12 @@ void ProjectsManager::loadProjects()
             }
             project->setEditingPermissions(permissions);
         }
-        project->setProjectType(static_cast<BusinessLayer::ProjectType>(_json["type"].toInt()));
+        // Old story lists stored LocalShadow as 2. Treat it as a local import entry;
+        // Cloud remains 3. Clicking a source path goes through the import chooser.
+        const auto storedType = _json["type"].toInt();
+        project->setProjectType(storedType == 2
+                                    ? BusinessLayer::ProjectType::Local
+                                    : static_cast<BusinessLayer::ProjectType>(storedType));
         project->setUuid(QUuid(_json["uuid"].toString()));
         project->setName(_json["name"].toString());
         project->setLogline(_json["logline"].toString());
@@ -459,7 +464,6 @@ void ProjectsManager::loadProjects()
         project->setPosterPath(_json["poster_path"].toString());
         project->setLastEditTime(
             QDateTime::fromString(_json["last_edit_time"].toString(), Qt::ISODateWithMs));
-        project->setCanAskAboutSwitch(_json["can_ask"].toBool());
         return project;
     };
 
@@ -538,7 +542,6 @@ void ProjectsManager::saveProjects()
         projectJson["path"] = projectItem->path();
         projectJson["poster_path"] = projectItem->posterPath();
         projectJson["last_edit_time"] = projectItem->lastEditTime().toString(Qt::ISODateWithMs);
-        projectJson["can_ask"] = projectItem->canAskAboutSwitch();
         return projectJson;
     };
 
@@ -750,7 +753,7 @@ void ProjectsManager::createProject()
     d->createProjectDialog->showDialog();
 }
 
-void ProjectsManager::openProject()
+QString ProjectsManager::openProject()
 {
     Log::debug("Open project");
 
@@ -763,7 +766,7 @@ void ProjectsManager::openProject()
         = QFileDialog::getOpenFileName(d->topLevelWidget, tr("Choose the file to open"),
                                        projectOpenFolder, DialogHelper::filtersForOpenProject());
     if (projectPath.isEmpty()) {
-        return;
+        return { };
     }
 
     //
@@ -772,10 +775,9 @@ void ProjectsManager::openProject()
     // ... обновим папку, откуда в следующий раз он предположительно опять будет открывать проекты
     //
     setSettingsValue(DataStorageLayer::kProjectOpenFolderKey, projectPath);
-    //
-    // ... и сигнализируем о том, что файл выбран для открытия
-    //
-    emit openLocalProjectRequested(projectPath);
+    // The coordinator has already guarded this chooser. Return the selection rather
+    // than sending it through the story-list guard a second time.
+    return projectPath;
 }
 
 void ProjectsManager::setCloudProjects(const QVector<Domain::ProjectInfo>& _projects)
@@ -1014,7 +1016,6 @@ void ProjectsManager::addOrUpdateCloudProject(const Domain::ProjectInfo& _projec
         cloudProject->setId(_projectInfo.id);
         cloudProject->setProjectType(BusinessLayer::ProjectType::Cloud);
         cloudProject->setPath(projectPath);
-        cloudProject->setRealPath(projectPath);
 
         //
         // Добавляем проект в список
@@ -1038,22 +1039,16 @@ void ProjectsManager::addOrUpdateCloudProject(const Domain::ProjectInfo& _projec
 
 void ProjectsManager::setCurrentProject(const QString& _path)
 {
-    setCurrentProject(_path, _path);
-}
-
-void ProjectsManager::setCurrentProject(const QString& _path, const QString& _realPath)
-{
     //
     // Приведём путь к нативному виду
     //
     const QString projectPath = QDir::toNativeSeparators(_path);
-    const QString projectRealPath = QDir::toNativeSeparators(_realPath);
 
     //
     // Делаем проект текущим и загружаем из него БД
     // или создаём, если ранее его не существовало
     //
-    DatabaseLayer::Database::setCurrentFile(projectRealPath);
+    DatabaseLayer::Database::setCurrentFile(projectPath);
 
     //
     // Определим, находится ли устанавливаемый проект уже в списке, или это новый
@@ -1094,12 +1089,6 @@ void ProjectsManager::setCurrentProject(const QString& _path, const QString& _re
     }
 
     //
-    // Всегда обновляем реальный путь, т.к. для теневых проектов он будет изменён при повторном
-    // открытии
-    //
-    newCurrentProject->setRealPath(projectRealPath);
-
-    //
     // Если проект не нашёлся в списке недавних, добавляем в начало
     //
     if (newCurrentProject->projectType() == BusinessLayer::ProjectType::Invalid) {
@@ -1108,9 +1097,7 @@ void ProjectsManager::setCurrentProject(const QString& _path, const QString& _re
         //
         // Определим параметры проекта
         //
-        newCurrentProject->setProjectType(projectPath == projectRealPath
-                                              ? BusinessLayer::ProjectType::Local
-                                              : BusinessLayer::ProjectType::LocalShadow);
+        newCurrentProject->setProjectType(BusinessLayer::ProjectType::Local);
         newCurrentProject->setName(fileInfo.completeBaseName());
         newCurrentProject->setPath(projectPath);
         newCurrentProject->setLastEditTime(fileInfo.lastModified());
@@ -1216,12 +1203,6 @@ void ProjectsManager::setCurrentProjectCover(const QPixmap& _cover)
     }
 }
 
-void ProjectsManager::setCurrentProjectNeverAskAboutSwitch()
-{
-    d->currentProject->setCanAskAboutSwitch(false);
-    d->projects->updateItem(d->currentProject);
-}
-
 void ProjectsManager::setCurrentProjectCanBeSynced(bool _can)
 {
     d->currentProject->setCanBeSynced(_can);
@@ -1239,13 +1220,6 @@ void ProjectsManager::closeCurrentProject()
     // Очищаем хранилища
     //
     DataStorageLayer::StorageFacade::clearStorages();
-
-    //
-    // Для теневого проекта, удаляем временный файл
-    //
-    if (d->currentProject->projectType() == BusinessLayer::ProjectType::LocalShadow) {
-        QFile::remove(d->currentProject->realPath());
-    }
 
     //
     // Очищаем текущий проект

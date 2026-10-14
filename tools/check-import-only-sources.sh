@@ -2,7 +2,7 @@
 # Real application direct-open/import, source preservation, editing and ordinary reopen.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-OUTPUT="$ROOT/.build/debug/_build"
+OUTPUT=${STARC_IMPORT_ONLY_OUTPUT:-"$ROOT/.build/debug/_build"}
 mkdir -p "$ROOT/.build/evidence"
 EVIDENCE=$(mktemp -d "$ROOT/.build/evidence/import-only-sources-XXXXXX")
 printf 'Evidence: %s\n' "$EVIDENCE"
@@ -32,15 +32,15 @@ run_case() {
     if ! STARC_IMPORT_ONLY_MODE="$mode" "$EVIDENCE/import-only-test" > "$root/$mode.log" 2>&1; then
         tail -100 "$root/$mode.log" >&2
         printf 'Failed case: %s; evidence: %s\n' "$mode" "$EVIDENCE" >&2
-        exit 1
+        return 1
     fi
     printf 'PASS: %s (ordinary exit 0)\n' "$mode"
 }
-for mode in ${STARC_IMPORT_ONLY_CASES:-docx-startup docx-event docx-onboarding docx-cancel docx-existing docx-locked docx-readonly docx-no-extension docx-repeated DOCX-event pdf-event md-event}; do
+for mode in ${STARC_IMPORT_ONLY_CASES:-docx-startup docx-event docx-onboarding docx-cancel docx-existing docx-locked docx-readonly docx-no-extension docx-repeated DOCX-event pdf-event md-event fountain-startup fountain-event fountain-onboarding fountain-menu fountain-list fountain-cancel fountain-existing fountain-locked fountain-readonly fountain-no-extension fountain-repeated fountain-automatic txt-event txt-cancel txt-automatic fdx-startup fdx-event fdx-menu fdx-list fdx-cancel fdx-readonly fdx-automatic fdxt-event fdxt-cancel fdxt-automatic FOUNTAIN-event TXT-event FDX-event FDXT-event fountain-import fdx-import txt-import fdxt-import fountain-drop fdx-drop fountain-dirty-cancel fdx-dirty-cancel fountain-menu-dirty-cancel fdx-menu-dirty-cancel fountain-list-dirty-cancel fdx-list-dirty-cancel}; do
     root="$EVIDENCE/$mode"
     python3 "$ROOT/tests/import_only_fixtures.py" "$root"
     mkdir -p "$root/copies"
-    [[ $mode != docx-readonly ]] || chmod 444 "$root/source.docx"
+    [[ $mode != *-readonly ]] || chmod 444 "$root/source.${mode%%-*}"
     python3 - "$root" <<'PY'
 from pathlib import Path
 import hashlib
@@ -51,10 +51,20 @@ root = Path(sys.argv[1])
 PY
     # The onboarding case needs genuinely fresh settings, rather than a completed profile
     # whose configured flag was reset just for the test.
-    [[ $mode == docx-onboarding ]] || run_case prepare "$root"
-    run_case "$mode" "$root"
-    run_case reopen "$root"
+    [[ $mode == *-onboarding ]] || run_case prepare "$root"
+    if [[ ${STARC_IMPORT_ONLY_BASELINE:-0} == 1 ]]; then
+        # Retain every contract failure against an unchanged application; do not run
+        # the native-reopen oracle for a baseline that deliberately violates the policy.
+        run_case "$mode" "$root" || continue
+    else
+        run_case "$mode" "$root"
+        run_case reopen "$root"
+    fi
 done
+if [[ ${STARC_IMPORT_ONLY_BASELINE:-0} == 1 ]]; then
+    printf 'Baseline contract failures retained: %s\n' "$EVIDENCE"
+    exit 1
+fi
 python3 - "$EVIDENCE" <<'PY'
 from pathlib import Path
 import hashlib
@@ -71,9 +81,13 @@ for case in root.iterdir():
     with zipfile.ZipFile(case / 'source.docx') as archive:
         assert archive.testzip() is None
         assert b'Preserve this source-only content.' in archive.read('customXml/retained.xml')
-    path = Path((case / 'opened-path.txt').read_text())
+    opened = (case / 'opened-path.txt').read_text()
+    assert not list(case.glob('source.*.lock')), case
+    if not opened:
+        continue
+    path = Path(opened)
     with sqlite3.connect(path.as_uri() + '?mode=ro', uri=True) as db:
-        content = db.execute('SELECT content FROM documents WHERE type = 10104').fetchone()[0]
+        content = db.execute('SELECT content FROM documents WHERE type = 10104 ORDER BY rowid DESC LIMIT 1').fetchone()[0]
         if isinstance(content, str):
             content = content.encode()
         assert content == (case / 'expected.xml').read_bytes(), case

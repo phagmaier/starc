@@ -1,3 +1,5 @@
+#include "explicit_screenplay_export.h"
+
 #include <app/application.h>
 #include <business_layer/document/text/text_document.h>
 #include <business_layer/model/structure/structure_model.h>
@@ -5,6 +7,7 @@
 #include <business_layer/model/text/text_model.h>
 #include <business_layer/model/text/text_model_text_item.h>
 #include <business_layer/templates/text_template.h>
+#include <data_layer/database.h>
 #include <data_layer/storage/github_credential_store.h>
 #include <data_layer/storage/settings_storage.h>
 #include <data_layer/storage/storage_facade.h>
@@ -23,6 +26,7 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QMimeData>
@@ -198,13 +202,31 @@ int main(int argc, char** argv)
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     require(argc == 3, "private case directory and mode");
     const QString root = QString::fromLocal8Bit(argv[1]);
-    require(QDir().mkpath(root + "/tmp"), "private clipboard/shadow temporary directory");
+    require(QDir().mkpath(root + "/tmp"), "private clipboard temporary directory");
     qputenv("TMPDIR", (root + "/tmp").toUtf8());
     Application app(argc, argv);
+    app.setAttribute(Qt::AA_DontUseNativeDialogs);
     app.setApplicationVersion("0.8.4");
     app.setQuitOnLastWindowClosed(false);
     const QString mode = QString::fromLocal8Bit(argv[2]);
     const auto source = root + "/source.fountain";
+    const auto input = mode == "reopen" ? root + "/export.fountain" : source;
+    const auto originalSource = read(source);
+    const auto project = root + '/' + mode + ".starc";
+    bool pickerSeen = false;
+    QTimer picker;
+    picker.setInterval(10);
+    QObject::connect(&picker, &QTimer::timeout, [&] {
+        for (auto candidate : QApplication::allWidgets()) {
+            if (auto chooser = qobject_cast<QFileDialog*>(candidate);
+                chooser && chooser->isVisible() && !pickerSeen) {
+                pickerSeen = true;
+                chooser->selectFile(project);
+                QMetaObject::invokeMethod(chooser, "accept", Qt::QueuedConnection);
+            }
+        }
+    });
+    picker.start();
     setSettingsValue(DataStorageLayer::kApplicationConfiguredKey, true);
     setSettingsValue(DataStorageLayer::kApplicationOpenLastStoryKey, false);
     setSettingsValue(DataStorageLayer::kApplicationUseAutoSaveKey, false);
@@ -212,13 +234,16 @@ int main(int argc, char** argv)
     setSettingsValue(DataStorageLayer::kGitHubSyncUploadOnExitKey, false);
     auto manager = new ManagementLayer::ApplicationManager;
     app.setApplicationManager(manager);
-    manager->exec(source);
+    manager->exec(input);
     QTimer::singleShot(0, &app, [&] {
-        waitFor([&] { return QFile::exists(source + ".lock"); });
-        waitFor([] { return dialogWithText("Do you want continue to use .FOUNTAIN") != nullptr; });
-        QPointer<Dialog> formatQuestion = dialogWithText("Do you want continue to use .FOUNTAIN");
-        formatQuestion->finished({ 1, "Keep .FOUNTAIN", Dialog::RejectButton });
-        waitFor([&] { return formatQuestion.isNull() || !formatQuestion->isVisible(); });
+        waitFor([&] {
+            return DatabaseLayer::Database::currentFile() == project
+                && settingsValue(DataStorageLayer::kApplicationLastStoryPathKey).toString()
+                == project;
+        });
+        picker.stop();
+        require(pickerSeen && !QFile::exists(input + ".lock"),
+                "source imported into a native story without a source lock");
         auto window = widget<Ui::ApplicationView>();
         window->resize(1320, 900);
         auto splitter = window->findChild<Splitter*>(QString(), Qt::FindDirectChildrenOnly);
@@ -228,7 +253,7 @@ int main(int argc, char** argv)
         auto document = qobject_cast<TextDocument*>(edit->document());
         require(document, "editor binds the imported text model");
         auto model = document->model();
-        const auto before = read(source);
+        const auto before = read(input);
         if (mode == "save" || mode == "cold-undo") {
             // Serialize the editor's initial format projection before recording a
             // separate authored edit, as in the other editor/persistence fixtures.
@@ -236,19 +261,18 @@ int main(int argc, char** argv)
             model->saveChanges();
             widget<Ui::MenuView>()->saveProjectChangesPressed();
             require(!window->isWindowModified() && snapshot(model) == imported,
-                    "initial source Save preserves imported text, styles and review coverage");
+                    "initial native Save preserves imported text, styles and review coverage");
             const auto original = snapshot(model);
             auto cursor = edit->textCursor();
             cursor.movePosition(QTextCursor::End);
             edit->setTextCursorForced(cursor);
             // The literal fixture also has text typed that Fountain would read as syntax.
-            edit->insertPlainText(root.endsWith("/literal-syntax")
-                                      ? " SAVEMARKER [[typed]] D:\\x"
-                                      : " SAVEMARKER");
+            edit->insertPlainText(root.endsWith("/literal-syntax") ? " SAVEMARKER [[typed]] D:\\x"
+                                                                   : " SAVEMARKER");
             QApplication::processEvents();
             const auto edited = snapshot(model);
             require(edited != original && edit->toPlainText().contains("SAVEMARKER"),
-                    "editor applies a real pending source edit");
+                    "editor applies a real pending editor edit");
             if (mode == "cold-undo") {
                 // Keep the separate first-edit history probe explicit, including
                 // any failure, rather than folding it into export/save evidence.
@@ -262,26 +286,34 @@ int main(int argc, char** argv)
             }
             write(root + "/expected.json", QJsonDocument(edited).toJson());
         } else {
-            require(mode == "reopen", "fresh source reopen mode");
+            require(mode == "reopen", "fresh exported-file import mode");
             require(snapshot(model)
                         == QJsonDocument::fromJson(read(root + "/expected.json")).array(),
                     "fresh application import retains every character, style and review coverage");
-            require(before == read(root + "/expected-source"),
+            require(before == read(root + "/expected-export"),
                     "fresh import leaves source bytes intact");
         }
         model->saveChanges();
         widget<Ui::MenuView>()->saveProjectChangesPressed();
-        require(!window->isWindowModified(), "coordinator source Save completes");
-        const auto saved = read(source);
-        require(saved.contains("SAVEMARKER"), "pending edit reaches the actual Fountain source");
+        require(!window->isWindowModified(), "coordinator native Save completes");
+        require(read(source) == originalSource && !QFile::exists(source + ".lock"),
+                "native Save leaves source bytes and source lock state untouched");
+        ManagementLayer::ExportManager exporter(nullptr, window);
+        require(
+            explicitScreenplayExport(exporter, model, root + "/export.fountain", "Fountain", false),
+            "explicit Fountain export through the real manager");
+        const auto saved = read(root + "/export.fountain");
+        require(saved.contains("SAVEMARKER"), "typed text reaches explicit Fountain output");
         if (mode == "save" || mode == "cold-undo") {
-            require(saved != before, "coordinator published the changed source");
-            write(root + "/expected-source", saved);
+            require(saved != before, "explicit export contains the edited screenplay");
+            write(root + "/expected-export", saved);
         } else {
-            require(saved == before, "fresh application Save is byte-idempotent");
+            require(saved == before, "fresh application explicit export is byte-idempotent");
         }
-        widget<Ui::MenuView>()->saveProjectChangesPressed();
-        require(read(source) == saved, "a second source Save is byte-idempotent");
+        require(
+            explicitScreenplayExport(exporter, model, root + "/export.fountain", "Fountain", false)
+                && read(root + "/export.fountain") == saved,
+            "repeated explicit export is byte-idempotent");
         const auto savedSnapshot = snapshot(model);
         edit->selectAll();
         edit->copy();
@@ -296,12 +328,13 @@ int main(int argc, char** argv)
                         == QByteArray("A \\*literal\\* clue.[[Check clue]]\n"),
                     "partial clipboard export retains exact literal text and review anchor");
         }
-        require(snapshot(model) == savedSnapshot && read(source) == saved,
-                "clipboard export preserves the live model and saved source");
+        require(snapshot(model) == savedSnapshot && read(root + "/export.fountain") == saved
+                    && read(source) == originalSource,
+                "clipboard export preserves the model, source and explicit output");
         auto cursor = edit->textCursor();
         cursor.clearSelection();
         edit->setTextCursorForced(cursor);
-        if (qEnvironmentVariableIsSet("STARC_REVIEW_SOURCE_SCREENSHOTS")) {
+        if (qEnvironmentVariableIsSet("STARC_FOUNTAIN_EXPORT_SCREENSHOTS")) {
             window->repaint();
             QGuiApplication::sync();
             require(window->screen()->grabWindow(window->winId()).save(root + '/' + mode + ".png"),
@@ -322,9 +355,10 @@ int main(int argc, char** argv)
     });
     QTimer::singleShot(30000, &app, [] { require(false, "ordinary shutdown watchdog"); });
     const auto status = app.exec();
-    require(status == 0 && !QFile::exists(source + ".lock"),
-            "ordinary close releases the source lock");
-    require(read(source) == read(root + "/expected-source"),
-            "ordinary close retains exact saved source");
+    require(status == 0 && !QFile::exists(source + ".lock") && !QFile::exists(project + ".lock"),
+            "ordinary close releases the native lock and never locks the source");
+    require(read(source) == originalSource
+                && read(root + "/export.fountain") == read(root + "/expected-export"),
+            "ordinary close retains original source and exact explicit export");
     return status;
 }

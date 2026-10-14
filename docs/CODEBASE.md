@@ -32,7 +32,10 @@ wait for the save question. Its boolean result reports only immediate opening.
 Same-story requests keep the current edits without prompting. Requests arriving
 while a save question is active cannot bypass it or replace its callback.
 Already-guarded story-list/cloud callbacks call the private opening method after
-approval, avoiding a second guard while their question is disappearing.
+approval. The Open story chooser returns its selection to the same approved
+callback, avoiding a second guard while its question is disappearing. Open/create
+guards leave the current story dirty after Don't save until a switch succeeds;
+canceling a chooser preserves its edits and Undo/Redo history.
 
 An opening lock question owns the failed attempt's lock separately from the live
 story's lock. Closing or switching a story disables and disconnects that question
@@ -45,10 +48,12 @@ again before loading. A lock still held by another live instance is retained.
 `kApplicationOpenLastStoryKey` defaults to false. The settings checkbox persists
 it without a runtime project-switch handler. `goToEditCurrentProject` records
 `kApplicationLastStoryPathKey` only after loading succeeds, using the local story's
-absolute `path()` rather than its shadow `realPath()`. Creation and Save As share
+absolute `.starc` `path()`. Creation and Save As share
 this route. Missing/unreadable sources, failed imports/database loads and refused
 locks leave the remembered path intact. Existing lock and read-only policies
-still apply. `tools/check-startup-last-story.sh` exercises this coordinator with
+still apply to native projects. A remembered non-`.starc` path leaves the story
+list visible without a chooser. Explicit startup files still use the import
+chooser. `tools/check-startup-last-story.sh` exercises this coordinator with
 disposable profiles, successive processes and ordinary close.
 
 ## Screenplay editing
@@ -100,22 +105,29 @@ and export options and selects the format exporter. Both exporters use
 `AbstractExporter::prepareDocument` / `ScreenplayExporter` to build a detached
 `ScreenplayTextDocument`, filter content and apply the selected template.
 Fountain then uses `AbstractMarkdownExporter::exportTo` and `processBlock`; FDX
-writes typed XML paragraphs. Local shadow-project saves use the manager's
-convenience route: FDX/FDXT destinations select FDX; Fountain/plain-text
-destinations retain Fountain. `ExportManager::canSaveScreenplayToSourceFile`
-limits this source-save route to those four suffixes; it refuses every other
-destination before any writing. Explicit format exports use the separate options
-route and remain available.
+writes typed XML paragraphs. `ExportManager::exportDocument(models, index)` opens
+only the explicit Export dialog; the source-save convenience overload and suffix
+predicate have been removed. Ordinary Save writes the current project database.
 
 `ImportManager::canImportScreenplay` shares the import dialog's supported suffixes
-with the coordinator. A direct open of an import-only source (DOCX, PDF, Markdown,
-RTF, ODT, Celtx, Trelby or KIT Scenarist) asks for a new `.starc` destination before
-closing the current story. It uses `createLocalProject` to import the source into
-that native copy, retaining its source bytes and refusing existing files or locks.
-Cancellation keeps the current story. `importCopyPending` prevents competing file
-events from switching stories during the chooser. Such sources never become
-editable shadow projects; the save coordinator also refuses unsupported shadow
-sources without clearing unsaved state.
+with the coordinator. Every directly opened source (Fountain, TXT, FDX, FDXT,
+DOCX, PDF, Markdown, RTF, ODT, Celtx, Trelby or KIT Scenarist) asks for a new
+`.starc` destination before closing the current story. It uses
+`createLocalProject` to import into that native copy, retaining the source bytes
+and refusing existing files or locks. Cancellation keeps the current story.
+`importCopyPending` prevents competing file events from switching stories during
+the chooser. Unsupported source types are refused before locking or closing.
+Startup arguments, application file events, Open story and story-list clicks
+share this coordinator. Dropping files on the project navigator emits
+`importRequested` to the existing Import dialog inside the current project.
+
+There is one project path; the temporary shadow database, separate `realPath`,
+source-save branch, format question and conversion controls are gone.
+`ProjectType` keeps persisted values Invalid=0, Local=1 and Cloud=3. The list
+loader maps old LocalShadow value 2 to Local, so source entries remain clickable
+imports. The obsolete `can_ask` field is ignored and omitted when the list is
+saved. Automatic last-story startup only opens `.starc`; old source settings
+remain stored until a successful native open replaces them.
 
 The focused [interchange check](INTERCHANGE.md)
 exercises these format boundaries and actual project persistence; it records
