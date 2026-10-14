@@ -1,4 +1,4 @@
-// The first edit of a screenplay imported with styled review notes (ISSUES2.md issue 15):
+// The first edit of a screenplay imported with styled review notes (archive/audit-2 issue 15):
 // one-step Undo/Redo through the real coordinator and screenplay editor must restore the exact
 // model XML, comments panel and editor text, before and after an initial Save and after a fresh
 // native reopening, and Save must keep the undone or redone screenplay for a fresh process.

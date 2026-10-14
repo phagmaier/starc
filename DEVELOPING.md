@@ -119,7 +119,7 @@ must install them. They can be removed with
 `git config --local --unset core.hooksPath` if the user changes the branch policy.
 
 Use `git show master:path` to inspect original code without switching branches.
-Keep changes on `dev` or focused branches based on it. Upstream release CI
+Keep changes on `dev`. Upstream release CI
 contains publishing and notification steps; ordinary development uses these
 local commands and must not trigger publication.
 
@@ -128,6 +128,26 @@ ShellCheck, and the relevant command. For C++, build the affected configuration
 and exercise the behavior. `src/testapp` is a manual widget demo, not a general
 automated test suite. For screenplay editing changes, include relevant keyboard,
 Undo/Redo, save/reopen, pagination, or export evidence.
+
+## Focused checks index
+
+Run the check matching the change; details follow. All retain logs under `.build/evidence/`.
+
+| Change | Run |
+| --- | --- |
+| Writing-session storage | `./tools/check-writing-session-storage.sh` |
+| GitHub new-story / separate-copy downloads | `./tools/check-github-download-safety.sh` |
+| Backup consistency / retention | `./tools/check-backup-consistency.sh`, `./tools/check-backup-retention.sh` |
+| Startup last-story | `./tools/check-startup-last-story.sh` |
+| Screenplay scope / interchange | `./tools/check-screenplay-scope.sh`, `./tools/check-screenplay-interchange.sh` |
+| Track Changes / review comments / hidden beats | `./tools/check-track-changes.sh`, `./tools/check-review-comments.sh`, `./tools/check-hidden-beats.sh` |
+| Window restore | `./tools/check-window-restore.sh` |
+| Save As safety | `./tools/check-save-as-safety.sh` |
+| Fountain export / first-edit Undo | `./tools/check-fountain-export.sh`, `./tools/check-first-edit-undo.sh` |
+| Project sync | `./tools/check-project-sync.sh` |
+| Save failure / transactions | `./tools/check-save-failure.sh`, `./tools/check-transaction-recovery.sh` |
+| Import-only sources / explicit export failure | `./tools/check-import-only-sources.sh`, `./tools/check-explicit-export-failure.sh` |
+| GitHub credentials | `./tools/check-github-credential-storage.sh` |
 
 After a debug build, run `./tools/check-writing-session-storage.sh` for the
 focused writing-statistics storage regression. It uses an isolated profile and
@@ -294,7 +314,7 @@ The default is offscreen; `STARC_FOUNTAIN_EXPORT_PLATFORM=xcb
 STARC_FOUNTAIN_EXPORT_SCREENSHOTS=1` on private Xvfb adds native window evidence.
 The separately selected `STARC_FOUNTAIN_EXPORT_MODES=cold-undo` case also checks
 one-step Undo/Redo of the first edit after import and an initial Save against the
-exact stored XML (`ISSUES2.md` issue 15).
+exact stored XML (`docs/archive/audit-2-2026-10-13.md` issue 15).
 
 `./tools/check-first-edit-undo.sh` covers that first edit more widely through the
 real coordinator, editor and history: immediately after import, after an initial

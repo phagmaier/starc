@@ -67,7 +67,7 @@ literal fixture also has a note-like word and a path typed before export.
 Repeated explicit exports must be byte-idempotent. The separately selected
 `STARC_FOUNTAIN_EXPORT_MODES=cold-undo` mode checks that Undo and Redo of the first
 edit after import restore the exact stored XML; it was the reproduction of
-[issue 15](../ISSUES2.md#15-undo-of-the-first-edit-after-importing-styled-review-notes-aborts).
+[issue 15](archive/audit-2-2026-10-13.md#15-undo-of-the-first-edit-after-importing-styled-review-notes-aborts).
 `./tools/check-first-edit-undo.sh` covers that edit before and after an initial Save
 and after a fresh native reopening, with Save and fresh-process reopening of both the
 undone and redone screenplays.
@@ -133,7 +133,7 @@ evidence directory, including failed runs.
   would have read it as Action. A forced Action whose text needs no protection is
   still written without `!`. The rules follow this importer (case-sensitive heading
   starts, eight title keys), not every third-party Fountain reader. Other paragraph
-  types have no forcing syntax; see the open items in `ISSUES2.md`.
+  types have no forcing syntax; see the open items in `WORKLIST.md` (detail in `archive/audit-2-2026-10-13.md`).
 - A backslash makes the character after it text, in script text, review notes and
   inline notes, at the start of a line as well. The exporter writes one before
   every backslash, `*` and `_` of the text; before a square bracket that has an

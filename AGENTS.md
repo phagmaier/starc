@@ -10,8 +10,8 @@ continue to build and preserve project data.
 - `master` is a frozen upstream reference. Never commit, merge, rebase, reset,
   delete, or push updates to it. Read it with `git show master:path` and compare
   with `git diff master -- path`.
-- `dev` is the user's working version. Use it for normal development; optional
-  task branches start from `dev` and return to `dev`, never to `master`.
+- `dev` is the user's working version. Work directly on `dev` (single agent,
+  no task branches). Never target `master`.
 - Start with `git status --short --branch`. Preserve unrelated changes and avoid
   broad staging, generated files, destructive cleanup, or unsolicited rewrites.
 - Changes to the frozen reference or upstream synchronization require a direct
@@ -22,6 +22,10 @@ continue to build and preserve project data.
 
 ## Start here
 
+- [WORKLIST.md](WORKLIST.md): the only mutable issue queue. Work the first
+  unchecked item top to bottom.
+- [docs/WORKFLOW.md](docs/WORKFLOW.md): start/finish checklist for each issue
+  (reproduce, fix, verify, commit/push, report).
 - [DEVELOPING.md](DEVELOPING.md): setup, build, run, diagnostics, and Git guards.
 - [docs/CODEBASE.md](docs/CODEBASE.md): screenplay code routes and shared layers.
 - [docs/PROJECT.md](docs/PROJECT.md): fork intent, baseline, and setup evidence.
@@ -43,6 +47,19 @@ snippets. Check index coverage for every path relied on; verify missing, stale,
 or partial source directly. Graph coverage is advisory, particularly around Qt
 macros. Use `rg` for literals, configs, docs, and source fallback. If the tools
 are unavailable, say so and inspect source directly.
+
+## Issue work protocol
+
+- Queue is `WORKLIST.md` only. Never edit `docs/archive/*`. Never reopen a
+  checked item without a direct user instruction.
+- Start: `git status --short --branch`, confirm `dev`, read the first unchecked
+  `WORKLIST.md` item and its linked archive detail. Follow `docs/WORKFLOW.md`.
+- Finish-fixed: relevant build + focused checks pass, box checked with a
+  5-line resolution (what/where/oracle), commit and push to `dev`.
+- Finish-blocked: leave box unchecked, report blocker + what was tried, add a
+  short `Untriaged` entry in `WORKLIST.md` only for genuinely new defects.
+- Use disposable projects/profiles and fake credentials. Never touch real
+  stories, real GitHub repos, or the desktop keyring.
 
 ## Development and evidence
 

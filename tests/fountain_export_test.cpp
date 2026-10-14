@@ -275,7 +275,7 @@ int main(int argc, char** argv)
             require(edited != original && edit->toPlainText().contains("SAVEMARKER"),
                     "editor applies a real pending editor edit");
             if (mode == "cold-undo") {
-                // The first edit after import is one history step (ISSUES2.md issue 15):
+                // The first edit after import is one history step (archive/audit-2 issue 15):
                 // Undo and Redo restore the exact stored XML before and after it.
                 model->saveChanges();
                 const auto editedXml = model->document()->content();

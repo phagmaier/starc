@@ -223,8 +223,8 @@ Limits:
   dragging an episode out of a series, and the context menu of a novel or series
   document. The first three are covered offscreen by the scope check.
 - The module promotion widget and the subscription comparison still name series
-  features; they belong to the account UI that is listed for removal in
-  `TODO.md`.
+  features; they belong to the account UI that was listed for removal in
+  `archive/TODO-2026-10-12.md`.
 - Translation catalogs still contain strings of the removed features, and no
   release build was compiled.
 - The libraries of the removed plugins were deleted from
@@ -1675,7 +1675,7 @@ Validation commands and retained failures are recorded below. Issue 15 remained
 open at that point: its current runnable command imports into a chosen native project and
 still reproduced the same first-edit Undo XML assertion. No resolved issue entry
 was rewritten, and no other open issue was undertaken. Issue 15 has since been
-fixed; its cause, fix and evidence are in `ISSUES2.md`.
+fixed; its cause, fix and evidence are in `archive/audit-2-2026-10-13.md`.
 
 Validation (all files/profiles disposable under `.build/evidence/`):
 
@@ -1782,7 +1782,7 @@ Undo command still exited 1 then because its child aborts at `TextModel::applyPa
 line 2887, with `newContent == toXml()`. `source-mode-cold-undo-final.log` and
 `fountain-export` case evidence retain the failure; this was the then-open issue
 15, not a passing export check or a new source-mode regression. After the issue 15
-fix the same command exits 0 (see `ISSUES2.md` issue 15).
+fix the same command exits 0 (see `archive/audit-2-2026-10-13.md` issue 15).
 
 Development failures remain distinct from those semantic controls. Early test
 compilations rejected a mis-scoped baseline return expression and a missing

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# First edit after importing annotated Fountain (ISSUES2.md issue 15): one-step Undo/Redo
+# First edit after importing annotated Fountain (archive/audit-2 issue 15): one-step Undo/Redo
 # through the real coordinator and editor before and after an initial Save and after a fresh
 # native reopening, then Save and fresh-process reopening of the undone and redone screenplays.
 set -euo pipefail
@@ -25,7 +25,7 @@ export QT_FORCE_STDERR_LOGGING=1
 export LD_LIBRARY_PATH="$OUTPUT:$OUTPUT/libs:$OUTPUT/plugins${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
 # literal-syntax is left out by default: its fresh reopen hits the separate legacy-migration
-# defect recorded as ISSUES2.md issue 21 ("folder" in script text becomes "sequence").
+# defect recorded as WORKLIST.md issue 21 ("folder" in script text becomes "sequence").
 FIXTURES=${STARC_FIRST_EDIT_UNDO_FIXTURES:-emphasis-review review-offsets notes-dual}
 CASES=${STARC_FIRST_EDIT_UNDO_CASES:-import-undone import-redone saved-undone saved-redone \
 native-undone native-redone}
