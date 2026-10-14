@@ -182,6 +182,30 @@ for prefix, expected in [("emphasis-review", combined_expected), ("review-offset
     check_review_xml(prefix + "-raw.xml", expected, ["v", "fms", "rms"])
     check_review_xml(prefix + "-serialized.xml", expected, ["v", "rms", "fms"])
 
+# Reviewed inline notes keep comments separate from their own text, with ranges counted
+# in UTF-16 after removing the wrapper/padding, escapes and review syntax.
+inline_expected = [
+    ("INT. STUDIO - DAY", [], []),
+    ("Before.", [], [(0, 7, "before")]),
+    ("private ", [], [(0, 7, "about it")]),
+    ("first then Ω🙂 [[literal]] at C:\\temp ", [(0, 5, 1), (11, 3, 4)],
+     [(0, 5, ["one", "reply"]), (5, 32, "two [[x]] * and _ and \\")]),
+    ("After.", [], [(0, 6, "after")]),
+    ("line one\u2028line two ", [], [(0, 8, "line comment\nsecond */ inside review"), (8, 9, "tail")]),
+    ("last ", [], [(0, 4, "end")]),
+]
+check_review_xml("inline-note-review-raw.xml", inline_expected, ["v", "fms", "rms"])
+check_review_xml("inline-note-review-serialized.xml", inline_expected, ["v", "rms", "fms"])
+canonical_inline = (fixtures / "inline-note-review.fountain").read_text()
+assert (checks / "inline-note-review-export.fountain").read_text() == canonical_inline
+model_inline = canonical_inline.replace("[[reply]]", "").replace(
+    "/* line one[[line comment\nsecond \\*/ inside review]]\nline two[[tail]] */\n\n", "")
+assert (checks / "model-inline-note-review-export.fountain").read_text() == model_inline
+assert (checks / "manager-inline-note-review.fountain").read_text() == model_inline.replace(" #18A#", "", 1)
+filtered_inline = (checks / "inline-note-review-filtered.fountain").read_text()
+assert "/* private */" in filtered_inline and "/* last */" in filtered_inline
+assert "[[about it]]" not in filtered_inline and "[[one]]" not in filtered_inline
+
 # Exact output checks require each review or reply exactly once at its source
 # anchor, after closing emphasis and before any next opening/escape prefix.
 combined_annotated = """INT. ROOM - DAY #1#

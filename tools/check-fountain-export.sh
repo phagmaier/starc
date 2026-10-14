@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Explicit Fountain export, ordinary close, and fresh application import with annotations,
-# forced Action paragraphs, literal syntax and reserved-start dialogue.
+# forced Action paragraphs, literal syntax, reserved-start dialogue and inline-note reviews.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 OUTPUT="$ROOT/.build/debug/_build"
@@ -24,10 +24,13 @@ export QT_FORCE_STDERR_LOGGING=1
 export LD_LIBRARY_PATH="$OUTPUT:$OUTPUT/libs:$OUTPUT/plugins${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
 for fixture in emphasis-review review-offsets forced-action forced-action-first \
-    literal-syntax reserved-dialogue; do
+    literal-syntax reserved-dialogue inline-note-review; do
     case_root="$EVIDENCE/$fixture"
     mkdir -p "$case_root"
     cp "$ROOT/tests/fixtures/interchange/$fixture.fountain" "$case_root/source.fountain"
+    if [[ "$fixture" == inline-note-review ]]; then
+        printf '\nFinal action.\n' >> "$case_root/source.fountain"
+    fi
     for mode in ${STARC_FOUNTAIN_EXPORT_MODES:-save reopen}; do
         export STARC_PROFILE_DIR="$case_root/$mode-profile"
         export XDG_CONFIG_HOME="$STARC_PROFILE_DIR/config"
@@ -48,12 +51,14 @@ from pathlib import Path
 import sys
 evidence, fixtures = map(Path, sys.argv[1:])
 for name in ("emphasis-review", "review-offsets", "forced-action", "forced-action-first",
-             "literal-syntax", "reserved-dialogue"):
+             "literal-syntax", "reserved-dialogue", "inline-note-review"):
     expected = (fixtures / (name + ".fountain")).read_text()
     if name == "emphasis-review":
         expected = expected.replace("!A **bold** clue.", "A **bold** clue.")
     if name == "reserved-dialogue":
         expected = expected.replace(" #17A#", "", 1)
+    if name == "inline-note-review":
+        expected = expected.replace(" #18A#", "", 1) + "\nFinal action.\n"
     body, _, last = expected.rstrip("\n").rpartition("\n")
     # Typing at the end of the fully reviewed final line naturally extends its
     # review coverage to the marker. The note must follow the added characters.
@@ -121,6 +126,25 @@ assert [(row[0], row[1]) for row in rows if row[0] != "dialogue"] == [
     ("scene_heading", "INT. RECORDING - DAY"), *[("character", "MARA")] * 21,
     ("character", "MCKAY"), ("character", "ADA"), ("action", "The recording stops. SAVEMARKER"),
 ], rows
-print("PASS: independently authored export syntax, exact review anchors, emphasis, replies, forced Action and literal syntax")
+rows = json.loads((evidence / "inline-note-review" / "expected.json").read_text())
+assert [(row[0], row[1]) for row in rows] == [
+    ("scene_heading", "INT. STUDIO - DAY"), ("action", "Before."),
+    ("inline_note", "private "),
+    ("inline_note", "first then Ω🙂 [[literal]] at C:\\temp "),
+    ("action", "After."), ("inline_note", "line one\u2028line two "),
+    ("inline_note", "last "), ("action", "Final action. SAVEMARKER"),
+], rows
+for row, ranges in zip(rows, [
+    [], [(0, 7, ["before"])], [(0, 7, ["about it"])],
+    [(0, 5, ["one", "reply"]), (5, 32, ["two [[x]] * and _ and \\"])],
+    [(0, 6, ["after"])], [(0, 8, ["line comment\nsecond */ inside review"]), (8, 9, ["tail"])],
+    [(0, 4, ["end"])], [],
+]):
+    expected_coverage = [[] for _ in row[3]]
+    for start, length, comments in ranges:
+        expected_coverage[start:start + length] = [comments] * length
+    assert row[3] == expected_coverage, row
+assert rows[3][2] == "11111000000444000000000000000000000000", rows[3]
+print("PASS: independently authored export syntax, exact review anchors, emphasis, replies, forced Action, literal syntax and reviewed inline notes")
 PY
 printf 'Evidence: %s\n' "$EVIDENCE"

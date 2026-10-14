@@ -56,7 +56,13 @@ Limits: Linux debug/offscreen, real editor/clipboard/ordinary close, explicit Ex
 
 ### 18. P2 — Review comment on inline note comes back as note text
 
-- [ ] Fix and verify.
+- [x] Fix and verify.
+
+Resolution: Reviews inside inline notes now retain separate comments/replies and ranges in the note's own text; export normalizes wrapper padding without changing native content.
+Files: `abstract_fountain_importer.cpp`, `screenplay_fountain_exporter.cpp`, inline-note fixture, interchange/editor-export checks and `docs/INTERCHANGE.md`.
+Oracle: doctor, `make -C .build/debug qmake_all`, `JOBS=4 ./build/dev.sh build debug`, `./tools/check-screenplay-interchange.sh`, `./tools/check-fountain-export.sh`, focused first-edit Undo/Redo, syntax/format checks and `git diff --check` passed.
+Evidence: `.build/evidence/inline-note-review-fix/`, passing `screenplay-interchange-bjQWAh/`, `fountain-export-YN0aa6/`, `inline-note-review-undo-KEHby0/`; baseline `screenplay-interchange-R6FZ0G/`, padding `screenplay-interchange-bi34Lv/` and clipboard failures retained under `.build/evidence/`.
+Limits: Linux debug/offscreen, editor Save/explicit Export/ordinary close and fresh-process native reopen; physical desktop/GPU, release and third-party clients unexercised. Separate full-selection clipboard defect queued as issue 22.
 
 **Locations:** `src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp` (`processBlock` inserts review before InlineNote `/* */` wrap); `src/corelib/business_layer/import/abstract_fountain_importer.cpp` (`processBlock` `[` case opens no note inside inline note).
 
@@ -111,6 +117,15 @@ Limits: Linux debug/offscreen, real editor/clipboard/ordinary close, explicit Ex
 **Details:** `docs/archive/audit-2-2026-10-13.md#21-a-new-storys-first-reopen-rewrites-folder-in-script-text-as-sequence`
 
 ## Untriaged (new defects found during fixes)
+
+### 22. P1 — Copy All with inline notes empties the Fountain clipboard output
+
+- [ ] Confirm and fix.
+
+**Trigger:** Import `tests/fixtures/interchange/inline-note-review.fountain` into a disposable native story, then select all and copy; clipboard defaults exclude inline notes.
+**Observed:** `text/markdown` is exactly one LF byte (`0a`), losing all included script text/reviews; explicit Export retains them. Evidence: `.build/evidence/fountain-export-tzFE28/inline-note-review/{save.log,clipboard.fountain,export.fountain}`.
+**Location:** `AbstractMarkdownExporter::exportTo` in `abstract_markdown_exporter.cpp`: `prepareDocument` filters notes before the original selection offsets are applied (`QTextCursor::setPosition: Position '130' out of range`).
+**Oracle:** `STARC_FOUNTAIN_EXPORT_INLINE_CLIPBOARD=1 ./tools/check-fountain-export.sh` retains the failing full-selection assertion. Ordinary issue-18 checks use a reviewed Action selection before the inline notes.
 
 Copy this template, keep it short. Promote the audit link once confirmed.
 

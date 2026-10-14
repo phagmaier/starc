@@ -229,10 +229,10 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
     // Продолжается комментарий или заметка
     //
     else {
-        if (isCommenting) {
-            blockText.append(QChar::LineSeparator);
-        } else {
+        if (isNotation) {
             note.append(QChar::LineFeed);
+        } else {
+            blockText.append(QChar::LineSeparator);
         }
     }
 
@@ -262,6 +262,13 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
         }
 
         char curSymbol = _paragraphText[i].toLatin1();
+        // Inline-note padding is not part of its text or review coordinates. Remove it
+        // before collecting a review range, also shifting the already collected emphasis.
+        if (isCommenting && !isNotation && blockText.isEmpty() && curSymbol == ' ') {
+            q->removePreviousTypes(0, 1);
+            prevSymbol = '\0';
+            continue;
+        }
         switch (curSymbol) {
         case '\\': {
             if (!isNotation) {
@@ -271,7 +278,7 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
         }
 
         case '/': {
-            if (prevSymbol == '*' && isCommenting) {
+            if (prevSymbol == '*' && isCommenting && !isNotation) {
                 //
                 // Заканчивается комментирование
                 //
@@ -292,7 +299,10 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
                 //
                 appendBlock(blockText.left(blockText.size()), TextParagraphType::InlineNote,
                             _writer);
+                appendComments(_writer);
                 blockText.clear();
+                noteStartPos = 0;
+                noteLen = 0;
             } else {
                 if (isNotation) {
                     note.append('/');
@@ -322,8 +332,14 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
                     appendBlock(blockText.left(blockText.size() - 1), _type, _writer);
                     appendComments(_writer);
                     notes.clear();
+                } else {
+                    q->removePreviousTypes(0, 2); // /*
                 }
                 blockText.clear();
+                // Reviews inside the inline note belong to this new paragraph, independently
+                // of the text and reviews preceding the opening delimiter.
+                noteStartPos = 0;
+                noteLen = 0;
             } else {
                 if (isNotation) {
                     note.append('*');
@@ -333,7 +349,7 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
         }
 
         case '[': {
-            if (prevSymbol == '[' && !isCommenting && !isNotation) {
+            if (prevSymbol == '[' && !isNotation) {
                 //
                 // Начинается редакторская заметка
                 //

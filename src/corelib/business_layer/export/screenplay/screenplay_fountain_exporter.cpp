@@ -306,7 +306,7 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
         //
         // Обернем в /* и */
         //
-        _paragraph = "/* " + _paragraph + " */";
+        _paragraph = "/* " + _paragraph.trimmed() + " */";
         return true;
     }
 

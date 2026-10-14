@@ -76,6 +76,21 @@ Dialogue types, every character, Unicode styles and review coverage through dire
 and explicit-dialog exports, fresh import and separate-process native save/reopen.
 Hand-written sources need the same leading escape for these ambiguous starts.
 
+`inline-note-review.fountain` covers review comments inside `/* */` inline notes:
+the original `private[[about it]]` case, separate ranges, adjacent replies,
+emphasis, Unicode/UTF-16 offsets, escaped brackets/backslashes/markers, and
+multiline notes/comments. Review ranges belong to the inline note's own text;
+comments remain separate from that text and from surrounding Action reviews.
+Raw XML, exact exported syntax, an independently authored native model, the
+explicit Export dialog, review filtering and separate-process native save/reopen
+are checked. Inline-note wrapper padding is normalized on export without changing
+the native model. These notes remain excluded by the ordinary export defaults.
+The editor check also saves/exports them and closes normally; clipboard coverage
+for this fixture uses a reviewed Action selection before the notes. Full-selection
+clipboard export after filtering inline notes is the separate open issue 22 in
+`WORKLIST.md`, with its failing check retained behind
+`STARC_FOUNTAIN_EXPORT_INLINE_CLIPBOARD=1`.
+
 `./tools/check-fountain-export.sh` separately exercises the real application
 coordinator: import each fixture into a chosen `.starc`, type in the real editor,
 Save that native project, explicitly export Fountain and freshly import that
@@ -210,6 +225,9 @@ evidence directory, including failed runs.
   highlight starts, colors, resolved status and author/date identities are not
   promised by these plain-text note delimiters. Adjacent notes are replies on the
   same range; distinct notes with intervening text retain distinct ranges.
+  The same convention applies to reviews inside an inline note. Its `/* */`
+  delimiters and leading padding do not count toward the review's UTF-16 offsets.
+  A review comment containing `*/` cannot close its enclosing inline note.
 - Fountain preserves the tested dual-dialogue left/right ownership. FDX exports
   the same speech paragraphs sequentially, preserving every speech and its order
   while losing simultaneity/column ownership; this loss is checked explicitly

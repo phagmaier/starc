@@ -151,8 +151,11 @@ void collect(TextModelItem* item, QJsonArray& rows, QStringList& numbers)
         const auto column = !text->isInFirstColumn().has_value() ? "none"
             : (*text->isInFirstColumn() ? "left" : "right");
         if (text->paragraphType() == TextParagraphType::InlineNote) {
+            int start = 0;
+            while (start < value.size() && value[start].isSpace())
+                ++start;
             value = value.trimmed();
-            styles = QString(value.size(), '0');
+            styles = styles.mid(start, value.size());
         }
         value.replace(QChar::LineSeparator, '\n');
         int offset = 0;
@@ -182,6 +185,22 @@ void check(ScreenplayTextModel* model, const Expected& expected, const QString& 
     }
     require(actual == expectedJson(expected), "independent screenplay semantics: " + path);
 }
+
+const Expected inlineNoteReview{
+    { { "scene_heading", "INT. STUDIO - DAY" },
+      { "action", "Before.", {}, "none", { "before" }, { { 0, 7 } } },
+      { "inline_note", "private", {}, "none", { "about it" }, { { 0, 7 } } },
+      { "inline_note", "first then Ω🙂 [[literal]] at C:\\temp",
+        { { "first", 1 }, { "Ω🙂", 4 } }, "none",
+        { "one", "reply", "two [[x]] * and _ and \\" }, { { 0, 5 }, { 5, 32 } } },
+      { "action", "After.", {}, "none", { "after" }, { { 0, 6 } } },
+      { "inline_note", "line one", {}, "none", { "line comment\nsecond */ inside review", "tail" },
+        { { 0, 8 }, { 8, 9 } } },
+      { "inline_note", "line two", {}, "none", { "line comment\nsecond */ inside review", "tail" },
+        { { 0, 8 }, { 8, 9 } } },
+      { "inline_note", "last", {}, "none", { "end" }, { { 0, 4 } } } },
+    { "18A" }
+};
 
 const Expected fountain{
     { { "scene_heading", "INT. CAFÉ - DAY" },
@@ -557,6 +576,24 @@ int main(int argc, char** argv)
                 expected.numbers = { "1" };
             check(select(uuid), expected, root + "/" + label + "-process-reopened.json");
         }
+        const auto inlineIdentities
+            = QJsonDocument::fromJson(read(root + "/inline-note-review-identities.json")).array();
+        require(inlineIdentities.size() == 5, "five retained reviewed inline-note screenplays");
+        for (const auto& identity : inlineIdentities) {
+            const auto record = identity.toObject();
+            const QUuid uuid(record.value("uuid").toString());
+            const auto label = record.value("label").toString();
+            require(storage->document(uuid)->content() == read(root + "/" + label + "-serialized.xml"),
+                    "fresh-process exact inline-note XML and UUID: " + label);
+            auto expected = inlineNoteReview;
+            if (label.startsWith("model-") || label.startsWith("manager-")) {
+                expected.rows.remove(5, 2);
+                expected.rows[3].comments.removeAt(1); // Model control has two distinct threads.
+            }
+            if (label.startsWith("manager-"))
+                expected.numbers = { "1" };
+            check(select(uuid), expected, root + "/" + label + "-process-reopened.json");
+        }
         manager.closeCurrentProject(projectPath);
         storage->clear();
         DatabaseLayer::Database::closeCurrentFile();
@@ -566,6 +603,7 @@ int main(int argc, char** argv)
     QJsonArray emphasisReviewIdentities;
     QJsonArray shotIdentities;
     QJsonArray dialogueIdentities;
+    QJsonArray inlineIdentities;
     const auto persist = [&](const QUuid& uuid, const Expected& expected, const QString& label) {
         auto model = select(uuid);
         model->saveChanges(); // Explicit model -> serialized DocumentObject boundary.
@@ -590,6 +628,8 @@ int main(int argc, char** argv)
             shotIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
         if (label.contains("reserved-dialogue"))
             dialogueIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
+        if (label.contains("inline-note-review"))
+            inlineIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
     };
     const auto run = [&](const QString& name, const QString& input, const Expected& expected,
                          bool asFdx, bool includeReviewMarks = true,
@@ -626,6 +666,12 @@ int main(int argc, char** argv)
         persist(fresh, exportedExpected, name + "-fresh");
         return uuid;
     };
+    ImportOptions inlineOptions;
+    inlineOptions.filePath = fixtures + "/inline-note-review.fountain";
+    const auto rawInline = ScreenplayFountainImporter().importScreenplays(inlineOptions);
+    require(rawInline.size() == 1, "reviewed inline-note raw import");
+    write(root + "/inline-note-review-raw.xml", rawInline.first().text.toUtf8());
+    run("inline-note-review", fixtures + "/inline-note-review.fountain", inlineNoteReview, false);
     run("fountain", fixtures + "/authored.fountain", fountain, false);
     ImportOptions emphasisOptions;
     emphasisOptions.filePath = fixtures + "/emphasis-review.fountain";
@@ -904,10 +950,53 @@ int main(int argc, char** argv)
     require(originalDialogue->document()->content()
                 == read(root + "/model-reserved-dialogue-serialized.xml"),
             "Fountain escaping leaves the original dialogue XML and annotations intact");
+    auto modelInline = inlineNoteReview;
+    modelInline.rows.remove(5, 2);
+    modelInline.rows[3].comments.removeAt(1);
+    const auto inlineUuid = author("Model reviewed inline notes", modelInline.rows, "18A");
+    check(select(inlineUuid), modelInline, root + "/model-inline-note-review-authored.json");
+    persist(inlineUuid, modelInline, "model-inline-note-review");
+    ScreenplayExportOptions inlineExport;
+    inlineExport.templateId = "world_cp";
+    inlineExport.includeTitlePage = false;
+    inlineExport.includeInlineNotes = true;
+    inlineExport.showScenesNumbers = true;
+    inlineExport.filePath = root + "/model-inline-note-review-export.fountain";
+    require(ScreenplayFountainExporter().exportTo(select(inlineUuid), inlineExport),
+            "direct export of independently authored reviewed inline notes");
+    importer.importScreenplay(inlineExport.filePath, false);
+    auto freshInline = scriptUuid();
+    check(select(freshInline), modelInline, root + "/model-inline-note-review-fresh.json");
+    persist(freshInline, modelInline, "model-inline-note-review-fresh");
+    const auto managerInline = root + "/manager-inline-note-review.fountain";
+    require(explicitScreenplayExport(exportManager, select(inlineUuid), managerInline, "Fountain"),
+            "explicit Export dialog preserves inline-note reviews");
+    importer.importScreenplay(managerInline, false);
+    auto managerInlineExpected = modelInline;
+    managerInlineExpected.numbers = { "1" };
+    freshInline = scriptUuid();
+    check(select(freshInline), managerInlineExpected, root + "/manager-inline-note-review-fresh.json");
+    persist(freshInline, managerInlineExpected, "manager-inline-note-review-fresh");
+    auto originalInline = select(inlineUuid);
+    originalInline->saveChanges();
+    require(originalInline->document()->content() == read(root + "/model-inline-note-review-serialized.xml"),
+            "export preserves original native inline-note text and annotations");
+    inlineExport.includeReviewMarks = false;
+    inlineExport.filePath = root + "/inline-note-review-filtered.fountain";
+    require(ScreenplayFountainExporter().exportTo(originalInline, inlineExport),
+            "review filtering succeeds for inline notes");
+    auto filteredInline = modelInline;
+    for (auto& row : filteredInline.rows) {
+        row.comments.clear();
+        row.reviewRanges.clear();
+    }
+    importer.importScreenplay(inlineExport.filePath, false);
+    check(select(scriptUuid()), filteredInline, root + "/inline-note-review-filtered.json");
     inputFailures(root, fixtures);
     write(root + "/emphasis-review-identities.json", QJsonDocument(emphasisReviewIdentities).toJson());
     write(root + "/shot-identities.json", QJsonDocument(shotIdentities).toJson());
     write(root + "/reserved-dialogue-identities.json", QJsonDocument(dialogueIdentities).toJson());
+    write(root + "/inline-note-review-identities.json", QJsonDocument(inlineIdentities).toJson());
     manager.closeCurrentProject(projectPath);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();
