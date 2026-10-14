@@ -97,6 +97,19 @@ formatting/reviews, native Save, explicit Export, fresh import and exact native 
 separate process. Copy checks precede inline notes because full-selection/filter-offset
 clipboard export remains the separately queued issue 22.
 
+`fountain-names.fountain` checks character/location import against the screenplay's
+cleaned paragraph text. Dictionary extraction reads that same typed XML, including
+emphasis removal, literal escapes, review-note removal and HTML decoding. Title pages,
+forced Action and inline notes add no phantom names; duplicate cues add one character.
+Character extensions and scene times/numbers use the existing name parsers. Each parse
+starts with fresh state, so dictionary-only import, screenplay import and subsequent
+sources can share an importer without inheriting syntax or emphasis from a prior source.
+The fixture covers styled names, literal underscores/brackets/stars, Unicode, ampersands
+and angle brackets, forced cues/headings and reviewed cues. Independent option flags,
+raw XML, actual project lists, styles/reviews, export/fresh import and separate-process
+native XML/name/document UUID reopening are checked. The editor's existing capitalization
+of character cues is retained.
+
 `inline-note-review.fountain` covers review comments inside `/* */` inline notes:
 the original `private[[about it]]` case, separate ranges, adjacent replies,
 emphasis, Unicode/UTF-16 offsets, escaped brackets/backslashes/markers, and

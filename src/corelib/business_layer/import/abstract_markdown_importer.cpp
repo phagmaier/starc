@@ -81,6 +81,11 @@ AbstractMarkdownImporter::AbstractMarkdownImporter(
 
 AbstractMarkdownImporter::~AbstractMarkdownImporter() = default;
 
+void AbstractMarkdownImporter::clearSelectionTypes() const
+{
+    d->formatsInText.clear();
+}
+
 void AbstractMarkdownImporter::movePreviousTypes(int _position, int _offset) const
 {
     for (auto& type : d->formatsInText) {

@@ -96,7 +96,13 @@ Limits: Linux debug/offscreen, clipboard/one-step Undo/Redo, Save/explicit Expor
 
 ### 20. P2 — Imported character/location names keep Fountain markup
 
-- [ ] Fix and verify.
+- [x] Fix and verify.
+
+Resolution: Character/location names now come from the screenplay's typed, cleaned XML, with matching HTML decoding/name parsers and fresh syntax/emphasis state for each import call.
+Files: `abstract_fountain_importer.{cpp,h}`, `abstract_markdown_importer.{cpp,h}`, Fountain names fixture/interchange checks and `docs/INTERCHANGE.md`.
+Oracle: doctor, `make -C .build/debug qmake_all`, `JOBS=4 ./build/dev.sh build debug`, `./tools/check-screenplay-interchange.sh`, `./tools/check-screenplay-scope.sh`, independent XML/name checks, Python syntax, changed-code formatting and `git diff --check` passed.
+Evidence: `.build/evidence/fountain-names-fix/`, passing `screenplay-interchange-Y1BuGH/` and `screenplay-scope-V2t3R2/`; original failure `screenplay-interchange-m4HP0h/` and model-oracle capitalization correction `screenplay-interchange-CegVNB/` retained under `.build/evidence/`.
+Limits: Linux debug/offscreen, actual project lists, option flags, repeated parses, Save/export/fresh import and separate-process exact XML/name/document UUID reopen; physical desktop/GPU, release and third-party readers unexercised.
 
 **Location:** `src/corelib/business_layer/import/abstract_fountain_importer.cpp`, `importDocuments` (reads lines without script-import emphasis/escape/note handling).
 

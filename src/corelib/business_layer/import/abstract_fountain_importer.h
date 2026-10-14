@@ -65,7 +65,7 @@ protected:
 
 private:
     class Implementation;
-    QScopedPointer<Implementation> d;
+    mutable QScopedPointer<Implementation> d;
 };
 
 } // namespace BusinessLayer

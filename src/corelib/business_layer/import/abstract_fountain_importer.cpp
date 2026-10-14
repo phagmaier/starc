@@ -11,6 +11,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QStack>
+#include <QXmlStreamReader>
 
 #include <set>
 
@@ -597,213 +598,70 @@ bool AbstractFountainImporter::startsAnotherBlock(const QString& _line)
 AbstractScreenplayImporter::Documents AbstractFountainImporter::importDocuments(
     const ImportOptions& _options) const
 {
-    //
-    // Открываем файл
-    //
+    if (!_options.importCharacters && !_options.importLocations) {
+        return { };
+    }
+
     QFile fountainFile(_options.filePath);
     if (!fountainFile.open(QIODevice::ReadOnly)) {
         return {};
     }
 
-    //
-    // Читаем plain text
-    //
-    QString scriptText = fountainFile.readAll();
-
-    //
-    // Сформируем список строк, содержащий текст сценария
-    //
-    QVector<QString> paragraphs;
-    bool isTitle = false;
-    bool isFirstLine = true;
-    for (const auto& str : scriptText.remove('\r').split("\n")) {
-        //
-        // Если первая строка содержит один из ключей титульной страницы, то в начале идет титульная
-        // страница, которую мы обрабатываем не здесь
-        //
-        if (isFirstLine) {
-            isFirstLine = false;
-            for (const auto& titleKey : titleKeysDictionary().keys()) {
-                if (str.startsWith(titleKey + ":")) {
-                    isTitle = true;
-                    break;
-                }
-            }
+    // Derive names from the same typed, cleaned paragraphs as the screenplay. Raw source
+    // scanning disagrees about emphasis, escapes, reviews, forced types and inline notes.
+    QXmlStreamReader reader(documentText(fountainFile.readAll()));
+    std::set<QString> characterNames;
+    std::set<QString> locationNames;
+    while (!reader.atEnd()) {
+        reader.readNext();
+        if (!reader.isStartElement()) {
+            continue;
         }
-
-        if (isTitle) {
-            //
-            // Титульная страница заканчивается пустой строкой
-            //
-            if (str.simplified().isEmpty()) {
-                isTitle = false;
+        const bool isCharacter = reader.name() == toString(TextParagraphType::Character);
+        const bool isLocation = reader.name() == toString(TextParagraphType::SceneHeading);
+        if (!isCharacter && !isLocation) {
+            continue;
+        }
+        while (reader.readNextStartElement()) {
+            if (reader.name() != xml::kValueTag) {
+                reader.skipCurrentElement();
+                continue;
             }
-        } else {
-            if (str == kDoubleWhitespace) {
-                //
-                // Если строка состоит из 2 пробелов, то это нужно сохранить
-                // Используется для многострочных диалогов с пустыми строками
-                //
-                paragraphs.push_back(kDoubleWhitespace);
-            } else {
-                paragraphs.push_back(str.simplified());
+            // Internal paragraph values use HTML escaping inside CDATA, as read by TextModel.
+            const auto text = TextHelper::fromHtmlEscaped(reader.readElementText());
+            if (isCharacter && _options.importCharacters) {
+                const auto name = characterName(text);
+                if (!name.isEmpty()) {
+                    characterNames.emplace(name);
+                }
+            } else if (isLocation && _options.importLocations) {
+                const auto name = locationName(text);
+                if (!name.isEmpty()) {
+                    locationNames.emplace(name);
+                }
             }
         }
     }
-
-    const int paragraphsCount = paragraphs.size();
-    auto prevBlockType = TextParagraphType::Undefined;
-    TextParagraphType blockType;
-    std::set<QString> characterNames;
-    std::set<QString> locationNames;
-    for (int i = 0; i != paragraphsCount; ++i) {
-        auto paragraphText = TextHelper::simplified(paragraphs[i]);
-        if (paragraphText.isEmpty()) {
-            continue;
-        }
-
-        blockType = TextParagraphType::Undefined;
-
-        switch (paragraphs[i][0].toLatin1()) {
-        case '.': {
-            blockType = TextParagraphType::SceneHeading;
-            //
-            // Номера сцен игнорируем
-            //
-            int sharpPos = paragraphs[i].size();
-            if (paragraphs[i].endsWith("#")) {
-                sharpPos = paragraphs[i].lastIndexOf('#', paragraphs[i].size() - 2);
-            }
-            if (sharpPos == -1) {
-                sharpPos = paragraphs[i].size();
-            }
-            paragraphText = paragraphs[i].mid(1, sharpPos - 1);
-            break;
-        }
-
-        case '@': {
-            blockType = TextParagraphType::Character;
-            paragraphText = paragraphs[i].mid(1);
-            break;
-        }
-
-        case '!':
-        case '>':
-        case '=':
-        case '~':
-        case '#': {
-            continue;
-        }
-
-        default: {
-            bool startsWithHeading = false;
-            for (const QString& sceneHeading : sceneHeadingsDictionary()) {
-                if (paragraphs[i].startsWith(sceneHeading)) {
-                    startsWithHeading = true;
-                    break;
-                }
-            }
-
-            if (startsWithHeading && i + 1 < paragraphsCount && paragraphs[i + 1].isEmpty()) {
-                //
-                // Если начинается с одного из времен действия, а после обязательно пустая строка
-                // Значит это заголовок сцены
-                //
-                blockType = TextParagraphType::SceneHeading;
-
-                //
-                // Номера сцен игнорируем
-                //
-                int sharpPos = paragraphs[i].size();
-                if (paragraphs[i].endsWith("#")) {
-                    sharpPos = paragraphs[i].lastIndexOf('#', paragraphs[i].size() - 2);
-                }
-                if (sharpPos == -1) {
-                    sharpPos = paragraphs[i].size();
-                }
-                paragraphText = paragraphs[i].left(sharpPos);
-            } else if (paragraphs[i].startsWith("[[") && paragraphs[i].endsWith("]]")) {
-                continue;
-            } else if (paragraphs[i].startsWith("/*")) {
-                continue;
-            } else if (paragraphs[i] == TextHelper::smartToUpper(paragraphs[i]) && i != 0
-                       && paragraphs[i - 1].isEmpty() && i + 1 < paragraphsCount
-                       && paragraphs[i + 1].isEmpty() && paragraphs[i].endsWith("TO:")) {
-                continue;
-            } else if (paragraphs[i].startsWith("(") && paragraphs[i].endsWith(")")
-                       && (prevBlockType == TextParagraphType::Character
-                           || prevBlockType == TextParagraphType::Dialogue)) {
-                continue;
-            } else if (paragraphs[i] == TextHelper::smartToUpper(paragraphs[i]) && i != 0
-                       && paragraphs[i - 1].isEmpty() && i + 1 < paragraphsCount
-                       && !paragraphs[i + 1].isEmpty()) {
-                //
-                // Если состоит из только из заглавных букв, впереди не пустая строка, а перед
-                // пустая Значит это имя персонажа (для реплики)
-                //
-                blockType = TextParagraphType::Character;
-                if (paragraphs[i].endsWith("^")) {
-                    //
-                    // Двойной диалог, который мы пока что не умеем обрабатывать
-                    //
-                    paragraphText = paragraphs[i].left(paragraphs[i].size() - 1);
-                } else {
-                    paragraphText = paragraphs[i];
-                }
-            } else {
-                continue;
-            }
-        }
-        }
-
-        switch (blockType) {
-        case TextParagraphType::SceneHeading: {
-            if (!_options.importLocations) {
-                break;
-            }
-
-            const auto currentLocationName = locationName(paragraphText);
-            if (!currentLocationName.isEmpty()) {
-                locationNames.emplace(currentLocationName);
-            }
-            break;
-        }
-
-        case TextParagraphType::Character: {
-            if (!_options.importCharacters) {
-                break;
-            }
-
-            const auto currentCharacterName = characterName(paragraphText);
-            if (!currentCharacterName.isEmpty()) {
-                characterNames.emplace(currentCharacterName);
-            }
-            break;
-        }
-
-        default:
-            break;
-        }
-
-        //
-        // И очищаем текст
-        //
-        paragraphText.clear();
+    if (reader.hasError()) {
+        return { };
     }
 
     Documents documents;
-    for (const auto& characterName : characterNames) {
-        documents.characters.append(
-            { Domain::DocumentObjectType::Character, characterName, {}, {} });
+    for (const auto& name : characterNames) {
+        documents.characters.append({ Domain::DocumentObjectType::Character, name, { }, { } });
     }
-    for (const auto& locationName : locationNames) {
-        documents.locations.append({ Domain::DocumentObjectType::Location, locationName, {}, {} });
+    for (const auto& name : locationNames) {
+        documents.locations.append({ Domain::DocumentObjectType::Location, name, { }, { } });
     }
     return documents;
 }
 
 QString AbstractFountainImporter::documentText(const QString& _text, bool _keepSceneNumbers) const
 {
+    // Dictionary extraction and screenplay import share an importer instance. Each parse
+    // owns fresh syntax and emphasis state, including after an unfinished prior source.
+    d.reset(new Implementation(d->q, d->possibleBlockTypes, d->defaultBlockType));
+    clearSelectionTypes();
     if (_text.simplified().isEmpty()) {
         return {};
     }

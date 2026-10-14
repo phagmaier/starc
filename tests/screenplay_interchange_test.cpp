@@ -234,6 +234,76 @@ const Expected handwrittenMarkers{
         { "file_name and 2 * 3 * 4" }, { { 0, 31 } } },
       { "action", "The calculation ends." } }, { "19A" }
 };
+const Expected fountainNames{
+    { { "scene_heading", "INT. LAB [[A]] - DAY", { { "LAB", 1 } } },
+      { "character", "MARA", { { "MARA", 1 } } }, { "dialogue", "First." },
+      { "character", "JO_ANN" }, { "dialogue", "Ready." },
+      { "character", "MCKAY", {}, "none", { "cue note" }, { { 0, 5 } } },
+      { "dialogue", "Answer." },
+      { "scene_heading", "EXT. CAFÉ & <YARD> *NORTH* - NIGHT", { { "CAFÉ", 4 } } },
+      { "character", "RENÉ (V.O.)", {}, "none", { "réview" }, { { 0, 11 } } },
+      { "dialogue", "Still." }, { "action", "FAKE_CHARACTER" },
+      { "action", "INT. FALSE - NIGHT" }, { "inline_note", "INT. HIDDEN - DAY" },
+      { "inline_note", "@GHOST" },
+      { "scene_heading", "INT. OFFICE - DAY", { { "OFFICE", 1 } } },
+      { "character", "JO_ANN" }, { "dialogue", "Again." } }, { "20A", "20B", "20C" }
+};
+
+const QStringList namesCharacters = { "JO_ANN", "MARA", "MCKAY", "RENÉ" };
+const QStringList namesLocations = { "CAFÉ & <YARD> *NORTH*", "LAB [[A]]", "OFFICE" };
+
+QJsonObject importedNames(const AbstractImporter::Documents& documents)
+{
+    QStringList characters, locations;
+    for (const auto& document : documents.characters)
+        characters.append(document.name);
+    for (const auto& document : documents.locations)
+        locations.append(document.name);
+    characters.sort();
+    locations.sort();
+    return { { "characters", QJsonArray::fromStringList(characters) },
+             { "locations", QJsonArray::fromStringList(locations) } };
+}
+
+void checkRawNames(const QString& root, const QString& fixtures)
+{
+    ImportOptions options;
+    options.filePath = fixtures + "/fountain-names.fountain";
+    const auto original = read(options.filePath);
+    ScreenplayFountainImporter importer;
+    for (const bool characters : { true, false }) {
+        for (const bool locations : { true, false }) {
+            options.importCharacters = characters;
+            options.importLocations = locations;
+            options.importText = false; // Dictionary-only import must still parse the source.
+            const auto actual = importedNames(importer.importDocuments(options));
+            const auto label = QString("names-options-%1-%2").arg(characters).arg(locations);
+            write(root + "/" + label + ".json", QJsonDocument(actual).toJson());
+            require(actual == QJsonObject{
+                { "characters", QJsonArray::fromStringList(characters ? namesCharacters : QStringList()) },
+                { "locations", QJsonArray::fromStringList(locations ? namesLocations : QStringList()) } },
+                "clean imported names and independent option flags: " + label);
+        }
+    }
+    options.importText = true;
+    const auto scripts = importer.importScreenplays(options);
+    require(scripts.size() == 1, "same importer parses screenplay after dictionary calls");
+    write(root + "/fountain-names-raw.xml", scripts.first().text.toUtf8());
+    options.importCharacters = options.importLocations = true;
+    require(importedNames(importer.importDocuments(options)) == QJsonObject{
+        { "characters", QJsonArray::fromStringList(namesCharacters) },
+        { "locations", QJsonArray::fromStringList(namesLocations) } },
+        "same importer parses dictionaries after screenplay call");
+    write(root + "/names-unclosed.fountain", "INT. OLD - DAY\n\n**old**[[unfinished\n");
+    options.filePath = root + "/names-unclosed.fountain";
+    importer.importDocuments(options); // A following import must not inherit syntax/format state.
+    options.filePath = fixtures + "/fountain-names.fountain";
+    require(importedNames(importer.importDocuments(options)) == QJsonObject{
+        { "characters", QJsonArray::fromStringList(namesCharacters) },
+        { "locations", QJsonArray::fromStringList(namesLocations) } },
+        "unfinished prior source cannot contaminate names");
+    require(read(options.filePath) == original, "dictionary import retains exact source bytes");
+}
 const Expected fdx{
     { { "scene_heading", "EXT. HARBOR - NIGHT" },
       { "action", "A bright  blue beacon & <buoy> guides René.",
@@ -510,6 +580,9 @@ int main(int argc, char** argv)
             "evidence and fixture directory arguments, optional fresh-process reopen");
     const QString root = QString::fromLocal8Bit(argv[1]);
     const QString fixtures = QString::fromLocal8Bit(argv[2]);
+    if (argc == 3) {
+        checkRawNames(root, fixtures);
+    }
     for (const auto font : { ":/fonts/roboto-regular", ":/fonts/materialdesignicons",
                              ":/fonts/font-awesome-brands" })
         require(QFontDatabase::addApplicationFont(font) >= 0, "embedded font");
@@ -523,6 +596,10 @@ int main(int argc, char** argv)
     ManagementLayer::ImportManager importer(nullptr, &host, plugins);
     QObject::connect(&importer, &ManagementLayer::ImportManager::screenplayImported,
                      &manager, &ManagementLayer::ProjectManager::storeScreenplay);
+    QObject::connect(&importer, &ManagementLayer::ImportManager::characterImported,
+                     &manager, &ManagementLayer::ProjectManager::storeCharacter);
+    QObject::connect(&importer, &ManagementLayer::ImportManager::locationImported,
+                     &manager, &ManagementLayer::ProjectManager::storeLocation);
     StructureModel* structure = nullptr;
     QObject::connect(&manager, &ManagementLayer::ProjectManager::structureModelChanged,
         [&](AbstractModel* model) { structure = qobject_cast<StructureModel*>(model); });
@@ -625,6 +702,29 @@ int main(int argc, char** argv)
                     "fresh-process exact handwritten-marker XML and UUID: " + label);
             check(select(uuid), handwrittenMarkers, root + "/" + label + "-process-reopened.json");
         }
+        const auto namesIdentities
+            = QJsonDocument::fromJson(read(root + "/fountain-names-identities.json")).array();
+        require(namesIdentities.size() == 2, "two retained Fountain names screenplays");
+        for (const auto& identity : namesIdentities) {
+            const auto record = identity.toObject();
+            const QUuid uuid(record.value("uuid").toString());
+            const auto label = record.value("label").toString();
+            require(storage->document(uuid)->content() == read(root + "/" + label + "-serialized.xml"),
+                    "fresh-process exact Fountain names screenplay XML and UUID: " + label);
+            check(select(uuid), fountainNames, root + "/" + label + "-process-reopened.json");
+        }
+        const auto nameDocuments
+            = QJsonDocument::fromJson(read(root + "/fountain-names-documents.json")).array();
+        require(nameDocuments.size() == 7, "four named characters and three named locations");
+        for (const auto& identity : nameDocuments) {
+            const auto record = identity.toObject();
+            const QUuid uuid(record.value("uuid").toString());
+            const auto item = structure->itemForUuid(uuid);
+            require(item && item->name() == record.value("name").toString()
+                        && static_cast<int>(item->type()) == record.value("type").toInt()
+                        && storage->document(uuid)->content() == read(root + "/" + record.value("file").toString()),
+                    "fresh-process exact imported name, document XML, type and UUID");
+        }
         manager.closeCurrentProject(projectPath);
         storage->clear();
         DatabaseLayer::Database::closeCurrentFile();
@@ -636,6 +736,7 @@ int main(int argc, char** argv)
     QJsonArray dialogueIdentities;
     QJsonArray inlineIdentities;
     QJsonArray markerIdentities;
+    QJsonArray namesIdentities;
     const auto persist = [&](const QUuid& uuid, const Expected& expected, const QString& label) {
         auto model = select(uuid);
         model->saveChanges(); // Explicit model -> serialized DocumentObject boundary.
@@ -664,12 +765,14 @@ int main(int argc, char** argv)
             inlineIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
         if (label.startsWith("handwritten-markers"))
             markerIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
+        if (label.startsWith("fountain-names"))
+            namesIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
     };
     const auto run = [&](const QString& name, const QString& input, const Expected& expected,
                          bool asFdx, bool includeReviewMarks = true,
-                         const Expected* freshExpected = nullptr) {
+                         const Expected* freshExpected = nullptr, bool importNames = false) {
         const auto original = read(input);
-        importer.importScreenplay(input, false);
+        importer.importScreenplay(input, importNames);
         const auto uuid = scriptUuid();
         check(select(uuid), expected, root + "/" + name + "-imported.json");
         persist(uuid, expected, name);
@@ -686,7 +789,7 @@ int main(int argc, char** argv)
         else
             ScreenplayFountainExporter().exportTo(model, options);
         require(read(input) == original, "fixture bytes unchanged");
-        importer.importScreenplay(options.filePath, false);
+        importer.importScreenplay(options.filePath, importNames);
         const auto fresh = scriptUuid();
         require(fresh != uuid, "fresh imported model identity");
         auto exportedExpected = freshExpected ? *freshExpected : expected;
@@ -700,6 +803,29 @@ int main(int argc, char** argv)
         persist(fresh, exportedExpected, name + "-fresh");
         return uuid;
     };
+    run("fountain-names", fixtures + "/fountain-names.fountain", fountainNames, false, true,
+        nullptr, true);
+    QJsonArray namesDocuments;
+    QJsonObject projectNameLists;
+    for (const auto type : { Type::Characters, Type::Locations }) {
+        const auto group = structure->itemForType(type);
+        require(group, "import manager creates the dictionary group");
+        QStringList names;
+        for (int i = 0; i < group->childCount(); ++i) {
+            const auto item = group->childAt(i);
+            names.append(item->name());
+            namesDocuments.append(QJsonObject{
+                { "name", item->name() }, { "type", static_cast<int>(item->type()) },
+                { "uuid", item->uuid().toString() },
+                { "file", QString("fountain-name-document-%1.xml").arg(namesDocuments.size()) } });
+        }
+        names.sort();
+        require(names == (type == Type::Characters ? namesCharacters : namesLocations),
+                "actual project dictionaries match cleaned cues/headings without phantom names");
+        projectNameLists.insert(type == Type::Characters ? "characters" : "locations",
+                               QJsonArray::fromStringList(names));
+    }
+    write(root + "/fountain-names-project.json", QJsonDocument(projectNameLists).toJson());
     ImportOptions markerOptions;
     markerOptions.filePath = fixtures + "/handwritten-markers.fountain";
     const auto rawMarkers = ScreenplayFountainImporter().importScreenplays(markerOptions);
@@ -1038,6 +1164,18 @@ int main(int argc, char** argv)
     write(root + "/reserved-dialogue-identities.json", QJsonDocument(dialogueIdentities).toJson());
     write(root + "/inline-note-review-identities.json", QJsonDocument(inlineIdentities).toJson());
     write(root + "/handwritten-markers-identities.json", QJsonDocument(markerIdentities).toJson());
+    write(root + "/fountain-names-identities.json", QJsonDocument(namesIdentities).toJson());
+    manager.saveChanges();
+    DatabaseLayer::Database::commit();
+    for (const auto& identity : namesDocuments) {
+        const auto record = identity.toObject();
+        const QUuid uuid(record.value("uuid").toString());
+        const auto item = structure->itemForUuid(uuid);
+        require(item && item->name() == record.value("name").toString(),
+                "subsequent interchange cases retain imported names and identities");
+        write(root + "/" + record.value("file").toString(), storage->document(uuid)->content());
+    }
+    write(root + "/fountain-names-documents.json", QJsonDocument(namesDocuments).toJson());
     manager.closeCurrentProject(projectPath);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();

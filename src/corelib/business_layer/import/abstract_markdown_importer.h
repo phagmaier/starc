@@ -24,6 +24,11 @@ public:
 
 protected:
     /**
+     * @brief Discard emphasis ranges before parsing an independent document.
+     */
+    void clearSelectionTypes() const;
+
+    /**
      * @brief Сдвинуть расположение типов выделения текста, которые уже собраны
      */
     void movePreviousTypes(int _position, int _offset) const;

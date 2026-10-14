@@ -130,12 +130,15 @@ combined_expected = [
     ("A quiet bold answer.", [(2, 5, 4), (8, 4, 1)], [(0, 20, "Check answer")]),
     ("Final urgent clue.", [(6, 6, 3), (13, 4, 4)], [(0, 18, "Final note")]),
 ]
-def check_review_xml(name, expected, child_order):
+def check_review_xml(name, expected, child_order, decode_values=False):
     tree = ET.parse(checks / name)
     paragraphs = [element for element in tree.iter() if element.find("v") is not None]
     assert len(paragraphs) == len(expected), name
     for paragraph, (text, spans, reviews) in zip(paragraphs, expected):
-        assert paragraph.findtext("v") == text, (name, text)
+        value = paragraph.findtext("v")
+        if decode_values:
+            value = html.unescape(value)
+        assert value == text, (name, text)
         size = len(text.encode("utf-16-le")) // 2
         actual_styles = [0] * size
         for span in paragraph.findall("fms/fm"):
@@ -161,6 +164,42 @@ def check_review_xml(name, expected, child_order):
                 assert comment.attrib["author"] == "fountain author" and comment.attrib["date"]
         if spans and reviews:
             assert [child.tag for child in paragraph] == child_order, (name, list(paragraph))
+
+
+clean_names = {
+    "characters": ["JO_ANN", "MARA", "MCKAY", "RENÉ"],
+    "locations": ["CAFÉ & <YARD> *NORTH*", "LAB [[A]]", "OFFICE"],
+}
+for characters in (True, False):
+    for locations in (True, False):
+        expected = {"characters": clean_names["characters"] if characters else [],
+                    "locations": clean_names["locations"] if locations else []}
+        assert json.loads((checks / f"names-options-{int(characters)}-{int(locations)}.json").read_text()) == expected
+assert json.loads((checks / "fountain-names-project.json").read_text()) == clean_names
+name_rows = [
+    ("INT. LAB [[A]] - DAY", [(5, 3, 1)], []), ("MARA", [(0, 4, 1)], []),
+    ("First.", [], []), ("JO_ANN", [], []), ("Ready.", [], []),
+    ("MCKAY", [], [(0, 5, "cue note")]), ("Answer.", [], []),
+    ("EXT. CAFÉ & <YARD> *NORTH* - NIGHT", [(5, 4, 4)], []),
+    ("RENÉ (V.O.)", [], [(0, 11, "réview")]), ("Still.", [], []),
+    ("FAKE_CHARACTER", [], []), ("INT. FALSE - NIGHT", [], []),
+    ("INT. HIDDEN - DAY ", [], []), ("@GHOST ", [], []),
+    ("INT. OFFICE - DAY", [(5, 6, 1)], []), ("JO_ANN", [], []), ("Again.", [], []),
+]
+raw_name_rows = name_rows.copy()
+raw_name_rows[5] = ("McKAY", [], [(0, 5, "cue note")])  # Existing editor cue capitalization.
+check_review_xml("fountain-names-raw.xml", raw_name_rows, ["v", "fms", "rms"], True)
+for prefix in ("fountain-names", "fountain-names-fresh"):
+    check_review_xml(prefix + "-serialized.xml", name_rows, ["v", "rms", "fms"], True)
+name_documents = json.loads((checks / "fountain-names-documents.json").read_text())
+assert len(name_documents) == 7 and len({record["uuid"] for record in name_documents}) == 7
+assert sorted(record["name"] for record in name_documents) == sorted(
+    clean_names["characters"] + clean_names["locations"])
+for record in name_documents:
+    document = ET.parse(checks / record["file"]).getroot()
+    assert document.findtext("name") == record["name"], "native document holds the cleaned name"
+    kind = "character" if record["name"] in clean_names["characters"] else "location"
+    assert document.attrib["mime-type"] == "application/x-starc/document/" + kind
 
 
 for prefix, expected in [("emphasis-review", combined_expected), ("review-offsets", [
