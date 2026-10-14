@@ -1,3 +1,8 @@
+---
+name: fix-next
+description: Work the first unchecked WORKLIST.md issue top to bottom (reproduce, fix, verify, commit/push dev or report blocked). Use when asked to fix the next issue.
+---
+
 # fix-next
 
 Work the first unchecked item in `WORKLIST.md` top to bottom, following

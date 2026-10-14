@@ -47,7 +47,10 @@ Record exact commands, outcomes, evidence dirs, and anything not exercised
    `WORKLIST.md` using its template (trigger, observed bytes, location if known,
    oracle). Never log new issues into `docs/archive/*`.
 
-## Slash shortcut
+## Shortcut
 
-`/fix-next` (Claude: `.claude/commands/fix-next.md`, Codex: `.codex/prompts/fix-next.md`)
-runs exactly this file against the first unchecked `WORKLIST.md` item.
+Project skill `fix-next` (`.agents/skills/fix-next/SKILL.md`) runs exactly
+this file against the first unchecked `WORKLIST.md` item. Invoke via
+`/skills` or `$fix-next` in Codex, `/fix-next` in Claude
+(`.claude/commands/fix-next.md`). Codex custom prompts under `~/.codex/prompts/`
+are global-only and deprecated, so no repo `prompts` file is used.
