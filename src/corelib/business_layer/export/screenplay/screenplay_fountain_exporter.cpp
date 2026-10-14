@@ -162,11 +162,17 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
                                               const ExportOptions& _exportOptions) const
 {
     const auto& exportOptions = static_cast<const ScreenplayExportOptions&>(_exportOptions);
+    const auto paragraphType = TextBlockStyle::forBlock(_block);
+    // Fountain has no elements for these screenplay paragraphs. Preserve their content as
+    // forced Action rather than silently dropping it or letting it become a cue/heading.
+    const bool convertedToAction = paragraphType == TextParagraphType::Shot
+        || paragraphType == TextParagraphType::SceneCharacters
+        || paragraphType == TextParagraphType::UnformattedText;
 
-    // Every line of an Action block is a Fountain paragraph of its own. Find where the
-    // lines start before review notes bring line breaks of their own into the text.
+    // Every line of an Action or converted block is a Fountain paragraph of its own. Find
+    // where the lines start before review notes bring line breaks of their own into the text.
     QVector<int> actionLineStarts;
-    if (TextBlockStyle::forBlock(_block) == TextParagraphType::Action) {
+    if (paragraphType == TextParagraphType::Action || convertedToAction) {
         actionLineStarts.append(0);
         for (int position = _paragraph.indexOf(QChar::LineFeed); position != -1;
              position = _paragraph.indexOf(QChar::LineFeed, position + 1)) {
@@ -214,7 +220,7 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
         _paragraph.prepend(prefix.repeated(_level) + " ");
     };
 
-    switch (TextBlockStyle::forBlock(_block)) {
+    switch (paragraphType) {
     case TextParagraphType::SceneHeading: {
         //
         // Если заголовок сцены начинается с одного из ключевых слов, то все хорошо
@@ -304,6 +310,9 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
         return true;
     }
 
+    case TextParagraphType::Shot:
+    case TextParagraphType::SceneCharacters:
+    case TextParagraphType::UnformattedText:
     case TextParagraphType::Action: {
         // The importer reads every line as a paragraph of its own and decides its type from
         // the text, so put "!" before each line it would not read as Action.
@@ -324,7 +333,7 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
                 = _paragraph.mid(lineStart, lineEnd == -1 ? -1 : lineEnd - lineStart);
             const bool followsEmptyLine
                 = line == 0 || TextHelper::simplified(sourceLines.value(line - 1)).isEmpty();
-            if (AbstractFountainImporter::startsAnotherBlock(sourceLine)
+            if (convertedToAction || AbstractFountainImporter::startsAnotherBlock(sourceLine)
                 || (followsEmptyLine && TextHelper::isUppercase(writtenLine))) {
                 _paragraph.insert(lineStart, '!');
             }

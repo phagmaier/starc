@@ -331,6 +331,54 @@ const Expected literalModel{
       { "character", "ADA" }, { "dialogue", "Say [[it]] at C:\\x." },
       { "inline_note", "Keep [[this]] */ and a\\b" } }, { "9" }
 };
+// Fountain has no Shot, Cast List or Unformatted Text element. Keep all their text as
+// Action, with the original native types retained in the independently authored model.
+const Expected shotFdx{
+    { { "scene_heading", "INT. STUDY - DAY" },
+      { "shot", "CLOSE ON THE LETTER" },
+      { "action", "The seal breaks." },
+      { "scene_characters", "MARA, JO_ANN" },
+      { "shot", "HOLD ON CAFÉ Ω", { { "CAFÉ", 1 } } },
+      { "action", "A plain action stays plain." } }, { "16A" }
+};
+const Expected shotFdxFountain{
+    { { "scene_heading", "INT. STUDY - DAY" },
+      { "action", "CLOSE ON THE LETTER" },
+      { "action", "The seal breaks." },
+      { "action", "MARA, JO_ANN" },
+      { "action", "HOLD ON CAFÉ Ω", { { "CAFÉ", 1 } } },
+      { "action", "A plain action stays plain." } }, { "16A" }
+};
+const Expected shotModel{
+    { { "scene_heading", "INT. STUDY - DAY" },
+      { "shot", "CLOSE ON THE LETTER" },
+      { "action", "The seal breaks." },
+      { "scene_characters", "MARA, JO_ANN" },
+      { "shot", "HOLD ON CAFÉ Ω", { { "CAFÉ", 1 } }, "none",
+        { "Check angle" }, { { 0, 14 } } },
+      { "shot", "# INSERT" }, { "shot", "INT. THE LETTER - DAY" },
+      { "shot", "> TO:" }, { "shot", "~ QUIET" },
+      { "unformatted_text", "Title: A literal heading" },
+      { "unformatted_text", "The file is C:\\temp *literal* _name_." },
+      { "character", "MARA" }, { "dialogue", "Look here." },
+      { "shot", "CUT TO:" },
+      { "action", "A plain action stays plain." } }, { "16B" }
+};
+const Expected shotModelFountain{
+    { { "scene_heading", "INT. STUDY - DAY" },
+      { "action", "CLOSE ON THE LETTER" },
+      { "action", "The seal breaks." },
+      { "action", "MARA, JO_ANN" },
+      { "action", "HOLD ON CAFÉ Ω", { { "CAFÉ", 1 } }, "none",
+        { "Check angle" }, { { 0, 14 } } },
+      { "action", "# INSERT" }, { "action", "INT. THE LETTER - DAY" },
+      { "action", "> TO:" }, { "action", "~ QUIET" },
+      { "action", "Title: A literal heading" },
+      { "action", "The file is C:\\temp *literal* _name_." },
+      { "character", "MARA" }, { "dialogue", "Look here." },
+      { "action", "CUT TO:" },
+      { "action", "A plain action stays plain." } }, { "16B" }
+};
 
 void inputFailures(const QString& root, const QString& fixtures)
 {
@@ -450,13 +498,29 @@ int main(int argc, char** argv)
             const auto& expected = label.startsWith("review-offsets") ? reviewOffsets : emphasisReview;
             check(select(uuid), expected, root + "/" + label + "-process-reopened.json");
         }
+        const auto shotIdentities = QJsonDocument::fromJson(read(root + "/shot-identities.json")).array();
+        require(shotIdentities.size() == 5, "five retained Shot/other paragraph screenplays");
+        for (const auto& identity : shotIdentities) {
+            const auto record = identity.toObject();
+            const QUuid uuid(record.value("uuid").toString());
+            const auto label = record.value("label").toString();
+            require(storage->document(uuid)->content() == read(root + "/" + label + "-serialized.xml"),
+                    "fresh-process exact serialized bytes and UUID: " + label);
+            auto expected = label == "shot-fdx" ? shotFdx
+                : label == "shot-fdx-fresh" ? shotFdxFountain
+                : label == "model-shot" ? shotModel : shotModelFountain;
+            if (label == "manager-shot-fresh")
+                expected.numbers = { "1" };
+            check(select(uuid), expected, root + "/" + label + "-process-reopened.json");
+        }
         manager.closeCurrentProject(projectPath);
         storage->clear();
         DatabaseLayer::Database::closeCurrentFile();
-        std::puts("PASS: fresh-process emphasis/review reopening retains exact XML, UUIDs, text, styles, notes and anchors");
+        std::puts("PASS: fresh-process emphasis/review and Shot reopening retain exact XML, UUIDs, types, text, styles, notes and anchors");
         return 0;
     }
     QJsonArray emphasisReviewIdentities;
+    QJsonArray shotIdentities;
     const auto persist = [&](const QUuid& uuid, const Expected& expected, const QString& label) {
         auto model = select(uuid);
         model->saveChanges(); // Explicit model -> serialized DocumentObject boundary.
@@ -476,9 +540,13 @@ int main(int argc, char** argv)
         if (label == "emphasis-review" || label == "emphasis-review-fresh"
             || label == "review-offsets" || label == "review-offsets-fresh")
             emphasisReviewIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
+        if (label == "shot-fdx" || label == "shot-fdx-fresh" || label == "model-shot"
+            || label == "model-shot-fresh" || label == "manager-shot-fresh")
+            shotIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
     };
     const auto run = [&](const QString& name, const QString& input, const Expected& expected,
-                         bool asFdx, bool includeReviewMarks = true) {
+                         bool asFdx, bool includeReviewMarks = true,
+                         const Expected* freshExpected = nullptr) {
         const auto original = read(input);
         importer.importScreenplay(input, false);
         const auto uuid = scriptUuid();
@@ -500,7 +568,7 @@ int main(int argc, char** argv)
         importer.importScreenplay(options.filePath, false);
         const auto fresh = scriptUuid();
         require(fresh != uuid, "fresh imported model identity");
-        auto exportedExpected = expected;
+        auto exportedExpected = freshExpected ? *freshExpected : expected;
         if (!includeReviewMarks) {
             for (auto& row : exportedExpected.rows) {
                 row.comments.clear();
@@ -531,6 +599,7 @@ int main(int argc, char** argv)
     run("forced-action-first", fixtures + "/forced-action-first.fountain", forcedActionFirst, false);
     run("literal-syntax", fixtures + "/literal-syntax.fountain", literalSyntax, false);
     const auto fdxUuid = run("fdx", fixtures + "/authored.fdx", fdx, true);
+    run("shot-fdx", fixtures + "/shot.fdx", shotFdx, false, true, &shotFdxFountain);
     // Ordinary saves of a shadow project use this convenience route. The destination's
     // extension must select FDX, rather than replacing an FDX file with Fountain text.
     ManagementLayer::ExportManager exportManager(nullptr, &host);
@@ -723,8 +792,40 @@ int main(int argc, char** argv)
         managerLiteral.numbers = { "1" }; // Ordinary information settings hide scene numbers.
         check(select(scriptUuid()), managerLiteral, root + "/manager-literal-fresh.json");
     }
+    // A multiline Shot needs Action forcing on every physical line, just like Action itself.
+    auto shotRows = shotModel.rows;
+    for (int i = 6; i <= 8; ++i)
+        shotRows[5].text += QChar::LineSeparator + shotRows[i].text;
+    shotRows.remove(6, 3);
+    const auto shotUuid = author("Model Shot paragraphs", shotRows, "16B");
+    check(select(shotUuid), shotModel, root + "/model-shot-authored.json");
+    persist(shotUuid, shotModel, "model-shot");
+    ScreenplayExportOptions shotOptions;
+    shotOptions.templateId = "world_cp";
+    shotOptions.includeTitlePage = false;
+    shotOptions.filePath = root + "/model-shot-export.fountain";
+    require(ScreenplayFountainExporter().exportTo(select(shotUuid), shotOptions),
+            "direct Fountain export of Shot/other content paragraphs");
+    importer.importScreenplay(shotOptions.filePath, false);
+    auto freshShot = scriptUuid();
+    check(select(freshShot), shotModelFountain, root + "/model-shot-fresh.json");
+    persist(freshShot, shotModelFountain, "model-shot-fresh");
+    const auto managerShot = root + "/manager-shot.fountain";
+    require(explicitScreenplayExport(exportManager, select(shotUuid), managerShot, "Fountain"),
+            "explicit manager export of Shot/other content paragraphs");
+    importer.importScreenplay(managerShot, false);
+    auto managerShotExpected = shotModelFountain;
+    managerShotExpected.numbers = { "1" };
+    freshShot = scriptUuid();
+    check(select(freshShot), managerShotExpected, root + "/manager-shot-fresh.json");
+    persist(freshShot, managerShotExpected, "manager-shot-fresh");
+    auto originalShot = select(shotUuid);
+    originalShot->saveChanges();
+    require(originalShot->document()->content() == read(root + "/model-shot-serialized.xml"),
+            "export retains exact original native types, text, styles and reviews");
     inputFailures(root, fixtures);
     write(root + "/emphasis-review-identities.json", QJsonDocument(emphasisReviewIdentities).toJson());
+    write(root + "/shot-identities.json", QJsonDocument(shotIdentities).toJson());
     manager.closeCurrentProject(projectPath);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();

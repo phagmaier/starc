@@ -45,6 +45,15 @@ physical line is forced on its own, and review notes that carry line breaks.
 Expected types and text are written out in the tests; the exported bytes must equal
 the fixtures apart from the scene number.
 
+`shot.fdx` independently supplies Shot and Cast List paragraphs between a heading
+and ordinary Action controls. Fountain exports both as forced Action (`!` on each
+nonempty physical line), retaining their ordered text and emphasis. A model-authored
+script additionally covers Unformatted Text, a reviewed/styled Unicode Shot,
+multiline Shots with reserved starts, literal escapes and a Shot after Dialogue.
+Direct export and the manager's explicit Export dialog must produce the pinned
+Fountain bytes. Original native types and converted Action types, complete XML,
+UUIDs, styles and review coverage cross save/close/reopen and a separate process.
+
 `literal-syntax.fountain` is authored in the same canonical spelling. It holds
 script text that Fountain would read as syntax unless it is escaped: doubled square
 brackets, backslashes (at the start of a line, before emphasis and before a note),
@@ -134,6 +143,16 @@ evidence directory, including failed runs.
   still written without `!`. The rules follow this importer (case-sensitive heading
   starts, eight title keys), not every third-party Fountain reader. Other paragraph
   types have no forcing syntax; see the open items in `WORKLIST.md` (detail in `archive/audit-2-2026-10-13.md`).
+- Fountain has no Shot, Cast List (Scene Characters), or Unformatted Text element.
+  These screenplay paragraphs export as forced Action on each nonempty physical
+  line, so fresh imports retain their words, order, supported emphasis and review
+  notes while changing their type to Action. Export uses the selected template's
+  case rules (normally uppercase for Shot and Cast List) and leaves the native
+  screenplay's types and serialized content intact. FDX imports retain Shot and
+  Cast List types in the native project. The other default-branch types are
+  undefined, shadow headings, page/table separators and paragraph types belonging
+  to other writing formats; this change does not export those as screenplay text.
+  Act/Sequence footers retain their existing role as structural closing markers.
 - A backslash makes the character after it text, in script text, review notes and
   inline notes, at the start of a line as well. The exporter writes one before
   every backslash, `*` and `_` of the text; before a square bracket that has an

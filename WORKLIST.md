@@ -16,7 +16,13 @@ Keep an independent copy of important scripts while P1 items remain open.
 
 ### 16. P1 — Fountain export leaves out Shot paragraphs
 
-- [ ] Fix and verify.
+- [x] Fix and verify.
+
+Resolution: Shot, Cast List and Unformatted Text now export each nonempty line as forced Action; native types/XML remain intact.
+Files: `screenplay_fountain_exporter.cpp`, interchange fixture/tests, and `docs/INTERCHANGE.md` document the accepted type conversion.
+Oracle: `./build/dev.sh doctor`, `make -C .build/debug qmake_all`, `JOBS=4 ./build/dev.sh build debug`, `./tools/check-screenplay-interchange.sh`, `git diff --check` passed.
+Evidence: `.build/evidence/shot-paragraph-fix-ctsnZR/`, passing `.build/evidence/screenplay-interchange-fh04Jp/`, retained failing `.build/evidence/screenplay-interchange-TbJ0js/`.
+Limits: debug/offscreen model, explicit Export dialog, filesystem and fresh-process native reopen; physical desktop/GPU and release unexercised.
 
 **Location:** `src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp`, `processBlock` (no `TextParagraphType::Shot` case, hits skip-by-default branch).
 

@@ -52,6 +52,48 @@ Two Ω.
 FADE TO:
 """
 assert (checks / "model-export.fountain").read_text() == model_fountain, "model Fountain syntax"
+shot_fdx_fountain = r"""INT. STUDY - DAY #16A#
+
+!CLOSE ON THE LETTER
+
+The seal breaks.
+
+!MARA, JO\_ANN
+
+!HOLD ON **CAFÉ** Ω
+
+A plain action stays plain.
+"""
+assert (checks / "shot-fdx-export.fountain").read_text() == shot_fdx_fountain, "FDX Shot/Cast List text becomes forced Action"
+shot_model_fountain = r"""INT. STUDY - DAY #16B#
+
+!CLOSE ON THE LETTER
+
+The seal breaks.
+
+!MARA, JO\_ANN
+
+!HOLD ON **CAFÉ** Ω[[Check angle]]
+
+!# INSERT
+!INT. THE LETTER - DAY
+!> TO:
+!~ QUIET
+
+!Title: A literal heading
+
+!The file is C:\\temp \*literal\* \_name\_.
+
+MARA
+Look here.
+
+!CUT TO:
+
+A plain action stays plain.
+"""
+assert (checks / "model-shot-export.fountain").read_text() == shot_model_fountain, "model Shot/Cast List/Unformatted Text forcing, escapes, styles and review"
+assert (checks / "manager-shot.fountain").read_text() == shot_model_fountain.replace(
+    " #16B#", "", 1), "explicit manager export retains all Shot/other content text"
 notes = (checks / "notes-dual-export.fountain").read_text()
 assert "A clue[[Check café & <tag>]]." in notes, "review note spelling/anchor"
 assert "/* Private note */" in notes, "inline note delimiter"
