@@ -8,7 +8,8 @@ replacement product or a roadmap for other artistic mediums.
 `dev` is the working version. `master` is the frozen reference at
 `4b9677dbfb5c1faaa91c55c415fdf12715f8521d`, the initial
 common ancestor of both branches. Nothing in this setup requires updating
-`master`. Feature branches may be based on `dev`.
+`master`. Work directly on `dev` (single agent, no task branches),
+per `AGENTS.md` and `docs/WORKFLOW.md`.
 
 The public checkout includes the core screenplay editor, public import/export,
 project management, and shared widgets. Several upstream commercial/cloud
