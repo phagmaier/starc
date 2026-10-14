@@ -149,6 +149,15 @@ Run the check matching the change; details follow. All retain logs under `.build
 | Database creation / legacy migration | `./tools/check-database-migrations.sh` |
 | Import-only sources / explicit export failure | `./tools/check-import-only-sources.sh`, `./tools/check-explicit-export-failure.sh` |
 | GitHub credentials | `./tools/check-github-credential-storage.sh` |
+| Qt image codecs / bundled PDF JPEG isolation | `./tools/check-image-codecs.sh` |
+
+`./tools/check-image-codecs.sh` checks opaque JPEG and transparent PNG images through
+the production image helper/storage, the bundled PDF JPEG decoder, and a separate
+native database reopen. An independent reader compares exact script/image bytes,
+document identities and history. On Linux, `corelib.pro` hides the bundled JPEG
+archive's symbols so Qt's system JPEG plugin cannot bind to its incompatible ABI.
+The check retains logs and confirms those private symbols are absent from dynamic
+exports; it does not change stored image formats or re-encode existing attachments.
 
 After a debug build, run `./tools/check-writing-session-storage.sh` for the
 focused writing-statistics storage regression. It uses an isolated profile and

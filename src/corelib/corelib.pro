@@ -184,6 +184,9 @@ DEPENDPATH += $$PWD/../3rd_party/pdfhummus/FreeType/include
 LIBS += -L$$LIBSDIR/ -lLibJpeg
 INCLUDEPATH += $$PWD/../3rd_party/pdfhummus/LibJpeg
 DEPENDPATH += $$PWD/../3rd_party/pdfhummus/LibJpeg
+# Keep the PDF reader's bundled JPEG ABI private. Otherwise Qt's system JPEG
+# plugin binds to these unversioned symbols and mixes incompatible codec state.
+linux:QMAKE_LFLAGS += -Wl,--exclude-libs,libLibJpeg.a
 #
 
 #

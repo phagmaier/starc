@@ -151,6 +151,22 @@ Limits: Linux debug/offscreen, real editor Copy/Save/Export/ordinary close and s
 
 ## Untriaged (new defects found during fixes)
 
+### 23. P1 — Bundled JPEG symbols crash ordinary image encoding
+
+- [x] Confirm and fix.
+
+Resolution: Linux `corelib` hides its bundled JPEG archive symbols, preventing Qt's system codec from mixing incompatible state; existing JPEG/PNG formats and stored attachments are retained.
+Files: `corelib.pro`, `image_codec_test.cpp`, `check-image-codecs.sh`, and `DEVELOPING.md`.
+Oracle: doctor, qmake regeneration/explicit relink/debug build, all 22 check scripts, private native keyring checks, production XCB keyboard Save/Undo/Redo/autosave/backup/ordinary close/reopen, syntax/format and diff checks passed.
+Evidence: `.build/evidence/final-safety-audit-20261014-q6zphef6/report.json` indexes exact native XML/image/UUID/history oracles, latest backup recovery, and retained crash/control/setup failures.
+Limits: Linux Qt 6.12 debug, offscreen/private Xvfb, disposable stories/keyring/mock services; physical desktop/GPU/Wayland, release, other OS, external GitHub and exhaustive power-loss/storage faults unexercised.
+
+**Context:** Final safety pass reconfirmed the unresolved codec footnote in `docs/archive/audit-2-2026-10-13.md` (transaction-recovery resolution).
+**Trigger:** `ImageHelper::bytesFromImage` on an opaque RGB pixmap, including `DocumentImageStorage::save`.
+**Observed:** `SIGABRT` / `malloc(): invalid size (unsorted)`; Qt-only control succeeds. Dynamic-loader logs show Qt's system `libjpeg.so.8` binding JPEG allocation/decoder symbols to `libcorelib.so`'s incompatible bundled JPEG. Evidence: `.build/evidence/final-safety-audit-20261014-q6zphef6/jpeg-{starc-opaque,dynamic-bindings,starc-backtrace-unsandboxed}.log`.
+**Location:** `src/corelib/corelib.pro`, static `LibJpeg` linkage; `src/corelib/utils/helpers/image_helper.cpp:51` is the calling path.
+**Oracle:** `./tools/check-image-codecs.sh` (Qt JPEG/PNG, bundled PDF JPEG decode and exact native persistence/fresh-process reopen), plus screenplay PDF/export checks.
+
 Copy this template, keep it short. Promote the audit link once confirmed.
 
 ```markdown
