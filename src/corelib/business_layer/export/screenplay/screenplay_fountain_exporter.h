@@ -28,6 +28,12 @@ protected:
     QString formatSymbols(TextSelectionTypes _type) const override;
 
     /**
+     * @brief Whether the importer would read a character of the block's text as syntax
+     */
+    bool needsEscaping(const QTextBlock& _block, const QString& _text, int _position, QChar _next,
+                       const ExportOptions& _exportOptions) const override;
+
+    /**
      * @brief Добавить пустые строки перед абзацем
      */
     void addIndentationAtBegin(QString& _paragraph, TextParagraphType _previosBlockType,

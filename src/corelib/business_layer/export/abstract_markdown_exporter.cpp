@@ -40,7 +40,8 @@ public:
     /**
      * @brief Заэкранировать специальные символы в заданном диапазоне
      */
-    void escapeCharacters(QString& _paragraph, int _begin, int _end) const;
+    void escapeCharacters(QString& _paragraph, int _begin, int _end, const QTextBlock& _block,
+                          const QString& _text, const ExportOptions& _exportOptions) const;
 
     void insertMarkup(QString& _paragraph, int _position, const QString& _markup,
                       bool _belongsToPreviousText) const;
@@ -185,11 +186,14 @@ QString AbstractMarkdownExporter::Implementation::closeFormatString(
     return formatString;
 }
 
-void AbstractMarkdownExporter::Implementation::escapeCharacters(QString& _paragraph, int _begin,
-                                                                int _end) const
+void AbstractMarkdownExporter::Implementation::escapeCharacters(
+    QString& _paragraph, int _begin, int _end, const QTextBlock& _block, const QString& _text,
+    const ExportOptions& _exportOptions) const
 {
+    // Up to _end the paragraph still is the block's own text; what follows is already written.
     for (int index = _end; index >= _begin; --index) {
-        if (escapedCharacters.contains(_paragraph[index])) {
+        const QChar next = index + 1 < _paragraph.size() ? _paragraph.at(index + 1) : QChar();
+        if (q->needsEscaping(_block, _text, index, next, _exportOptions)) {
             insertMarkup(_paragraph, index, QString(QLatin1Char('\\')), false);
         }
     }
@@ -405,13 +409,17 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
             }
         }
 
-        QString paragraphText = block.text();
+        const QString blockText = block.text();
+        QString paragraphText = blockText;
         d->sourcePositions.fill(0, paragraphText.size() + 1);
 
         //
         // При вставке форматных строк будем экранировать специальные символы (начиная с конца),
         // чтобы они не сбивали форматирование.
         // Для этого заведем переменную, отслеживающую положение обработанной части
+        //
+        // It only ever moves towards the start: the text up to it has no insertions yet, so
+        // its positions are the block's own, and no character is looked at a second time.
         //
         int escapedRange = paragraphText.size() - 1;
 
@@ -442,8 +450,9 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
                 //
                 // Экранируем специальные символы до индекса (со стороны конца)
                 //
-                d->escapeCharacters(paragraphText, nextFormatStartIndex, escapedRange);
-                escapedRange = nextFormatStartIndex - 1;
+                d->escapeCharacters(paragraphText, nextFormatStartIndex, escapedRange, block,
+                                    blockText, _exportOptions);
+                escapedRange = qMin(escapedRange, nextFormatStartIndex - 1);
 
                 //
                 // Вставляем открывающую форматную строку следующего формата
@@ -461,8 +470,9 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
                 //
                 // Экранируем специальные символы до индекса (со стороны конца)
                 //
-                d->escapeCharacters(paragraphText, formatEndIndex, escapedRange);
-                escapedRange = formatEndIndex - 1;
+                d->escapeCharacters(paragraphText, formatEndIndex, escapedRange, block, blockText,
+                                    _exportOptions);
+                escapedRange = qMin(escapedRange, formatEndIndex - 1);
 
                 //
                 // Вставляем закрывающую форматную строку текущего формата
@@ -484,8 +494,9 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
                 //
                 // Экранируем специальные символы до индекса (со стороны конца)
                 //
-                d->escapeCharacters(paragraphText, formatEndIndex, escapedRange);
-                escapedRange = formatEndIndex - 1;
+                d->escapeCharacters(paragraphText, formatEndIndex, escapedRange, block, blockText,
+                                    _exportOptions);
+                escapedRange = qMin(escapedRange, formatEndIndex - 1);
 
                 //
                 // Вставляем закрывающую форматную строку текущего формата
@@ -522,8 +533,9 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
                 //
                 // Экранируем специальные символы до индекса (со стороны конца)
                 //
-                d->escapeCharacters(paragraphText, currentFormatStartIndex, escapedRange);
-                escapedRange = currentFormatStartIndex - 1;
+                d->escapeCharacters(paragraphText, currentFormatStartIndex, escapedRange, block,
+                                    blockText, _exportOptions);
+                escapedRange = qMin(escapedRange, currentFormatStartIndex - 1);
 
                 //
                 // Вставляем открывающую форматную строку текущего формата
@@ -536,7 +548,7 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
         //
         // Экранируем специальные символы до конца, если остались непроверенные
         //
-        d->escapeCharacters(paragraphText, 0, escapedRange);
+        d->escapeCharacters(paragraphText, 0, escapedRange, block, blockText, _exportOptions);
 
         int insertedLength = 0;
         for (int position = 0; position < d->sourcePositions.size(); ++position) {
@@ -568,6 +580,17 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
         }
     }
     return markdownFile.write("\n") == 1 && markdownFile.commit();
+}
+
+bool AbstractMarkdownExporter::needsEscaping(const QTextBlock& _block, const QString& _text,
+                                             int _position, QChar _next,
+                                             const ExportOptions& _exportOptions) const
+{
+    Q_UNUSED(_block)
+    Q_UNUSED(_next)
+    Q_UNUSED(_exportOptions)
+
+    return d->escapedCharacters.contains(_text.at(_position));
 }
 
 int AbstractMarkdownExporter::formattedPosition(int _sourcePosition) const

@@ -57,6 +57,13 @@ protected:
     virtual QString formatSymbols(TextSelectionTypes _type) const = 0;
 
     /**
+     * @brief Whether a character of the block's text is written after an escaping backslash.
+     *        _next is the character formatting has put after it, null at the end of the text.
+     */
+    virtual bool needsEscaping(const QTextBlock& _block, const QString& _text, int _position,
+                               QChar _next, const ExportOptions& _exportOptions) const;
+
+    /**
      * @brief Очистить начало параграфа от пробельных символов
      */
     void removeWhitespaceAtBegin(QString& _paragraph) const;

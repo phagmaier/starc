@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Actual source Save, ordinary close, and fresh application reopening with annotations
-# and forced Action paragraphs.
+# Actual source Save, ordinary close, and fresh application reopening with annotations,
+# forced Action paragraphs and literal syntax.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 OUTPUT="$ROOT/.build/debug/_build"
@@ -23,7 +23,8 @@ export QT_QPA_PLATFORM=${STARC_REVIEW_SOURCE_PLATFORM:-offscreen}
 export QT_FORCE_STDERR_LOGGING=1
 export LD_LIBRARY_PATH="$OUTPUT:$OUTPUT/libs:$OUTPUT/plugins${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
-for fixture in emphasis-review review-offsets forced-action forced-action-first; do
+for fixture in emphasis-review review-offsets forced-action forced-action-first \
+    literal-syntax; do
     case_root="$EVIDENCE/$fixture"
     mkdir -p "$case_root"
     cp "$ROOT/tests/fixtures/interchange/$fixture.fountain" "$case_root/source.fountain"
@@ -46,7 +47,8 @@ import json
 from pathlib import Path
 import sys
 evidence, fixtures = map(Path, sys.argv[1:])
-for name in ("emphasis-review", "review-offsets", "forced-action", "forced-action-first"):
+for name in ("emphasis-review", "review-offsets", "forced-action", "forced-action-first",
+             "literal-syntax"):
     expected = (fixtures / (name + ".fountain")).read_text()
     if name == "emphasis-review":
         expected = expected.replace("!A **bold** clue.", "A **bold** clue.")
@@ -54,7 +56,9 @@ for name in ("emphasis-review", "review-offsets", "forced-action", "forced-actio
     # Typing at the end of the fully reviewed final line naturally extends its
     # review coverage to the marker. The note must follow the added characters.
     anchor = last.rfind("[[") if "[[" in last else len(last)
-    expected = body + "\n" + last[:anchor] + " SAVEMARKER" + last[anchor:] + "\n"
+    # The literal fixture has a note-like word and a path typed after the marker.
+    typed = " SAVEMARKER \\[\\[typed\\]\\] D:\\\\x" if name == "literal-syntax" else " SAVEMARKER"
+    expected = body + "\n" + last[:anchor] + typed + last[anchor:] + "\n"
     actual = (evidence / name / "source.fountain").read_text()
     assert actual == expected, (name, actual, expected)
 # The saved model, which the fresh application import must equal, holds the authored
@@ -81,6 +85,27 @@ assert [(row[0], row[1]) for row in rows] == [
     ("action", "Credit: none is given."),
     ("action", "source: lowercase is not a key. SAVEMARKER"),
 ], rows
-print("PASS: independently authored source syntax, exact review anchors, emphasis, replies and forced Action")
+# Literal brackets, backslashes and slashes are script text in the saved model, not notes,
+# escapes or an inline note, and every paragraph after them is still there.
+rows = json.loads((evidence / "literal-syntax" / "expected.json").read_text())
+assert [(row[0], row[1]) for row in rows] == [
+    ("scene_heading", "INT. ARCHIVE - DAY"),
+    ("action", "Screen shows [[message]] then continues."),
+    ("action", "Triple [[[x]]] too."), ("action", "The folder is C:\\temp."),
+    ("action", "\\\\server\\share opens."),
+    ("action", "A lone [bracket], a path/name and 2 + 2 stay plain."),
+    ("action", "He types /* remark */ and moves on."),
+    ("action", "C:\\bold follows a backslash."), ("action", "Either and/or is fine."),
+    ("action", "The strong/ ending."), ("action", "A [ opens."),
+    ("action", "Path C:\\ here."), ("action", "A clue."), ("character", "MARA"),
+    ("parenthetical", "reading [[aloud]]"), ("dialogue", "Read [[this]] from D:\\notes."),
+    ("action", "Stressed first word."), ("action", "@home [[x]] waits."),
+    ("action", "The last line keeps a\\b. SAVEMARKER [[typed]] D:\\x"),
+], rows
+notes = {row[1]: sorted({message for position in row[3] for message in position}) for row in rows}
+assert notes["A [ opens."] == ["Bracket note"] and notes["Path C:\\ here."] == ["Drive note"]
+assert notes["A clue."] == ["Check [[tag]] in C:\\dir, 2 * 3 and file_name]"]
+assert sum(1 for messages in notes.values() if messages) == 3, notes
+print("PASS: independently authored source syntax, exact review anchors, emphasis, replies, forced Action and literal syntax")
 PY
 printf 'Evidence: %s\n' "$EVIDENCE"

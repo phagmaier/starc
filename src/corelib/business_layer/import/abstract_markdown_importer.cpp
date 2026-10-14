@@ -120,17 +120,23 @@ void AbstractMarkdownImporter::collectSelectionTypes(QString& _paragraphText) co
     //
     // Собираем типы выделения
     //
+    // A backslash makes the character after it text, and a backslash can be escaped itself.
+    // Blank out every such pair, so that neither character takes part in the search.
+    //
+    QString searchText = _paragraphText;
+    for (int index = 0; index + 1 < searchText.size(); ++index) {
+        if (searchText.at(index) == '\\') {
+            searchText[index] = QChar::Space;
+            searchText[++index] = QChar::Space;
+        }
+    }
     QVector<SelectionTypeInText> selectionTypes;
-    QRegularExpressionMatch match = d->selectionTypeChecker.match(_paragraphText);
+    QRegularExpressionMatch match = d->selectionTypeChecker.match(searchText);
     while (match.hasMatch()) {
         const SelectionTypeInText type = { static_cast<int>(match.capturedStart(d->capturedGroup)),
                                            match.captured(d->capturedGroup) };
         selectionTypes.append(type);
-        int position = match.capturedEnd(d->capturedGroup);
-        if (position > 1) {
-            --position;
-        }
-        match = d->selectionTypeChecker.match(_paragraphText, position);
+        match = d->selectionTypeChecker.match(searchText, match.capturedEnd(d->capturedGroup));
     }
 
     //

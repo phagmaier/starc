@@ -46,10 +46,24 @@ physical line is forced on its own, and review notes that carry line breaks.
 Expected types and text are written out in the tests; the exported bytes must equal
 the fixtures apart from the scene number.
 
+`literal-syntax.fountain` is authored in the same canonical spelling. It holds
+script text that Fountain would read as syntax unless it is escaped: doubled square
+brackets, backslashes (at the start of a line, before emphasis and before a note),
+a literal `/*` and `*/`, a slash directly before and at the end of emphasis, a
+single bracket directly in front of a review note, and a comment holding brackets,
+a backslash, a star, an underscore and a closing bracket at its end. Single
+brackets, a slash between words and ordinary emphasis beside them are controls
+that stay unescaped. A model-authored script holds the same kinds of text as typed
+into the application, with an inline note, a comment with paired stars and a
+paragraph ending in spaces of two styles; it goes out through the exporter and
+through the manager's source Save route. Expected text is written out without
+escapes in the tests, and Python reads the imported XML without the application.
+
 `./tools/check-fountain-review-source.sh` separately exercises the real application
-Save coordinator with edited versions of the review and forced Action fixtures,
-full/partial clipboard exports, ordinary close and a fresh application reopening
-the saved source.
+Save coordinator with edited versions of the review, forced Action and literal
+syntax fixtures, full/partial clipboard exports, ordinary close and a fresh
+application reopening the saved source. For the literal syntax fixture the editor
+also types a note-like word and a path before saving.
 Repeated saves must be byte-idempotent, with exact per-character style and review
 coverage. The explicit `cold-undo` mode still fails with the separate
 [issue 15](../ISSUES2.md#15-undo-of-the-first-edit-after-importing-styled-review-notes-aborts)
@@ -87,7 +101,7 @@ evidence directory, including failed runs.
   run and XML entities for ampersands, angle brackets and quotes. Formatting
   offsets exclude the parenthetical delimiters in the internal model.
 - Fountain covers forced `.`, `!`, `@` and `>` syntax, escaped literal asterisks,
-  ordinary and custom headings, `[[review notes]]`, `/*inline notes*/` and `^`
+  underscores, brackets, backslashes and slashes, ordinary and custom headings, `[[review notes]]`, `/*inline notes*/` and `^`
   dual dialogue. Mixed-case cues/transitions are not case-preservation evidence:
   the screenplay template/editor can uppercase them; the fixtures use uppercase
   cues/transitions. The forced scene heading is independent of heading heuristics.
@@ -101,6 +115,24 @@ evidence directory, including failed runs.
   still written without `!`. The rules follow this importer (case-sensitive heading
   starts, eight title keys), not every third-party Fountain reader. Other paragraph
   types have no forcing syntax; see the open items in `ISSUES2.md`.
+- A backslash makes the character after it text, in script text, review notes and
+  inline notes, at the start of a line as well. The exporter writes one before
+  every backslash, `*` and `_` of the text; before a square bracket that has an
+  equal bracket beside it (`[[` and `]]`, also when emphasis markup stands between
+  the two, because the importer removes that first); before a single `[` directly
+  in front of a review note; and before a `/` directly in front of emphasis markup
+  that begins with `*`, opening or closing, because `/*` opens an inline note. A
+  comment is escaped the same way inside its note, and a `]` at its end as well.
+  Single brackets and a slash anywhere else are written as they are. The importer's
+  emphasis search skips an escaped character together with its backslash, so
+  emphasis directly after an escaped backslash or slash is still found. These rules
+  follow this application's importer. Fountain itself describes the backslash for
+  emphasis characters only, so another program may show the other backslashes.
+  A source that holds an unescaped literal `[[text]]` or backslash, written by hand
+  or by a version before this rule, is still read as a note or an escape.
+- Emphasis that covers nothing but spaces cannot be written: the markers go around
+  words. Trailing spaces with a style of their own come back as one styled space,
+  and a styled space between two unstyled words comes back unstyled.
 - Interchange output is not byte-identical source preservation. Fountain removes
   CR, simplifies ordinary line whitespace, normalizes blank-line separators and
   inserts/removes forced syntax and emphasis delimiters. Each physical input line

@@ -187,6 +187,85 @@ Yes.
 """
 assert (checks / "model-forced-export.fountain").read_text() == model_forced, "per-line forced Action"
 
+# Literal syntax: brackets, backslashes and slashes of the text itself are escaped wherever
+# they would otherwise be read as a note, an escape or an inline note, and nowhere else.
+# The imported XML is read here without the application: its text holds no escapes.
+literal_expected = [
+    ("INT. ARCHIVE - DAY", [], []),
+    ("Screen shows [[message]] then continues.", [], []),
+    ("Triple [[[x]]] too.", [], []),
+    ("The folder is C:\\temp.", [], []),
+    ("\\\\server\\share opens.", [], []),
+    ("A lone [bracket], a path/name and 2 + 2 stay plain.", [], []),
+    ("He types /* remark */ and moves on.", [], []),
+    ("C:\\bold follows a backslash.", [(3, 4, 1)], []),
+    ("Either and/or is fine.", [(11, 2, 2)], []),
+    ("The strong/ ending.", [(4, 7, 1)], []),
+    ("A [ opens.", [], [(0, 3, "Bracket note")]),
+    ("Path C:\\ here.", [], [(0, 8, "Drive note")]),
+    ("A clue.", [], [(0, 7, "Check [[tag]] in C:\\dir, 2 * 3 and file_name]")]),
+    ("MARA", [], []),
+    ("reading [[aloud]]", [], []),
+    ("Read [[this]] from D:\\notes.", [], []),
+    ("Stressed first word.", [(0, 8, 6)], []),
+    ("@home [[x]] waits.", [], []),
+    ("The last line keeps a\\b.", [], []),
+]
+check_review_xml("literal-syntax-raw.xml", literal_expected, ["v", "fms", "rms"])
+check_review_xml("literal-syntax-serialized.xml", literal_expected, ["v", "rms", "fms"])
+check_review_xml("literal-syntax-fresh-serialized.xml", literal_expected, ["v", "rms", "fms"])
+literal_source = (fixtures / "literal-syntax.fountain").read_text()
+literal_lines = [line for line in literal_source.split("\n") if line]
+assert [line for line in literal_lines if "\\" not in line] == [
+    "INT. ARCHIVE - DAY", "A lone [bracket], a path/name and 2 + 2 stay plain.", "MARA",
+    "_*Stressed*_ first word.",
+], "single brackets, a slash between words and ordinary emphasis need no escape"
+assert sum(line.count("[[") for line in literal_lines) == 3, "only the three notes open with [["
+assert (checks / "literal-syntax-export.fountain").read_text() == literal_source.replace(
+    "INT. ARCHIVE - DAY", "INT. ARCHIVE - DAY #1#", 1), "literal syntax spelling"
+# The same kinds of text typed into the model. A bracket before a note, a slash before
+# emphasis and the text of a comment are escaped too; the note delimiters are not.
+# <TAB> stands for the tab of a paragraph that ends in spaces of two different styles.
+model_literal = r"""INT. VAULT - NIGHT #9#
+
+Screen shows \[\[message\]\] then continues.
+
+The folder is C:\\temp.
+
+C:\\**bold** after it.
+
+Either and\/*or* works.
+
+*Trailing***  <TAB>**
+
+An odd \[[[a\]\] b\\c \]]] here.
+
+Marked \_name\_[[2 \* 3 \* 4 and \[\[x\]\]]] here.
+
+ADA
+Say \[\[it\]\] at C:\\x.
+
+/* Keep \[\[this\]\] \*/ and a\\b */
+""".replace("<TAB>", "\t")
+assert (checks / "model-literal-export.fountain").read_text() == model_literal, "model literal syntax"
+assert (checks / "manager-literal.fountain").read_text() == model_literal.replace(
+    " #9#", "", 1), "source Save route writes the same escapes"
+check_review_xml("model-literal-fresh-serialized.xml", [
+    ("INT. VAULT - NIGHT", [], []),
+    ("Screen shows [[message]] then continues.", [], []),
+    ("The folder is C:\\temp.", [], []),
+    ("C:\\bold after it.", [(3, 4, 1)], []),
+    ("Either and/or works.", [(11, 2, 2)], []),
+    # Trailing spaces of two styles: the words stay, one bold space is what can be written.
+    ("Trailing ", [(0, 8, 2), (8, 1, 1)], []),
+    ("An odd [ here.", [], [(0, 8, "a]] b\\c ]")]),
+    ("Marked _name_ here.", [], [(0, 13, "2 * 3 * 4 and [[x]]")]),
+    ("ADA", [], []),
+    ("Say [[it]] at C:\\x.", [], []),
+    # The importer keeps the space written before the closing delimiter of an inline note.
+    ("Keep [[this]] */ and a\\b ", [], []),
+], ["v", "rms", "fms"])
+
 
 def check_fdx(name, expected, numbers, emphasis):
     data = (checks / name).read_bytes()

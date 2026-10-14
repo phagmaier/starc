@@ -295,6 +295,41 @@ const Expected forcedActionModel{
       { "action", "(She waits)" }, { "action", "~ humming" } }, { "7" }
 };
 
+// Literal brackets, backslashes and slashes that Fountain would read as a review note, an
+// escape or an inline note. The text below is what the model must hold, with no escapes.
+const Expected literalSyntax{
+    { { "scene_heading", "INT. ARCHIVE - DAY" },
+      { "action", "Screen shows [[message]] then continues." },
+      { "action", "Triple [[[x]]] too." }, { "action", "The folder is C:\\temp." },
+      { "action", "\\\\server\\share opens." },
+      { "action", "A lone [bracket], a path/name and 2 + 2 stay plain." },
+      { "action", "He types /* remark */ and moves on." },
+      { "action", "C:\\bold follows a backslash.", { { "bold", 1 } } },
+      { "action", "Either and/or is fine.", { { "or", 2 } } },
+      { "action", "The strong/ ending.", { { "strong/", 1 } } },
+      { "action", "A [ opens.", {}, "none", { "Bracket note" }, { { 0, 3 } } },
+      { "action", "Path C:\\ here.", {}, "none", { "Drive note" }, { { 0, 8 } } },
+      { "action", "A clue.", {}, "none",
+        { "Check [[tag]] in C:\\dir, 2 * 3 and file_name]" }, { { 0, 7 } } },
+      { "character", "MARA" }, { "parenthetical", "reading [[aloud]]" },
+      { "dialogue", "Read [[this]] from D:\\notes." },
+      { "action", "Stressed first word.", { { "Stressed", 6 } } },
+      { "action", "@home [[x]] waits." }, { "action", "The last line keeps a\\b." } }, { "1" }
+};
+// The same kinds of text typed into the application model, which no importer has shaped.
+const Expected literalModel{
+    { { "scene_heading", "INT. VAULT - NIGHT" },
+      { "action", "Screen shows [[message]] then continues." },
+      { "action", "The folder is C:\\temp." },
+      { "action", "C:\\bold after it.", { { "bold", 1 } } },
+      { "action", "Either and/or works.", { { "or", 2 } } },
+      { "action", "Trailing ", { { "Trailing", 2 }, { " ", 1 } } },
+      { "action", "An odd [ here.", {}, "none", { "a]] b\\c ]" }, { { 0, 8 } } },
+      { "action", "Marked _name_ here.", {}, "none", { "2 * 3 * 4 and [[x]]" }, { { 0, 13 } } },
+      { "character", "ADA" }, { "dialogue", "Say [[it]] at C:\\x." },
+      { "inline_note", "Keep [[this]] */ and a\\b" } }, { "9" }
+};
+
 void inputFailures(const QString& root, const QString& fixtures)
 {
     ScreenplayFountainImporter fountainImporter;
@@ -482,10 +517,15 @@ int main(int argc, char** argv)
     const auto rawOffsets = ScreenplayFountainImporter().importScreenplays(emphasisOptions);
     require(rawOffsets.size() == 1, "review offsets raw import");
     write(root + "/review-offsets-raw.xml", rawOffsets.first().text.toUtf8());
+    emphasisOptions.filePath = fixtures + "/literal-syntax.fountain";
+    const auto rawLiteral = ScreenplayFountainImporter().importScreenplays(emphasisOptions);
+    require(rawLiteral.size() == 1, "literal syntax raw import");
+    write(root + "/literal-syntax-raw.xml", rawLiteral.first().text.toUtf8());
     run("emphasis-review", fixtures + "/emphasis-review.fountain", emphasisReview, false);
     run("review-offsets", fixtures + "/review-offsets.fountain", reviewOffsets, false);
     run("forced-action", fixtures + "/forced-action.fountain", forcedAction, false);
     run("forced-action-first", fixtures + "/forced-action-first.fountain", forcedActionFirst, false);
+    run("literal-syntax", fixtures + "/literal-syntax.fountain", literalSyntax, false);
     const auto fdxUuid = run("fdx", fixtures + "/authored.fdx", fdx, true);
     // Ordinary saves of a shadow project use this convenience route. The destination's
     // extension must select FDX, rather than replacing an FDX file with Fountain text.
@@ -573,7 +613,10 @@ int main(int argc, char** argv)
             QVector<QTextLayout::FormatRange> formats;
             for (const auto& span : row.emphasis) {
                 QTextCharFormat format;
-                format.setFontWeight(QFont::Bold);
+                if (span.bits & 1)
+                    format.setFontWeight(QFont::Bold);
+                format.setFontItalic(span.bits & 2);
+                format.setFontUnderline(span.bits & 4);
                 formats.append({ int(row.text.indexOf(span.text)), int(span.text.size()), format });
             }
             item->setFormats(formats);
@@ -644,6 +687,35 @@ int main(int argc, char** argv)
         const auto fresh = scriptUuid();
         check(select(fresh), forcedActionModel, root + "/model-forced-fresh.json");
         persist(fresh, forcedActionModel, "model-forced-fresh");
+    }
+    // Literal syntax typed into the model goes out through the exporter and through the
+    // manager's source Save route, and comes back as the same text, styles and notes.
+    // One paragraph ends in spaces of two different styles, the last of them bold only.
+    // Fountain keeps one of the spaces; every other row comes back exactly as authored.
+    auto literalAuthored = literalModel;
+    literalAuthored.rows[5] = { "action", QString("Trailing  \t"),
+                                { { "Trailing  ", 2 }, { "\t", 1 } } };
+    const auto literalUuid = author("Model literal syntax", literalAuthored.rows, "9");
+    check(select(literalUuid), literalAuthored, root + "/model-literal-authored.json");
+    persist(literalUuid, literalAuthored, "model-literal");
+    {
+        ScreenplayExportOptions options;
+        options.templateId = "world_cp";
+        options.includeTitlePage = false;
+        options.includeInlineNotes = true;
+        options.filePath = root + "/model-literal-export.fountain";
+        ScreenplayFountainExporter().exportTo(select(literalUuid), options);
+        importer.importScreenplay(options.filePath, false);
+        const auto fresh = scriptUuid();
+        check(select(fresh), literalModel, root + "/model-literal-fresh.json");
+        persist(fresh, literalModel, "model-literal-fresh");
+        const auto managerFountain = root + "/manager-literal.fountain";
+        require(exportManager.exportDocument(select(literalUuid), managerFountain),
+                "manager source Save of literal syntax");
+        importer.importScreenplay(managerFountain, false);
+        auto managerLiteral = literalModel;
+        managerLiteral.numbers = { "1" }; // Ordinary information settings hide scene numbers.
+        check(select(scriptUuid()), managerLiteral, root + "/manager-literal-fresh.json");
     }
     inputFailures(root, fixtures);
     write(root + "/emphasis-review-identities.json", QJsonDocument(emphasisReviewIdentities).toJson());

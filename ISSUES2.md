@@ -9,6 +9,7 @@ The build and all nine existing focused regression scripts passed. Additional
 fault, concurrency and editor probes nevertheless confirmed the fourteen issues below.
 Issue 15 was additionally confirmed while fixing issue 13; it is recorded separately.
 Issues 16 and 17 were confirmed while fixing issue 14 and are recorded separately.
+Issues 18, 19 and 20 were confirmed while fixing issue 12 and are recorded separately.
 The eight completed entries in `ISSUES.md` were not reopened; these findings
 identify remaining paths or failure classes. Inherited upstream defects are
 included because they still affect writing in this fork.
@@ -43,6 +44,9 @@ application's own recovery copies.
 | 15 | P1 | Undo of the first edit in an imported styled/reviewed screenplay aborts the debug app |
 | 16 | P1 | Fountain export leaves out Shot paragraphs |
 | 17 | P1 | Fountain export/reimport turns dialogue with a reserved line start into headings and cues |
+| 18 | P2 | A review comment on an inline note comes back as part of the note's text |
+| 19 | P1 | Fountain import removes asterisks and underscores that are text |
+| 20 | P2 | Imported character and location names keep Fountain markup |
 
 ## 1. Failed Fountain/FDX saves appear successful; output is not protected
 
@@ -1073,7 +1077,7 @@ external repository or desktop keyring was used.
 
 ## 12. Fountain export/reimport changes literal brackets and backslashes into syntax
 
-- [ ] **P1 — confirmed through the actual export manager and fresh import manager.**
+- [x] **P1 — fixed 2026-10-13; verified through fixture and model round trips, source Save, clipboard export and fresh-process reopening.**
 
 **Locations:**
 [screenplay_fountain_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp),
@@ -1111,6 +1115,143 @@ and source Save/close/reopen. This is not an intentional interchange loss in
 and [literal backslash case](.build/evidence/audit2-interchange/case-literal-backslash/checks/).
 `semantics-status.json` records successful probe exits that confirmed these
 mismatches; probe source and runner are in `.build/evidence/audit2-interchange/`.
+
+**Resolution (2026-10-13):** The Fountain exporter now writes a backslash in front
+of every character of the script that this application's importer would otherwise
+read as syntax:
+
+- every backslash, `*` and `_` (the last two as before);
+- a square bracket with an equal bracket beside it, so `[[message]]` is written
+  `\[\[message\]\]`. Emphasis markup between two brackets does not separate them,
+  because the importer removes it before it looks for notes;
+- a single `[` directly in front of a review note, which would otherwise open the
+  note one character early;
+- a `/` directly in front of emphasis markup that begins with `*`, opening or
+  closing, because `/*` opens an inline note.
+
+The text of a comment is escaped the same way on its way into a note, and a `]` at
+its end as well. Single brackets, a slash between words and the delimiters the
+exporter writes itself stay as they are. The decision is made for each character in
+a new `needsEscaping` hook of the Markdown export layer; plain Markdown export
+keeps its own character list. The position up to which that layer still has to
+escape now only moves towards the start of a paragraph, so it never points into
+text that already holds insertions.
+
+The importer already read the character after a backslash as text, in script
+text, notes and inline notes; that is unchanged, and it is why the audit's
+hand-escaped sources imported correctly. Its search for emphasis did not count
+backslashes, though: it skipped a marker after any backslash, including an escaped
+one, and it consumed the character in front of each marker. The search now leaves
+out every backslash together with the character it escapes and consumes nothing
+else. `C:\\**bold**` and `and\/*or*` therefore keep their emphasis.
+
+The defect was wider than the two reported forms. On the unfixed build, with text
+typed into the model and written by the exporter:
+
+- `C:\` followed by bold text was written `C:\**bold**` and came back as `C:*bold`
+  without the bold.
+- `and/` followed by italic `or` was written `and/*or*`. The importer read `/*` as
+  the start of an inline note: the paragraph ended at `Either and`, and the rest of
+  it, the paragraphs after it, the cue and its speech came back as one inline
+  note, up to the next `*/` in the file. With a bold space after the slash
+  (`A slash/**** then bold.`) there was no later `*/`, and the paragraph after it
+  was not in the imported script at all. A bold slash on its own (`One **/** two.`)
+  cut its paragraph the same way.
+- Two brackets with only emphasis markup between them (`**ab[**[cd`) opened a note
+  that took the following paragraph with it.
+- A comment that was a single `]` came back empty, with `]` added to the script. A
+  comment ending in a backslash escaped its own closing bracket: the note ran on
+  and the next paragraph disappeared into it.
+- A probe script of a parenthetical, speeches and a transition holding brackets and
+  backslashes produced a review range outside its paragraph; the probe's range
+  check stopped there.
+
+With a single rule taken out of the fixed code (the mutation runs below), the other
+forms show on their own:
+
+- `A [` with a comment directly after the bracket came back as `A ` with the
+  comment `[Bracket note`.
+- The comment `Check [[tag]] in C:\dir, 2 * 3 and file_name]` came back as
+  `Check [[tag`, with the rest of it in the script text; without only the
+  end-bracket rule its last `]` moved into the script.
+- The comment `2 * 3 * 4 and [[x]]` came back as `2  3  4 and [[x]]`, and `C:\dir`
+  in a comment as `C:dir`.
+
+Two reading faults in the same search are fixed with it and covered: emphasis
+directly after an escaped backslash, and combined underline and italic at the very
+start of a line. `_*Stressed*_ first word.` imported as underline only, with the
+underline covering two characters too many, because a marker in the second
+position of a line was never found.
+
+`./tools/check-screenplay-interchange.sh` passed with a new independently authored
+fixture and a model-authored script. `literal-syntax.fountain` holds 19 paragraphs
+in the exporter's canonical spelling: doubled and tripled brackets, backslashes in
+a path, at the start of a line and before a note, a literal `/*` and `*/`, bold
+after a backslash, italic after a slash, bold ending in a slash, a bracket in front
+of a note, a comment with brackets, a backslash, a star, an underscore and a
+closing bracket at its end, a parenthetical, a speech, a forced Action, and
+controls with single brackets and a slash between words that must stay unescaped.
+It is compared with explicitly listed types, text, styles, comments and review
+ranges after import, native save/reopen, export and fresh import, and the exported
+bytes must equal the fixture apart from the scene number. Python reads the
+importer's raw XML and both saved documents without the application. The
+model-authored script holds the same kinds of text with no importer involved, plus
+an inline note containing `*/`, a comment with paired asterisks, and a paragraph
+ending in spaces of two styles. Its exact output is written out in Python and it
+must come back with the listed text, the paragraph ending in spaces as one styled
+space. The manager's source Save route must write the same bytes apart from the
+scene number and come back the same.
+
+`./tools/check-fountain-review-source.sh` passed **ten ordinary exits** offscreen
+and the same **ten on private Xvfb/XCB**; two of each are the new fixture. There the
+real editor types ` SAVEMARKER [[typed]] D:\x` at the end of the script, the
+ApplicationManager Save coordinator writes it as
+`SAVEMARKER \[\[typed\]\] D:\\x`, and after an ordinary close a fresh application
+import holds the typed text again. Saved bytes equal the authored fixture plus the
+typed text, repeated and fresh-process saves are byte-identical, the full clipboard
+selection equals the saved source, and the saved model holds the listed types and
+text with exactly three paragraphs carrying a comment. The native screenshots show
+the application window and navigator; the editor area is not painted in them, so
+they are not evidence of editor rendering.
+
+Without the fix the interchange check fails twice over. Its fixture stops at
+import with the three emphasis rows and the line-start row above, and a copy of
+the test without that fixture stops at the model-authored script's fresh import,
+with the changed text listed above. Twelve single-rule mutations of the fixed code
+each failed the interchange check for their own reason: no backslash escape, no
+doubled-bracket rule, no bracket-before-note rule, no slash rule, comment not
+escaped, comment without the end-bracket, emphasis, doubled-bracket or backslash
+rule, escapes not hidden from the emphasis search, the old search, and the
+escaping position allowed to grow. The last one aborts on a Qt bounds assertion for
+the paragraph that ends in spaces of two styles. The first eleven also failed the
+source check. Each mutation was restored, the restored sources matched their
+checksums, and the build and both checks passed again afterwards.
+
+`./build/dev.sh doctor`, `JOBS=4 ./build/dev.sh build debug`, the interchange,
+source (offscreen and Xvfb), screenplay scope, source-export-failure,
+import-only-sources and startup-last-story checks, changed-code formatting, Bash
+syntax, ShellCheck, Python compilation and `git diff --check` passed. Retained
+evidence: [interchange](.build/evidence/screenplay-interchange-VW4TVR/),
+[source checks](.build/evidence/fountain-review-source-7WrS0g/),
+[native source checks](.build/evidence/fountain-review-source-ETyZTf/),
+[scope](.build/evidence/screenplay-scope-WH3MCd/), and
+[builds, failing runs, mutations and probes](.build/evidence/literal-syntax-fix/).
+The first failing runs are [the fixture](.build/evidence/screenplay-interchange-qxKnau/)
+and [the model-authored script](.build/evidence/screenplay-interchange-1K5ORD/);
+`probe-LriTxl` and `probe-eEe5x4` under the last link hold the further forms
+before and after the fix.
+
+The rules follow this application's importer. Fountain describes the backslash
+for emphasis characters only, so another program may show the other backslashes
+and is not covered. A source with an unescaped literal `[[text]]` or backslash,
+written by hand or saved by a version before this fix, is still read as a note or
+an escape: nothing in the file tells the two apart. Emphasis that covers only
+spaces is not kept: a bold space between two plain words comes back plain, and
+trailing spaces of two styles come back as one styled space. A scene heading
+ending in `#` and a cue ending in `^` were not examined. A speech beginning with a
+reserved character remains issue 17. Issues 18, 19 and 20 below were confirmed with
+separate probes and are not fixed here. Release, physical desktop/GPU, other
+operating systems and third-party Fountain applications remain unexercised.
 
 ## 13. Fountain escaping shifts a review note onto the wrong text
 
@@ -1441,6 +1582,120 @@ absence of new headings through export/fresh import and source Save/reopen.
 
 **Evidence:** Probe source, run log and exported Fountain in
 [adjacent-probe](.build/evidence/forced-action-fix/adjacent-probe/).
+
+**Subsequent update (2026-10-13):** The issue 12 fix escapes characters inside a
+line but leaves the start of a speech as it was, so this issue is unchanged. The
+escape the direction above asks for is already read: hand-written speeches
+`\#1 is the best.`, `\@home, he says.`, `\...and then nothing.`,
+`\INT. is short for interior.`, `\!Bang.`, `\>Onward.`, `\= Equal.` and `\~ Hum.`
+after a cue all imported as dialogue with their complete text, because the
+importer decides the paragraph type from the backslash and then reads the
+character after it as text. The exporter does not write that backslash for a
+speech. Source and log are `escaped-starts.fountain` and `probe.log` in
+[import-probe](.build/evidence/literal-syntax-fix/import-probe/).
+
+## 18. A review comment on an inline note comes back as part of the note's text
+
+- [ ] **P2 — confirmed through the actual exporter and a fresh import manager while fixing issue 12.**
+
+**Locations:**
+[screenplay_fountain_exporter.cpp](src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp),
+`processBlock`: review notes are inserted before the InlineNote case wraps the
+paragraph in `/* */`;
+[abstract_fountain_importer.cpp](src/corelib/business_layer/import/abstract_fountain_importer.cpp),
+`Implementation::processBlock`, the `[` case, which opens no note inside an inline
+note.
+
+**Trigger:** Add a review comment to an inline note. Export to Fountain, or save a
+Fountain source, and import it again.
+
+**Result:** A model-authored inline note `private` with the comment `about it` was
+written `/* private[[about it]] */`. The fresh import holds an inline note with the
+text `private[[about it]]` and no review comment. A hand-written source with the
+same line imports the same way. Since the issue 12 fix the next save writes those
+brackets escaped, so they stay script text from then on.
+
+The probe used the exporter and the import manager directly; an application
+source Save was not run for this case.
+
+**Debugging direction:** Either read a note inside an inline note, with its range
+counted in the note's own text, or do not write one there and record the loss in
+`docs/INTERCHANGE.md`. Check the comment, its range and the note text through
+export/fresh import and source Save/reopen.
+
+**Evidence:** Script 8 in
+[probe-eEe5x4](.build/evidence/literal-syntax-fix/probe-eEe5x4/) and
+`note-in-comment.fountain` with `probe.log` in
+[import-probe](.build/evidence/literal-syntax-fix/import-probe/).
+
+## 19. Fountain import removes asterisks and underscores that are text
+
+- [ ] **P1 — confirmed with hand-written sources through the importer while fixing issue 12.**
+
+**Locations:**
+[abstract_fountain_importer.cpp](src/corelib/business_layer/import/abstract_fountain_importer.cpp),
+`Implementation::processBlock`, the `*` case: an asterisk outside a review note is
+never added to the text;
+[abstract_markdown_importer.cpp](src/corelib/business_layer/import/abstract_markdown_importer.cpp),
+`collectSelectionTypes`, which pairs any two equal markers of a line, inside a
+review note as well;
+[screenplay_text_edit.cpp](src/core/management_layer/plugins/screenplay_text/text/screenplay_text_edit.cpp),
+`insertFromMimeData`, which passes pasted plain text to the same importer.
+
+**Trigger:** Open a Fountain source, written by hand or by another program, that
+holds an asterisk without a partner or a note with such characters, for example
+the speech `It costs 2 * 4.` or the note
+`[[see file_name and other_name, 2 * 3 * 4]]`.
+
+**Result:** The speech came back as `It costs 2  4.`. In
+`He writes 5 * 3 = 15 and a footnote* here.` the two asterisks were taken for a
+pair: both were removed and ` 3 = 15 and a footnote` became italic. The note came
+back as `see filename and othername, 2  3  4`. Fountain reads an asterisk without
+a partner as text. A source opened in place is rewritten on Save, so these
+characters are gone from the file after the next Save.
+
+Text typed in the application is not affected: the exporter escapes these
+characters, in comments too since the issue 12 fix. Plain text pasted into the
+screenplay editor goes through the same importer and by the code loses the same
+characters, and a backslash in front of an ordinary character with them
+(`C:\temp` in a source file came back as `C:temp`). The paste itself was not run.
+
+**Debugging direction:** Keep an asterisk or underscore without a partner as text,
+and decide whether emphasis is looked for inside a review note at all. For paste,
+decide whether plain text that is not Fountain should pass through the Fountain
+reader. Check that the escapes of issue 12 still round-trip, and compare complete
+text and styles for hand-written sources.
+
+**Evidence:** `lone-star.fountain`, `note-emphasis.fountain` and `probe.log` in
+[import-probe](.build/evidence/literal-syntax-fix/import-probe/).
+
+## 20. Imported character and location names keep Fountain markup
+
+- [ ] **P2 — confirmed with a hand-written source through the importer while fixing issue 12.**
+
+**Location:**
+[abstract_fountain_importer.cpp](src/corelib/business_layer/import/abstract_fountain_importer.cpp),
+`importDocuments`, which reads the source lines on its own, without the emphasis,
+escape and note handling of the script import.
+
+**Trigger:** Import or open a Fountain source whose cue or scene heading holds
+emphasis or an escaped character, for example `**MARA**`, `JO\_ANN` or
+`INT. LAB \[\[A\]\] - DAY`. The last two are what the exporter writes for the cue
+`JO_ANN` and the heading `INT. LAB [[A]] - DAY`.
+
+**Result:** The script text is right: `MARA` in bold, `JO_ANN` and
+`INT. LAB [[A]] - DAY`. The documents returned for the character and location
+lists are named `**MARA**`, `JO\_ANN` and `LAB \[\[A\]\]`.
+
+The probe called `importDocuments` directly. The documents a story ends up with
+were not inspected in the application.
+
+**Debugging direction:** Take the names from the same cleaned text as the script
+paragraphs. Compare the imported names with the script's cues and headings,
+including a cue that carries a review note.
+
+**Evidence:** `names.fountain` and `probe.log` in
+[import-probe](.build/evidence/literal-syntax-fix/import-probe/).
 
 ## Validation, coverage and remaining limits
 

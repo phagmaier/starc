@@ -241,7 +241,10 @@ int main(int argc, char** argv)
             auto cursor = edit->textCursor();
             cursor.movePosition(QTextCursor::End);
             edit->setTextCursorForced(cursor);
-            edit->insertPlainText(" SAVEMARKER");
+            // The literal fixture also has text typed that Fountain would read as syntax.
+            edit->insertPlainText(root.endsWith("/literal-syntax")
+                                      ? " SAVEMARKER [[typed]] D:\\x"
+                                      : " SAVEMARKER");
             QApplication::processEvents();
             const auto edited = snapshot(model);
             require(edited != original && edit->toPlainText().contains("SAVEMARKER"),

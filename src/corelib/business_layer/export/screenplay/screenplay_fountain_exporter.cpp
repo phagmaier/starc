@@ -52,6 +52,83 @@ bool sameReviewMetadata(const QTextCharFormat& _first, const QTextCharFormat& _s
     }
     return true;
 }
+
+/**
+ * @brief Review marks of the block, with the runs of one review thread joined
+ */
+QVector<QTextLayout::FormatRange> reviewThreads(const QTextBlock& _block)
+{
+    QVector<QTextLayout::FormatRange> reviewMarks;
+    for (const QTextLayout::FormatRange& format : _block.textFormats()) {
+        if (format.format.boolProperty(TextBlockStyle::PropertyIsReviewMark)) {
+            // Emphasis splits one review thread into several QTextBlock runs.
+            // Join only adjacent runs carrying the complete same review data.
+            if (!reviewMarks.isEmpty()
+                && reviewMarks.last().start + reviewMarks.last().length == format.start
+                && sameReviewMetadata(reviewMarks.last().format, format.format)) {
+                reviewMarks.last().length += format.length;
+            } else {
+                reviewMarks.push_back(format);
+            }
+        }
+    }
+    return reviewMarks;
+}
+
+/**
+ * @brief Whether a review note is written straight after the position in the block's text
+ */
+bool hasNoteAt(const QTextBlock& _block, int _position)
+{
+    for (const QTextLayout::FormatRange& reviewMark : reviewThreads(_block)) {
+        if (reviewMark.start + reviewMark.length != _position) {
+            continue;
+        }
+        const QStringList comments
+            = reviewMark.format.property(TextBlockStyle::PropertyComments).toStringList();
+        for (const QString& comment : comments) {
+            if (!comment.simplified().isEmpty()) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief Whether the character is one of several equal square brackets in a row, which is
+ *        how a review note opens and closes
+ */
+bool isNoteDelimiter(const QString& _text, int _position)
+{
+    const QChar character = _text.at(_position);
+    if (character != '[' && character != ']') {
+        return false;
+    }
+    return (_position > 0 && _text.at(_position - 1) == character)
+        || (_position + 1 < _text.size() && _text.at(_position + 1) == character);
+}
+
+/**
+ * @brief Text of a comment as it is written inside a review note
+ */
+QString escapedNote(const QString& _comment)
+{
+    QString note;
+    note.reserve(_comment.size());
+    for (int position = 0; position < _comment.size(); ++position) {
+        const QChar character = _comment.at(position);
+        // The importer looks for emphasis in a note as well, and the note's closing brackets
+        // would take a bracket at the end of the comment for one of their own.
+        const bool closesNote = character == ']' && position + 1 == _comment.size();
+        if (character == '\\' || character == '*' || character == '_'
+            || isNoteDelimiter(_comment, position) || closesNote) {
+            note.append('\\');
+        }
+        note.append(character);
+    }
+    return note;
+}
 } // namespace
 
 
@@ -74,7 +151,7 @@ ScreenplayFountainExporter::Implementation::Implementation() = default;
 
 ScreenplayFountainExporter::ScreenplayFountainExporter()
     : ScreenplayExporter()
-    , AbstractMarkdownExporter({ '*', '_' })
+    , AbstractMarkdownExporter({ '\\', '*', '_' })
     , d(new Implementation())
 {
 }
@@ -101,20 +178,7 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
     // Если нужны редакторские заметки, то вставляем их
     //
     if (exportOptions.includeReviewMarks) {
-        QVector<QTextLayout::FormatRange> reviewMarks;
-        for (const QTextLayout::FormatRange& format : _block.textFormats()) {
-            if (format.format.boolProperty(TextBlockStyle::PropertyIsReviewMark)) {
-                // Emphasis splits one review thread into several QTextBlock runs.
-                // Join only adjacent runs carrying the complete same review data.
-                if (!reviewMarks.isEmpty()
-                    && reviewMarks.last().start + reviewMarks.last().length == format.start
-                    && sameReviewMetadata(reviewMarks.last().format, format.format)) {
-                    reviewMarks.last().length += format.length;
-                } else {
-                    reviewMarks.push_back(format);
-                }
-            }
-        }
+        const QVector<QTextLayout::FormatRange> reviewMarks = reviewThreads(_block);
         for (int markIndex = reviewMarks.size() - 1; markIndex >= 0; --markIndex) {
             //
             // Извлечем список редакторских заметок для данной области блока
@@ -130,7 +194,7 @@ bool ScreenplayFountainExporter::processBlock(QString& _paragraph, const QTextBl
                 if (!comments[commentIndex].simplified().isEmpty()) {
                     const int position = formattedPosition(reviewMarks[markIndex].start
                                                            + reviewMarks[markIndex].length);
-                    const QString note = "[[" + comments[commentIndex] + "]]";
+                    const QString note = "[[" + escapedNote(comments[commentIndex]) + "]]";
                     _paragraph.insert(position, note);
                     for (int& lineStart : actionLineStarts) {
                         if (lineStart > position) {
@@ -332,6 +396,34 @@ QString ScreenplayFountainExporter::formatSymbols(TextSelectionTypes _type) cons
     }
     default: {
         return "";
+    }
+    }
+}
+
+bool ScreenplayFountainExporter::needsEscaping(const QTextBlock& _block, const QString& _text,
+                                               int _position, QChar _next,
+                                               const ExportOptions& _exportOptions) const
+{
+    // The importer takes the character after a backslash as text, in every kind of paragraph.
+    if (AbstractMarkdownExporter::needsEscaping(_block, _text, _position, _next, _exportOptions)
+        || isNoteDelimiter(_text, _position)) {
+        return true;
+    }
+
+    switch (_text.at(_position).unicode()) {
+    case '[': {
+        // A note written straight after a bracket would open one character early.
+        return _exportOptions.includeReviewMarks && hasNoteAt(_block, _position + 1);
+    }
+
+    case '/': {
+        // "/*" opens an inline note, also when the star is the start or the end of emphasis.
+        // A star of the text itself is escaped, so it is not what follows here.
+        return _next == '*';
+    }
+
+    default: {
+        return false;
     }
     }
 }
