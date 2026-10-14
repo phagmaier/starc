@@ -48,6 +48,12 @@ protected:
                                           const ExportOptions& _exportOptions) const;
 
     /**
+     * @brief Prepare a text selection, tracking its source positions through export filtering.
+     */
+    TextDocument* prepareDocument(AbstractModel* _model, const ExportOptions& _exportOptions,
+                                  int _fromPosition, int _toPosition) const;
+
+    /**
      * @brief Обработать блок необходимым образом в наследнике
      */
     virtual bool prepareBlock(const ExportOptions& _exportOptions, TextCursor& _cursor) const;

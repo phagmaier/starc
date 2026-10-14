@@ -31,7 +31,8 @@ for fixture in ${STARC_FOUNTAIN_EXPORT_FIXTURES:-emphasis-review review-offsets 
         printf '\nFinal action.\n' >> "$case_root/source.fountain"
     fi
     modes=${STARC_FOUNTAIN_EXPORT_MODES:-save reopen}
-    if [[ "$fixture" == handwritten-markers && -z "${STARC_FOUNTAIN_EXPORT_MODES:-}" ]]; then
+    if [[ ( "$fixture" == handwritten-markers || "$fixture" == inline-note-review )
+        && -z "${STARC_FOUNTAIN_EXPORT_MODES:-}" ]]; then
         modes+=' native-reopen'
     fi
     for mode in $modes; do

@@ -19,6 +19,13 @@ namespace BusinessLayer {
 TextDocument* AbstractExporter::prepareDocument(AbstractModel* _model,
                                                 const ExportOptions& _exportOptions) const
 {
+    return prepareDocument(_model, _exportOptions, -1, -1);
+}
+
+TextDocument* AbstractExporter::prepareDocument(AbstractModel* _model,
+                                                const ExportOptions& _exportOptions,
+                                                int _fromPosition, int _toPosition) const
+{
     auto textModel = qobject_cast<TextModel*>(_model);
     Q_ASSERT(textModel);
 
@@ -45,6 +52,15 @@ TextDocument* AbstractExporter::prepareDocument(AbstractModel* _model,
     // ... отсоединяем документ от модели, что изменения в документе не привели к изменениям модели
     //
     textDocument->disconnect(_model);
+
+    // Keep the selection on the detached, unfiltered document. Qt adjusts both endpoints
+    // as preparation removes notes/folders/scenes or inserts other export content.
+    const bool hasSelection = _fromPosition >= 0 && _fromPosition < _toPosition;
+    QTextCursor selection(textDocument);
+    if (hasSelection) {
+        selection.setPosition(_fromPosition);
+        selection.setPosition(_toPosition, QTextCursor::KeepAnchor);
+    }
 
     //
     // Начинаем работу с документом
@@ -407,6 +423,19 @@ TextDocument* AbstractExporter::prepareDocument(AbstractModel* _model,
     }
 
     cursor.endEditBlock();
+
+    if (hasSelection) {
+        const auto fromPosition = selection.selectionStart();
+        const auto toPosition = selection.selectionEnd();
+        cursor.beginEditBlock();
+        cursor.setPosition(toPosition);
+        cursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
+        cursor.removeSelectedText();
+        cursor.setPosition(0);
+        cursor.setPosition(fromPosition, QTextCursor::KeepAnchor);
+        cursor.removeSelectedText();
+        cursor.endEditBlock();
+    }
 
     return textDocument;
 }

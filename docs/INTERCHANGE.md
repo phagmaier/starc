@@ -94,8 +94,8 @@ headings, emphasis or notes. Clipboard data carrying `text/markdown` still uses 
 parsing, and the native screenplay MIME type retains priority. Editor checks cover exact
 plain-text paste, multiple lines, selection replacement, one-step Undo/Redo, Markdown
 formatting/reviews, native Save, explicit Export, fresh import and exact native XML in a
-separate process. Copy checks precede inline notes because full-selection/filter-offset
-clipboard export remains the separately queued issue 22.
+separate process. The inline-note fixture separately checks full and partial copying
+across excluded notes, including selections after them.
 
 `fountain-names.fountain` checks character/location import against the screenplay's
 cleaned paragraph text. Dictionary extraction reads that same typed XML, including
@@ -119,11 +119,12 @@ Raw XML, exact exported syntax, an independently authored native model, the
 explicit Export dialog, review filtering and separate-process native save/reopen
 are checked. Inline-note wrapper padding is normalized on export without changing
 the native model. These notes remain excluded by the ordinary export defaults.
-The editor check also saves/exports them and closes normally; clipboard coverage
-for this fixture uses a reviewed Action selection before the notes. Full-selection
-clipboard export after filtering inline notes is the separate open issue 22 in
-`WORKLIST.md`, with its failing check retained behind
-`STARC_FOUNTAIN_EXPORT_INLINE_CLIPBOARD=1`.
+The editor check also saves/exports them and closes normally. Clipboard export tracks
+the selection on the detached document through filtering, then trims to the adjusted
+endpoints. Standard checks cover Copy All, partial selections before/after/across notes,
+endpoints inside notes, and selections containing only excluded notes, in both directions.
+Included text and review anchors remain exact; excluded-only selections write one LF.
+Separate-process native reopening retains exact XML, annotations and document UUIDs.
 
 `./tools/check-fountain-export.sh` separately exercises the real application
 coordinator: import each fixture into a chosen `.starc`, type in the real editor,

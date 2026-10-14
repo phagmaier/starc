@@ -309,7 +309,9 @@ absent private session-bus address so it cannot contact the desktop keyring.
 literal syntax through the real application coordinator and editor. Sources
 import into chosen native projects; typed text survives native Save, explicit
 Fountain Export and a fresh application import. Full/partial clipboard exports,
-repeated byte-identical explicit exports and ordinary close are checked. It uses
+including both selection directions across excluded inline notes, repeated byte-identical
+explicit exports and ordinary close are checked. Inline-note and literal-paste fixtures
+also cross a separate-process native reopen with exact XML/UUID checks. It uses
 isolated temporary clipboard files, profiles, stories and fake credentials.
 The default is offscreen; `STARC_FOUNTAIN_EXPORT_PLATFORM=xcb
 STARC_FOUNTAIN_EXPORT_SCREENSHOTS=1` on private Xvfb adds native window evidence.

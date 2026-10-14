@@ -365,23 +365,10 @@ bool AbstractMarkdownExporter::exportTo(AbstractModel* _model, int _fromPosition
         return false;
     }
 
-    QScopedPointer<TextDocument> document(prepareDocument(_model, _exportOptions));
-
-    //
-    // Если задан интервал для экспорта, корректируем документ в соответствии с ним
-    //
-    if (_fromPosition != kInvalidPosition && _toPosition != kInvalidPosition
-        && _fromPosition < _toPosition) {
-        TextCursor cursor(document.data());
-        cursor.beginEditBlock();
-        cursor.setPosition(_toPosition);
-        cursor.movePosition(TextCursor::End, TextCursor::KeepAnchor);
-        cursor.removeSelectedText();
-        cursor.setPosition(0);
-        cursor.setPosition(_fromPosition, TextCursor::KeepAnchor);
-        cursor.removeSelectedText();
-        cursor.endEditBlock();
-    }
+    QScopedPointer<TextDocument> document(
+        _fromPosition >= 0 && _fromPosition < _toPosition
+            ? prepareDocument(_model, _exportOptions, _fromPosition, _toPosition)
+            : prepareDocument(_model, _exportOptions));
 
     //
     // Будем запоминать тип предыдущего записанного блока для формирования нужного количества

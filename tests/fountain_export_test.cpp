@@ -171,6 +171,54 @@ QJsonArray snapshot(TextModel* _model)
     return rows;
 }
 
+void checkInlineClipboard(Ui::ScreenplayTextEdit* _edit, const QString& _root)
+{
+    const auto before = _edit->document()->find("Before.");
+    const auto after = _edit->document()->find("After.");
+    const auto note = _edit->document()->find("private");
+    const auto unicode = _edit->document()->find(QString::fromUtf8("Ω🙂"));
+    const auto lastNote = _edit->document()->find("last ");
+    const auto finalAction = _edit->document()->find("Final action. SAVEMARKER");
+    require(!before.isNull() && !after.isNull() && !note.isNull() && !unicode.isNull()
+                && !lastNote.isNull() && !finalAction.isNull(),
+            "find clipboard ranges before, inside and after excluded inline notes");
+
+    const auto copyRange = [&](const char* name, int from, int to, const QByteArray& expected) {
+        for (const bool reverse : { false, true }) {
+            QTextCursor cursor(_edit->document());
+            cursor.setPosition(reverse ? to : from);
+            cursor.setPosition(reverse ? from : to, QTextCursor::KeepAnchor);
+            _edit->setTextCursorForced(cursor);
+            _edit->copy();
+            const auto copied = QApplication::clipboard()->mimeData()->data("text/markdown");
+            write(_root + "/clipboard-" + name + (reverse ? "-reverse" : "-forward") + ".fountain",
+                  copied);
+            require(copied == expected,
+                    "both selection directions retain exact selected text and review anchors");
+        }
+    };
+
+    _edit->selectAll();
+    copyRange("all", _edit->textCursor().selectionStart(), _edit->textCursor().selectionEnd(),
+              "INT. STUDIO - DAY\n\nBefore.[[before]]\n\nAfter.[[after]]\n\n"
+              "Final action. SAVEMARKER\n");
+    copyRange("before", before.selectionStart(), before.selectionEnd(), "Before.[[before]]\n");
+    copyRange("after", after.selectionStart(), after.selectionEnd(), "After.[[after]]\n");
+    copyRange("partial-after", after.selectionStart() + 2, after.selectionEnd(), "ter.[[after]]\n");
+    copyRange("across-notes", before.selectionStart() + 2, after.selectionStart() + 3,
+              "fore.[[before]]\n\nAft[[after]]\n");
+    copyRange("end-in-note", before.selectionStart(), unicode.selectionEnd(),
+              "Before.[[before]]\n");
+    copyRange("start-in-note", unicode.selectionStart(), after.selectionStart() + 3,
+              "Aft[[after]]\n");
+    copyRange("only-note", note.selectionStart(), note.selectionEnd(), "\n");
+    copyRange("only-notes", note.selectionStart(), unicode.selectionEnd(), "\n");
+    copyRange("last-note-to-action", lastNote.selectionStart() + 2, finalAction.selectionEnd(),
+              "Final action. SAVEMARKER\n");
+    copyRange("final-action", finalAction.selectionStart() + 6, finalAction.selectionEnd(),
+              "action. SAVEMARKER\n");
+}
+
 void checkLiteralPaste(Ui::ScreenplayTextEdit* _edit, TextModel* _model, const QString& _root)
 {
     const auto original = snapshot(_model);
@@ -346,7 +394,7 @@ int main(int argc, char** argv)
             require(model->document()->content() == read(root + "/saved-native.xml")
                         && model->document()->uuid().toString().toUtf8()
                             == read(root + "/saved-native-uuid"),
-                    "fresh native process retains exact saved XML including pasted text and UUID");
+                    "fresh native process retains exact saved XML, text, annotations and UUID");
         }
         const auto before = read(input);
         if (mode == "save" || mode == "cold-undo") {
@@ -399,7 +447,8 @@ int main(int argc, char** argv)
         model->saveChanges();
         widget<Ui::MenuView>()->saveProjectChangesPressed();
         require(!window->isWindowModified(), "coordinator native Save completes");
-        if (mode == "save" && root.endsWith("/handwritten-markers")) {
+        if (mode == "save"
+            && (root.endsWith("/handwritten-markers") || root.endsWith("/inline-note-review"))) {
             write(root + "/saved-native.xml", model->document()->content());
             write(root + "/saved-native-uuid", model->document()->uuid().toString().toUtf8());
         }
@@ -423,14 +472,11 @@ int main(int argc, char** argv)
                 && read(root + "/export.fountain") == saved,
             "repeated explicit export is byte-idempotent");
         const auto savedSnapshot = snapshot(model);
+        const auto savedXml = model->document()->content();
         const bool inlineFixture = root.endsWith("/inline-note-review");
         const bool markerFixture = root.endsWith("/handwritten-markers");
-        const bool fullInlineCopy = qEnvironmentVariableIsSet("STARC_FOUNTAIN_EXPORT_INLINE_CLIPBOARD");
-        // Full copying after inline-note filtering is a separate WORKLIST defect. Keep its
-        // failing oracle opt-in; this issue's editor check copies a range before the notes.
-        if ((inlineFixture && !fullInlineCopy) || markerFixture) {
-            const auto selected = edit->document()->find(markerFixture ? "It costs 2 * 4."
-                                                                       : "Before.");
+        if (markerFixture) {
+            const auto selected = edit->document()->find("It costs 2 * 4.");
             require(!selected.isNull(), "find reviewed Action before inline notes");
             edit->setTextCursorForced(selected);
         } else {
@@ -442,11 +488,15 @@ int main(int argc, char** argv)
         // Clipboard export uses the ordinary default that excludes inline notes. The
         // explicit Export above enables them; compare each route with its own contract.
         const auto expectedCopy = markerFixture ? QByteArray("It costs 2 \\* 4.\n")
-            : !inlineFixture ? saved : !fullInlineCopy
-            ? QByteArray("Before.[[before]]\n")
+            : !inlineFixture
+            ? saved
             : QByteArray("INT. STUDIO - DAY\n\nBefore.[[before]]\n\nAfter.[[after]]\n\n"
                          "Final action. SAVEMARKER\n");
-        require(copied == expectedCopy, "clipboard selection retains exact included Fountain syntax");
+        require(copied == expectedCopy,
+                "clipboard selection retains exact included Fountain syntax");
+        if (inlineFixture) {
+            checkInlineClipboard(edit, root);
+        }
         if (root.endsWith("/review-offsets")) {
             const auto selected = edit->document()->find("A *literal* clue.");
             require(!selected.isNull(), "find the exact reviewed literal-star paragraph");
@@ -456,8 +506,9 @@ int main(int argc, char** argv)
                         == QByteArray("A \\*literal\\* clue.[[Check clue]]\n"),
                     "partial clipboard export retains exact literal text and review anchor");
         }
-        require(snapshot(model) == savedSnapshot && read(root + "/export.fountain") == saved
-                    && read(source) == originalSource,
+        model->saveChanges();
+        require(snapshot(model) == savedSnapshot && model->document()->content() == savedXml
+                    && read(root + "/export.fountain") == saved && read(source) == originalSource,
                 "clipboard export preserves the model, source and explicit output");
         auto cursor = edit->textCursor();
         cursor.clearSelection();

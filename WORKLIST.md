@@ -134,16 +134,22 @@ Limits: Linux debug/offscreen, injected editor Save/Undo/Redo/ordinary close and
 
 **Details:** `docs/archive/audit-2-2026-10-13.md#21-a-new-storys-first-reopen-rewrites-folder-in-script-text-as-sequence`
 
-## Untriaged (new defects found during fixes)
-
 ### 22. P1 — Copy All with inline notes empties the Fountain clipboard output
 
-- [ ] Confirm and fix.
+- [x] Confirm and fix.
+
+Resolution: Clipboard selections track source UTF-16 endpoints through detached-document filtering, preserving included text/reviews even when notes before or within the selection are excluded.
+Files: `abstract_exporter.{cpp,h}`, `abstract_markdown_exporter.cpp`, Fountain editor test/check and interchange/development docs.
+Oracle: doctor, `make -C .build/debug qmake_all`, `JOBS=4 ./build/dev.sh build debug`, Fountain export/interchange suites, focused first-edit Undo/Redo, Bash/ShellCheck/Python syntax, changed-code formatting and `git diff --check` passed.
+Evidence: `.build/evidence/clipboard-selection-fix-ps1o6uft/manifest.json` indexes passing runs and retained baseline `fountain-export-yerC2h/` (clipboard `0a`); default editor checks include 22 forward/reverse selection cases.
+Limits: Linux debug/offscreen, real editor Copy/Save/Export/ordinary close and separate-process exact native XML/UUID reopen; physical desktop/GPU, release, other OS and third-party clients unexercised.
 
 **Trigger:** Import `tests/fixtures/interchange/inline-note-review.fountain` into a disposable native story, then select all and copy; clipboard defaults exclude inline notes.
 **Observed:** `text/markdown` is exactly one LF byte (`0a`), losing all included script text/reviews; explicit Export retains them. Evidence: `.build/evidence/fountain-export-tzFE28/inline-note-review/{save.log,clipboard.fountain,export.fountain}`.
-**Location:** `AbstractMarkdownExporter::exportTo` in `abstract_markdown_exporter.cpp`: `prepareDocument` filters notes before the original selection offsets are applied (`QTextCursor::setPosition: Position '130' out of range`).
-**Oracle:** `STARC_FOUNTAIN_EXPORT_INLINE_CLIPBOARD=1 ./tools/check-fountain-export.sh` retains the failing full-selection assertion. Ordinary issue-18 checks use a reviewed Action selection before the inline notes.
+**Location:** Shared `AbstractExporter::prepareDocument` and `AbstractMarkdownExporter::exportTo`; the original path filtered notes before applying unadjusted selection offsets (`QTextCursor::setPosition: Position '130' out of range`).
+**Oracle:** `./tools/check-fountain-export.sh` includes Copy All and partial/notes-only selections in both directions by default, with exact source/model/annotation checks and native reopen.
+
+## Untriaged (new defects found during fixes)
 
 Copy this template, keep it short. Promote the audit link once confirmed.
 
