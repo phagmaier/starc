@@ -36,7 +36,13 @@ Limits: debug/offscreen model, explicit Export dialog, filesystem and fresh-proc
 
 ### 17. P1 — Fountain export/reimport turns reserved-start dialogue into headings/cues
 
-- [ ] Fix and verify.
+- [x] Fix and verify.
+
+Resolution: Dialogue now escapes ambiguous starts on each physical line before emphasis/review positions are finalized, preserving text, types and annotation offsets.
+Files: `screenplay_fountain_exporter.cpp`, reserved-dialogue fixture, interchange/editor-export checks and `docs/INTERCHANGE.md`.
+Oracle: doctor, `make -C .build/debug qmake_all`, `JOBS=4 ./build/dev.sh build debug`, `./tools/check-screenplay-interchange.sh`, `./tools/check-fountain-export.sh`, Bash/ShellCheck, Python syntax, changed-exporter formatting and `git diff --check` passed.
+Evidence: `.build/evidence/reserved-dialogue-fix/`, passing `screenplay-interchange-MDdpwI/` and `fountain-export-96StIf/`; baseline `screenplay-interchange-LNSq5Z/` and oracle-development `screenplay-interchange-K6n8pq/` retained under `.build/evidence/`.
+Limits: Linux debug/offscreen, real editor/clipboard/ordinary close, explicit Export and separate-process native reopen; physical desktop/GPU, release and third-party Fountain clients unexercised. Hand-written ambiguous dialogue needs a leading backslash.
 
 **Locations:** `src/corelib/business_layer/import/abstract_fountain_importer.cpp` (`blockType`, scene-heading test before dialogue rule); `src/corelib/business_layer/export/screenplay/screenplay_fountain_exporter.cpp` (Dialogue written unchanged).
 

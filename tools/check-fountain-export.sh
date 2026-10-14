@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Explicit Fountain export, ordinary close, and fresh application import with annotations,
-# forced Action paragraphs and literal syntax.
+# forced Action paragraphs, literal syntax and reserved-start dialogue.
 set -euo pipefail
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 OUTPUT="$ROOT/.build/debug/_build"
@@ -24,7 +24,7 @@ export QT_FORCE_STDERR_LOGGING=1
 export LD_LIBRARY_PATH="$OUTPUT:$OUTPUT/libs:$OUTPUT/plugins${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
 for fixture in emphasis-review review-offsets forced-action forced-action-first \
-    literal-syntax; do
+    literal-syntax reserved-dialogue; do
     case_root="$EVIDENCE/$fixture"
     mkdir -p "$case_root"
     cp "$ROOT/tests/fixtures/interchange/$fixture.fountain" "$case_root/source.fountain"
@@ -48,10 +48,12 @@ from pathlib import Path
 import sys
 evidence, fixtures = map(Path, sys.argv[1:])
 for name in ("emphasis-review", "review-offsets", "forced-action", "forced-action-first",
-             "literal-syntax"):
+             "literal-syntax", "reserved-dialogue"):
     expected = (fixtures / (name + ".fountain")).read_text()
     if name == "emphasis-review":
         expected = expected.replace("!A **bold** clue.", "A **bold** clue.")
+    if name == "reserved-dialogue":
+        expected = expected.replace(" #17A#", "", 1)
     body, _, last = expected.rstrip("\n").rpartition("\n")
     # Typing at the end of the fully reviewed final line naturally extends its
     # review coverage to the marker. The note must follow the added characters.
@@ -106,6 +108,19 @@ notes = {row[1]: sorted({message for position in row[3] for message in position}
 assert notes["A [ opens."] == ["Bracket note"] and notes["Path C:\\ here."] == ["Drive note"]
 assert notes["A clue."] == ["Check [[tag]] in C:\\dir, 2 * 3 and file_name]"]
 assert sum(1 for messages in notes.values() if messages) == 3, notes
+rows = json.loads((evidence / "reserved-dialogue" / "expected.json").read_text())
+assert [row[1] for row in rows if row[0] == "dialogue"] == [
+    "#1 is the best.", "@home, he says.", "...and then nothing.", ".A dotted remark.",
+    "!Bang.", ">Onward.", "= Equal.", "~ Hum.", "===", ">Centered words<", "(I said that.)",
+    "INT. is short for interior.", "EXT. is short for exterior.", "EST. is another prefix.",
+    "INT./EXT. stays spoken.", "INT/EXT. stays spoken.", "EXT./INT. stays spoken.",
+    "EXT/INT. stays spoken.", "I/E stays spoken.", "#1 café 🙂.", "INT. stays spoken.",
+    "#First line.", "@Second line.", "INT. last line.", "An ordinary answer with # and @ inside.",
+], rows
+assert [(row[0], row[1]) for row in rows if row[0] != "dialogue"] == [
+    ("scene_heading", "INT. RECORDING - DAY"), *[("character", "MARA")] * 21,
+    ("character", "MCKAY"), ("character", "ADA"), ("action", "The recording stops. SAVEMARKER"),
+], rows
 print("PASS: independently authored export syntax, exact review anchors, emphasis, replies, forced Action and literal syntax")
 PY
 printf 'Evidence: %s\n' "$EVIDENCE"

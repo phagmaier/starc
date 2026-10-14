@@ -67,6 +67,15 @@ paragraph ending in spaces of two styles; it goes out through the exporter and
 through the manager's explicit Export dialog. Expected text is written out without
 escapes in the tests, and Python reads the imported XML without the application.
 
+`reserved-dialogue.fountain` pins the leading-backslash spelling for speech that
+starts with a reserved marker or scene-heading prefix, including ellipses and
+parenthetical-looking spoken text. Export escapes each physical speech line before
+adding emphasis, so the marker stays literal and review offsets include the escape.
+The imported fixture and an independently authored multiline model must preserve
+Dialogue types, every character, Unicode styles and review coverage through direct
+and explicit-dialog exports, fresh import and separate-process native save/reopen.
+Hand-written sources need the same leading escape for these ambiguous starts.
+
 `./tools/check-fountain-export.sh` separately exercises the real application
 coordinator: import each fixture into a chosen `.starc`, type in the real editor,
 Save that native project, explicitly export Fountain and freshly import that

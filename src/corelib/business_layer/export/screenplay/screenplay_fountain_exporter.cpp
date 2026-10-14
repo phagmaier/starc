@@ -413,6 +413,28 @@ bool ScreenplayFountainExporter::needsEscaping(const QTextBlock& _block, const Q
                                                int _position, QChar _next,
                                                const ExportOptions& _exportOptions) const
 {
+    // Classification precedes reading escapes on import. Escape the first text character of
+    // each speech line that would become another paragraph type, inside any emphasis markup.
+    // Do this here so the formatted-position map also accounts for the extra backslash.
+    if (TextBlockStyle::forBlock(_block) == TextParagraphType::Dialogue
+        && !_text.at(_position).isSpace()) {
+        int lineStart = _position;
+        while (lineStart > 0 && _text.at(lineStart - 1).isSpace()
+               && _text.at(lineStart - 1) != QChar::LineSeparator
+               && _text.at(lineStart - 1) != QChar::LineFeed) {
+            --lineStart;
+        }
+        if (lineStart == 0 || _text.at(lineStart - 1) == QChar::LineSeparator
+            || _text.at(lineStart - 1) == QChar::LineFeed) {
+            const QString line = _text.mid(_position)
+                                     .section(QChar::LineSeparator, 0, 0)
+                                     .section(QChar::LineFeed, 0, 0);
+            if (AbstractFountainImporter::startsAnotherBlock(TextHelper::simplified(line))) {
+                return true;
+            }
+        }
+    }
+
     // The importer takes the character after a backslash as text, in every kind of paragraph.
     if (AbstractMarkdownExporter::needsEscaping(_block, _text, _position, _next, _exportOptions)
         || isNoteDelimiter(_text, _position)) {

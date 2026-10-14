@@ -331,6 +331,36 @@ const Expected literalModel{
       { "character", "ADA" }, { "dialogue", "Say [[it]] at C:\\x." },
       { "inline_note", "Keep [[this]] */ and a\\b" } }, { "9" }
 };
+const Expected reservedDialogue{
+    { { "scene_heading", "INT. RECORDING - DAY" },
+      { "character", "MARA" }, { "dialogue", "#1 is the best." },
+      { "character", "MARA" }, { "dialogue", "@home, he says." },
+      { "character", "MARA" }, { "dialogue", "...and then nothing." },
+      { "character", "MARA" }, { "dialogue", ".A dotted remark." },
+      { "character", "MARA" }, { "dialogue", "!Bang." },
+      { "character", "MARA" }, { "dialogue", ">Onward." },
+      { "character", "MARA" }, { "dialogue", "= Equal." },
+      { "character", "MARA" }, { "dialogue", "~ Hum." },
+      { "character", "MARA" }, { "dialogue", "===" },
+      { "character", "MARA" }, { "dialogue", ">Centered words<" },
+      { "character", "MARA" }, { "dialogue", "(I said that.)" },
+      { "character", "MARA" }, { "dialogue", "INT. is short for interior." },
+      { "character", "MARA" }, { "dialogue", "EXT. is short for exterior." },
+      { "character", "MARA" }, { "dialogue", "EST. is another prefix." },
+      { "character", "MARA" }, { "dialogue", "INT./EXT. stays spoken." },
+      { "character", "MARA" }, { "dialogue", "INT/EXT. stays spoken." },
+      { "character", "MARA" }, { "dialogue", "EXT./INT. stays spoken." },
+      { "character", "MARA" }, { "dialogue", "EXT/INT. stays spoken." },
+      { "character", "MARA" }, { "dialogue", "I/E stays spoken." },
+      { "character", "MARA" },
+      { "dialogue", "#1 café 🙂.", { { "#1", 1 } }, "none",
+        { "Check start" }, { { 0, 11 } } },
+      { "character", "MARA" }, { "dialogue", "INT. stays spoken.", { { "INT.", 2 } } },
+      { "character", "MCKAY" }, { "dialogue", "#First line." },
+      { "dialogue", "@Second line." }, { "dialogue", "INT. last line." },
+      { "character", "ADA" }, { "dialogue", "An ordinary answer with # and @ inside." },
+      { "action", "The recording stops." } }, { "17A" }
+};
 // Fountain has no Shot, Cast List or Unformatted Text element. Keep all their text as
 // Action, with the original native types retained in the independently authored model.
 const Expected shotFdx{
@@ -513,6 +543,20 @@ int main(int argc, char** argv)
                 expected.numbers = { "1" };
             check(select(uuid), expected, root + "/" + label + "-process-reopened.json");
         }
+        const auto dialogueIdentities
+            = QJsonDocument::fromJson(read(root + "/reserved-dialogue-identities.json")).array();
+        require(dialogueIdentities.size() == 5, "five retained reserved-start dialogue screenplays");
+        for (const auto& identity : dialogueIdentities) {
+            const auto record = identity.toObject();
+            const QUuid uuid(record.value("uuid").toString());
+            const auto label = record.value("label").toString();
+            require(storage->document(uuid)->content() == read(root + "/" + label + "-serialized.xml"),
+                    "fresh-process exact serialized bytes and UUID: " + label);
+            auto expected = reservedDialogue;
+            if (label == "manager-reserved-dialogue-fresh")
+                expected.numbers = { "1" };
+            check(select(uuid), expected, root + "/" + label + "-process-reopened.json");
+        }
         manager.closeCurrentProject(projectPath);
         storage->clear();
         DatabaseLayer::Database::closeCurrentFile();
@@ -521,6 +565,7 @@ int main(int argc, char** argv)
     }
     QJsonArray emphasisReviewIdentities;
     QJsonArray shotIdentities;
+    QJsonArray dialogueIdentities;
     const auto persist = [&](const QUuid& uuid, const Expected& expected, const QString& label) {
         auto model = select(uuid);
         model->saveChanges(); // Explicit model -> serialized DocumentObject boundary.
@@ -543,6 +588,8 @@ int main(int argc, char** argv)
         if (label == "shot-fdx" || label == "shot-fdx-fresh" || label == "model-shot"
             || label == "model-shot-fresh" || label == "manager-shot-fresh")
             shotIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
+        if (label.contains("reserved-dialogue"))
+            dialogueIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
     };
     const auto run = [&](const QString& name, const QString& input, const Expected& expected,
                          bool asFdx, bool includeReviewMarks = true,
@@ -598,6 +645,7 @@ int main(int argc, char** argv)
     run("forced-action", fixtures + "/forced-action.fountain", forcedAction, false);
     run("forced-action-first", fixtures + "/forced-action-first.fountain", forcedActionFirst, false);
     run("literal-syntax", fixtures + "/literal-syntax.fountain", literalSyntax, false);
+    run("reserved-dialogue", fixtures + "/reserved-dialogue.fountain", reservedDialogue, false);
     const auto fdxUuid = run("fdx", fixtures + "/authored.fdx", fdx, true);
     run("shot-fdx", fixtures + "/shot.fdx", shotFdx, false, true, &shotFdxFountain);
     // Ordinary saves of a shadow project use this convenience route. The destination's
@@ -823,9 +871,43 @@ int main(int argc, char** argv)
     originalShot->saveChanges();
     require(originalShot->document()->content() == read(root + "/model-shot-serialized.xml"),
             "export retains exact original native types, text, styles and reviews");
+    // Consecutive physical lines within one model speech must each keep their type and text.
+    auto dialogueRows = reservedDialogue.rows;
+    const int multiline = dialogueRows.size() - 6;
+    dialogueRows[multiline].text += QChar::LineSeparator + dialogueRows[multiline + 1].text
+        + QChar::LineSeparator + dialogueRows[multiline + 2].text;
+    dialogueRows.remove(multiline + 1, 2);
+    const auto dialogueUuid = author("Model reserved-start dialogue", dialogueRows, "17A");
+    check(select(dialogueUuid), reservedDialogue, root + "/model-reserved-dialogue-authored.json");
+    persist(dialogueUuid, reservedDialogue, "model-reserved-dialogue");
+    ScreenplayExportOptions dialogueOptions;
+    dialogueOptions.templateId = "world_cp";
+    dialogueOptions.includeTitlePage = false;
+    dialogueOptions.filePath = root + "/model-reserved-dialogue-export.fountain";
+    require(ScreenplayFountainExporter().exportTo(select(dialogueUuid), dialogueOptions),
+            "export model reserved-start dialogue");
+    importer.importScreenplay(dialogueOptions.filePath, false);
+    auto freshDialogue = scriptUuid();
+    check(select(freshDialogue), reservedDialogue, root + "/model-reserved-dialogue-fresh.json");
+    persist(freshDialogue, reservedDialogue, "model-reserved-dialogue-fresh");
+    const auto managerDialogue = root + "/manager-reserved-dialogue.fountain";
+    require(explicitScreenplayExport(exportManager, select(dialogueUuid), managerDialogue, "Fountain"),
+            "explicit manager export retains reserved-start dialogue");
+    importer.importScreenplay(managerDialogue, false);
+    freshDialogue = scriptUuid();
+    auto managerDialogueExpected = reservedDialogue;
+    managerDialogueExpected.numbers = { "1" };
+    check(select(freshDialogue), managerDialogueExpected, root + "/manager-reserved-dialogue-fresh.json");
+    persist(freshDialogue, managerDialogueExpected, "manager-reserved-dialogue-fresh");
+    auto originalDialogue = select(dialogueUuid);
+    originalDialogue->saveChanges();
+    require(originalDialogue->document()->content()
+                == read(root + "/model-reserved-dialogue-serialized.xml"),
+            "Fountain escaping leaves the original dialogue XML and annotations intact");
     inputFailures(root, fixtures);
     write(root + "/emphasis-review-identities.json", QJsonDocument(emphasisReviewIdentities).toJson());
     write(root + "/shot-identities.json", QJsonDocument(shotIdentities).toJson());
+    write(root + "/reserved-dialogue-identities.json", QJsonDocument(dialogueIdentities).toJson());
     manager.closeCurrentProject(projectPath);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();

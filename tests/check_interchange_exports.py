@@ -94,6 +94,24 @@ A plain action stays plain.
 assert (checks / "model-shot-export.fountain").read_text() == shot_model_fountain, "model Shot/Cast List/Unformatted Text forcing, escapes, styles and review"
 assert (checks / "manager-shot.fountain").read_text() == shot_model_fountain.replace(
     " #16B#", "", 1), "explicit manager export retains all Shot/other content text"
+reserved_dialogue = (fixtures / "reserved-dialogue.fountain").read_text()
+for name in ("reserved-dialogue-export.fountain", "model-reserved-dialogue-export.fountain"):
+    assert (checks / name).read_text() == reserved_dialogue, (name, "reserved dialogue escapes, styles and review positions")
+assert (checks / "manager-reserved-dialogue.fountain").read_text() == reserved_dialogue.replace(
+    " #17A#", "", 1), "explicit Export preserves reserved-start dialogue"
+dialogue_identities = json.loads((checks / "reserved-dialogue-identities.json").read_text())
+assert len(dialogue_identities) == 5 and len({record["uuid"] for record in dialogue_identities}) == 5
+for record in dialogue_identities:
+    label = record["label"]
+    original = json.loads((checks / f"{label}-reopened.json").read_text())
+    assert json.loads((checks / f"{label}-process-reopened.json").read_text()) == original
+    paragraphs = [element for element in ET.parse(checks / f"{label}-serialized.xml").iter()
+                  if element.find("v") is not None]
+    assert [(p.tag, line) for p in paragraphs
+            for line in html.unescape(p.findtext("v")).replace("\u2028", "\n").split("\n")] == [
+        (row["type"], row["text"]) for row in original["rows"]
+    ], (label, "independent XML types and complete physical-line text")
+    assert len([p for p in paragraphs if p.tag == "scene_heading"]) == 1
 notes = (checks / "notes-dual-export.fountain").read_text()
 assert "A clue[[Check café & <tag>]]." in notes, "review note spelling/anchor"
 assert "/* Private note */" in notes, "inline note delimiter"
