@@ -214,6 +214,26 @@ const Expected fountain{
       { "parenthetical", "softly" }, { "dialogue", "Keep the *literal* star." },
       { "transition", "FADE AWAY." } }, { "12A", "27" }
 };
+const Expected handwrittenMarkers{
+    { { "scene_heading", "INT. CALCULATOR - DAY" }, { "character", "MARA" },
+      { "dialogue", "It costs 2 * 4." }, { "dialogue", "5 * 3 = 15" },
+      { "dialogue", "He writes 5 * 3 = 15 and a footnote* here." },
+      { "dialogue", "An _unpaired name and a lone **marker." },
+      { "dialogue", "Words * italic* and _ underlined_ stay." },
+      { "dialogue", "The path is C:\\temp and D:\\notes." },
+      { "dialogue", "A trailing path C:\\" },
+      { "dialogue", "A valid bold quiet word remains.",
+        { { "bold", 1 }, { "quiet", 2 }, { "word", 4 } } },
+      { "dialogue", "Escaped *literal* _name_ and \\ still." },
+      { "dialogue", "A clue.", {}, "none",
+        { "see file_name and other_name, 2 * 3 * 4; **literal** _literal_ at C:\\temp" },
+        { { 0, 7 } } },
+      { "dialogue", "A bold clue. tail.", { { "bold", 1 }, { "tail", 4 } }, "none",
+        { "**comment** _text_ *stars*" }, { { 0, 12 } } },
+      { "inline_note", "note 2 * 3 and _lone with bold.", { { "bold", 1 } }, "none",
+        { "file_name and 2 * 3 * 4" }, { { 0, 31 } } },
+      { "action", "The calculation ends." } }, { "19A" }
+};
 const Expected fdx{
     { { "scene_heading", "EXT. HARBOR - NIGHT" },
       { "action", "A bright  blue beacon & <buoy> guides René.",
@@ -594,6 +614,17 @@ int main(int argc, char** argv)
                 expected.numbers = { "1" };
             check(select(uuid), expected, root + "/" + label + "-process-reopened.json");
         }
+        const auto markerIdentities
+            = QJsonDocument::fromJson(read(root + "/handwritten-markers-identities.json")).array();
+        require(markerIdentities.size() == 2, "two retained handwritten-marker screenplays");
+        for (const auto& identity : markerIdentities) {
+            const auto record = identity.toObject();
+            const QUuid uuid(record.value("uuid").toString());
+            const auto label = record.value("label").toString();
+            require(storage->document(uuid)->content() == read(root + "/" + label + "-serialized.xml"),
+                    "fresh-process exact handwritten-marker XML and UUID: " + label);
+            check(select(uuid), handwrittenMarkers, root + "/" + label + "-process-reopened.json");
+        }
         manager.closeCurrentProject(projectPath);
         storage->clear();
         DatabaseLayer::Database::closeCurrentFile();
@@ -604,6 +635,7 @@ int main(int argc, char** argv)
     QJsonArray shotIdentities;
     QJsonArray dialogueIdentities;
     QJsonArray inlineIdentities;
+    QJsonArray markerIdentities;
     const auto persist = [&](const QUuid& uuid, const Expected& expected, const QString& label) {
         auto model = select(uuid);
         model->saveChanges(); // Explicit model -> serialized DocumentObject boundary.
@@ -630,6 +662,8 @@ int main(int argc, char** argv)
             dialogueIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
         if (label.contains("inline-note-review"))
             inlineIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
+        if (label.startsWith("handwritten-markers"))
+            markerIdentities.append(QJsonObject{ { "uuid", uuid.toString() }, { "label", label } });
     };
     const auto run = [&](const QString& name, const QString& input, const Expected& expected,
                          bool asFdx, bool includeReviewMarks = true,
@@ -666,6 +700,12 @@ int main(int argc, char** argv)
         persist(fresh, exportedExpected, name + "-fresh");
         return uuid;
     };
+    ImportOptions markerOptions;
+    markerOptions.filePath = fixtures + "/handwritten-markers.fountain";
+    const auto rawMarkers = ScreenplayFountainImporter().importScreenplays(markerOptions);
+    require(rawMarkers.size() == 1, "handwritten-marker raw import");
+    write(root + "/handwritten-markers-raw.xml", rawMarkers.first().text.toUtf8());
+    run("handwritten-markers", markerOptions.filePath, handwrittenMarkers, false);
     ImportOptions inlineOptions;
     inlineOptions.filePath = fixtures + "/inline-note-review.fountain";
     const auto rawInline = ScreenplayFountainImporter().importScreenplays(inlineOptions);
@@ -997,6 +1037,7 @@ int main(int argc, char** argv)
     write(root + "/shot-identities.json", QJsonDocument(shotIdentities).toJson());
     write(root + "/reserved-dialogue-identities.json", QJsonDocument(dialogueIdentities).toJson());
     write(root + "/inline-note-review-identities.json", QJsonDocument(inlineIdentities).toJson());
+    write(root + "/handwritten-markers-identities.json", QJsonDocument(markerIdentities).toJson());
     manager.closeCurrentProject(projectPath);
     storage->clear();
     DatabaseLayer::Database::closeCurrentFile();

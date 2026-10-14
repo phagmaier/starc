@@ -206,6 +206,27 @@ filtered_inline = (checks / "inline-note-review-filtered.fountain").read_text()
 assert "/* private */" in filtered_inline and "/* last */" in filtered_inline
 assert "[[about it]]" not in filtered_inline and "[[one]]" not in filtered_inline
 
+# Hand-written literals must survive before the exporter gives them canonical escaping.
+marker_expected = [
+    ("INT. CALCULATOR - DAY", [], []), ("MARA", [], []),
+    ("It costs 2 * 4.", [], []), ("5 * 3 = 15", [], []),
+    ("He writes 5 * 3 = 15 and a footnote* here.", [], []),
+    ("An _unpaired name and a lone **marker.", [], []),
+    ("Words * italic* and _ underlined_ stay.", [], []),
+    ("The path is C:\\temp and D:\\notes.", [], []), ("A trailing path C:\\", [], []),
+    ("A valid bold quiet word remains.", [(8, 4, 1), (13, 5, 2), (19, 4, 4)], []),
+    ("Escaped *literal* _name_ and \\ still.", [], []),
+    ("A clue.", [], [(0, 7, "see file_name and other_name, 2 * 3 * 4; **literal** _literal_ at C:\\temp")]),
+    ("A bold clue. tail.", [(2, 4, 1), (13, 4, 4)], [(0, 12, "**comment** _text_ *stars*")]),
+    ("note 2 * 3 and _lone with bold. ", [(26, 4, 1)], [(0, 31, "file_name and 2 * 3 * 4")]),
+    ("The calculation ends.", [], []),
+]
+check_review_xml("handwritten-markers-raw.xml", marker_expected, ["v", "fms", "rms"])
+for name in ("handwritten-markers", "handwritten-markers-fresh"):
+    check_review_xml(name + "-serialized.xml", marker_expected, ["v", "rms", "fms"])
+assert (checks / "handwritten-markers-export.fountain").read_bytes() == (
+    fixtures / "handwritten-markers-export.fountain").read_bytes()
+
 # Exact output checks require each review or reply exactly once at its source
 # anchor, after closing emphasis and before any next opening/escape prefix.
 combined_annotated = """INT. ROOM - DAY #1#

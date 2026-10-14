@@ -120,14 +120,27 @@ void AbstractMarkdownImporter::collectSelectionTypes(QString& _paragraphText) co
     //
     // Собираем типы выделения
     //
-    // A backslash makes the character after it text, and a backslash can be escaped itself.
-    // Blank out every such pair, so that neither character takes part in the search.
+    // Escapes, review comments and inline-note delimiters are not emphasis markers.
+    // Keep their source positions while masking them from the formatting search.
     //
     QString searchText = _paragraphText;
-    for (int index = 0; index + 1 < searchText.size(); ++index) {
-        if (searchText.at(index) == '\\') {
-            searchText[index] = QChar::Space;
-            searchText[++index] = QChar::Space;
+    bool inReview = false;
+    for (int index = 0; index < searchText.size(); ++index) {
+        const auto symbol = _paragraphText.at(index);
+        const auto next = index + 1 < searchText.size() ? _paragraphText.at(index + 1) : QChar();
+        if (symbol == '\\' && !next.isNull()) {
+            searchText[index] = QChar();
+            searchText[++index] = QChar();
+        } else if ((!inReview && symbol == '[' && next == '[')
+                   || (inReview && symbol == ']' && next == ']')) {
+            inReview = !inReview;
+            searchText[index] = QChar();
+            searchText[++index] = QChar();
+        } else if (inReview) {
+            searchText[index] = QChar();
+        } else if ((symbol == '/' && next == '*') || (symbol == '*' && next == '/')) {
+            searchText[index] = QChar();
+            searchText[++index] = QChar();
         }
     }
     QVector<SelectionTypeInText> selectionTypes;
@@ -145,6 +158,10 @@ void AbstractMarkdownImporter::collectSelectionTypes(QString& _paragraphText) co
     QVector<SelectionTypeInText> pairedTypes;
     while (!selectionTypes.isEmpty()) {
         const auto first = selectionTypes.takeFirst();
+        const auto contentStart = first.position + first.formatSymbols.size();
+        if (contentStart == _paragraphText.size() || _paragraphText.at(contentStart).isSpace()) {
+            continue;
+        }
         for (int i = 0; i != selectionTypes.size(); ++i) {
             if (first.formatSymbols == selectionTypes[i].formatSymbols) {
                 //
@@ -160,13 +177,30 @@ void AbstractMarkdownImporter::collectSelectionTypes(QString& _paragraphText) co
                     maxType = first;
                 }
                 int distance = maxType.position - (minType.position + minType.formatSymbols.size());
-                if (distance != 0) {
+                // Legacy exports can switch emphasis immediately before a whitespace-only
+                // tail. Recognize that adjacent, already paired style boundary without
+                // accepting ordinary whitespace-padded markers as emphasis.
+                auto content = _paragraphText.mid(contentStart, distance);
+                bool hasAdjacentStyle = false;
+                for (const auto& paired : pairedTypes) {
+                    if (paired.position >= contentStart && paired.position < maxType.position) {
+                        hasAdjacentStyle |= paired.position == contentStart;
+                        content.replace(paired.position - contentStart, paired.formatSymbols.size(),
+                                        QString(paired.formatSymbols.size(), QChar::Space));
+                    }
+                }
+                const bool styledWhitespaceTail = hasAdjacentStyle && content.trimmed().isEmpty()
+                    && maxType.position + maxType.formatSymbols.size() == _paragraphText.size();
+                // A pair must touch its content on both sides. Arithmetic markers and
+                // whitespace-padded markers remain literal, even if another marker follows.
+                if (distance > 0
+                    && (!_paragraphText.at(maxType.position - 1).isSpace()
+                        || styledWhitespaceTail)) {
                     pairedTypes.append(first);
                     pairedTypes.append(selectionTypes[i]);
+                    selectionTypes.remove(i);
+                    break;
                 }
-
-                selectionTypes.remove(i);
-                break;
             }
         }
     }

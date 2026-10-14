@@ -171,6 +171,93 @@ QJsonArray snapshot(TextModel* _model)
     return rows;
 }
 
+void checkLiteralPaste(Ui::ScreenplayTextEdit* _edit, TextModel* _model, const QString& _root)
+{
+    const auto original = snapshot(_model);
+    _model->saveChanges();
+    const auto originalXml = _model->document()->content();
+    const auto pastePlain = [&](const QString& text, bool replace) {
+        auto cursor = _edit->textCursor();
+        cursor.movePosition(QTextCursor::End);
+        if (replace) {
+            cursor.setPosition(cursor.position() - 5, QTextCursor::KeepAnchor);
+        }
+        _edit->setTextCursorForced(cursor);
+        QApplication::clipboard()->setText(text);
+        _edit->paste();
+        QApplication::processEvents();
+        const auto pasted = snapshot(_model);
+        write(_root + (replace ? "/paste-replacement.json" : "/paste-plain.json"),
+              QJsonDocument(pasted).toJson());
+        auto expected = original;
+        auto row = expected.last().toArray();
+        const auto prefix = row[1].toString().left(row[1].toString().size() - (replace ? 5 : 0));
+        expected.removeLast();
+        const auto lines = (prefix + text).split('\n');
+        for (const auto& line : lines) {
+            QJsonArray coverage;
+            for (int i = 0; i < line.size(); ++i) {
+                coverage.append(QJsonArray());
+            }
+            expected.append(QJsonArray{ "action", line, QString(line.size(), '0'), coverage });
+        }
+        require(pasted == expected, "plain clipboard preserves exact characters, lines, types and styles");
+        _model->saveChanges();
+        const auto pastedXml = _model->document()->content();
+        _edit->undo();
+        QApplication::processEvents();
+        require(snapshot(_model) == original && _model->document()->content() == originalXml,
+                "one Undo restores exact XML after plain paste/selection replacement");
+        _edit->redo();
+        QApplication::processEvents();
+        require(snapshot(_model) == pasted && _model->document()->content() == pastedXml,
+                "Redo restores exact XML after plain paste/selection replacement");
+        _edit->undo();
+        QApplication::processEvents();
+        require(snapshot(_model) == original, "paste check restores original screenplay");
+    };
+    pastePlain(" PASTE 2 * 3; *literal* _name_ [[note]] /* text */ C:\\temp\\\n"
+               "#1 is literal.\nINT. stays literal.", false);
+    pastePlain("*replacement* _literal_ C:\\temp", true);
+    auto cursor = _edit->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    _edit->setTextCursorForced(cursor);
+    auto markdown = new QMimeData;
+    markdown->setText("WRONG plain fallback");
+    markdown->setData("text/markdown", "Markdown **bold** _word_.[[file_name 2 * 3 * 4]]\n");
+    QApplication::clipboard()->setMimeData(markdown);
+    _edit->paste();
+    QApplication::processEvents();
+    const auto pasted = snapshot(_model);
+    write(_root + "/paste-markdown.json", QJsonDocument(pasted).toJson());
+    const auto row = pasted.last().toArray();
+    require(row[1].toString().endsWith("Markdown bold word.")
+                && !row[1].toString().contains("WRONG"), "Markdown MIME retains Fountain decoding priority");
+    const auto text = row[1].toString();
+    const auto bold = text.indexOf("bold");
+    const auto word = text.indexOf("word");
+    require(row[2].toString().mid(bold, 4) == "1111"
+                && row[2].toString().mid(word, 4) == "4444"
+                && row[3].toArray().last().toArray() == QJsonArray{ "file_name 2 * 3 * 4" },
+            "Markdown paste preserves styles and literal review comment markers");
+    _edit->undo();
+    QApplication::processEvents();
+    require(snapshot(_model) == original, "Markdown paste Undo restores original screenplay");
+    cursor = _edit->textCursor();
+    cursor.movePosition(QTextCursor::End);
+    _edit->setTextCursorForced(cursor);
+    const QString retained = " PASTE 2 * 3; *literal* _name_ [[note]] C:\\temp";
+    QApplication::clipboard()->setText(retained);
+    _edit->paste();
+    QApplication::processEvents();
+    const auto retainedRows = snapshot(_model);
+    require(retainedRows.last().toArray()[1].toString()
+                == original.last().toArray()[1].toString() + retained,
+            "retain independently checked literal paste for Save/export/reopen");
+    _model->saveChanges();
+    write(_root + "/paste-retained.xml", _model->document()->content());
+}
+
 class MemoryCredentials final : public GitHubCredentialBackend
 {
 public:
@@ -210,9 +297,10 @@ int main(int argc, char** argv)
     app.setQuitOnLastWindowClosed(false);
     const QString mode = QString::fromLocal8Bit(argv[2]);
     const auto source = root + "/source.fountain";
-    const auto input = mode == "reopen" ? root + "/export.fountain" : source;
+    const auto input = mode == "native-reopen" ? root + "/save.starc"
+        : mode == "reopen" ? root + "/export.fountain" : source;
     const auto originalSource = read(source);
-    const auto project = root + '/' + mode + ".starc";
+    const auto project = mode == "native-reopen" ? input : root + '/' + mode + ".starc";
     bool pickerSeen = false;
     QTimer picker;
     picker.setInterval(10);
@@ -242,8 +330,9 @@ int main(int argc, char** argv)
                 == project;
         });
         picker.stop();
-        require(pickerSeen && !QFile::exists(input + ".lock"),
-                "source imported into a native story without a source lock");
+        require((mode == "native-reopen" && !pickerSeen && QFile::exists(input + ".lock"))
+                    || (pickerSeen && !QFile::exists(input + ".lock")),
+                "open route uses the expected chooser and lock state");
         auto window = widget<Ui::ApplicationView>();
         window->resize(1320, 900);
         auto splitter = window->findChild<Splitter*>(QString(), Qt::FindDirectChildrenOnly);
@@ -253,6 +342,12 @@ int main(int argc, char** argv)
         auto document = qobject_cast<TextDocument*>(edit->document());
         require(document, "editor binds the imported text model");
         auto model = document->model();
+        if (mode == "native-reopen") {
+            require(model->document()->content() == read(root + "/saved-native.xml")
+                        && model->document()->uuid().toString().toUtf8()
+                            == read(root + "/saved-native-uuid"),
+                    "fresh native process retains exact saved XML including pasted text and UUID");
+        }
         const auto before = read(input);
         if (mode == "save" || mode == "cold-undo") {
             // Serialize the editor's initial format projection before recording a
@@ -262,6 +357,9 @@ int main(int argc, char** argv)
             widget<Ui::MenuView>()->saveProjectChangesPressed();
             require(!window->isWindowModified() && snapshot(model) == imported,
                     "initial native Save preserves imported text, styles and review coverage");
+            if (root.endsWith("/handwritten-markers")) {
+                checkLiteralPaste(edit, model, root);
+            }
             const auto original = snapshot(model);
             const auto originalXml = model->document()->content();
             auto cursor = edit->textCursor();
@@ -291,16 +389,20 @@ int main(int argc, char** argv)
             }
             write(root + "/expected.json", QJsonDocument(edited).toJson());
         } else {
-            require(mode == "reopen", "fresh exported-file import mode");
+            require(mode == "reopen" || mode == "native-reopen", "fresh reopen mode");
             require(snapshot(model)
                         == QJsonDocument::fromJson(read(root + "/expected.json")).array(),
                     "fresh application import retains every character, style and review coverage");
-            require(before == read(root + "/expected-export"),
+            require(mode == "native-reopen" || before == read(root + "/expected-export"),
                     "fresh import leaves source bytes intact");
         }
         model->saveChanges();
         widget<Ui::MenuView>()->saveProjectChangesPressed();
         require(!window->isWindowModified(), "coordinator native Save completes");
+        if (mode == "save" && root.endsWith("/handwritten-markers")) {
+            write(root + "/saved-native.xml", model->document()->content());
+            write(root + "/saved-native-uuid", model->document()->uuid().toString().toUtf8());
+        }
         require(read(source) == originalSource && !QFile::exists(source + ".lock"),
                 "native Save leaves source bytes and source lock state untouched");
         ManagementLayer::ExportManager exporter(nullptr, window);
@@ -313,7 +415,8 @@ int main(int argc, char** argv)
             require(saved != before, "explicit export contains the edited screenplay");
             write(root + "/expected-export", saved);
         } else {
-            require(saved == before, "fresh application explicit export is byte-idempotent");
+            require(saved == read(root + "/expected-export"),
+                    "fresh application explicit export is byte-idempotent");
         }
         require(
             explicitScreenplayExport(exporter, model, root + "/export.fountain", "Fountain", false)
@@ -321,11 +424,13 @@ int main(int argc, char** argv)
             "repeated explicit export is byte-idempotent");
         const auto savedSnapshot = snapshot(model);
         const bool inlineFixture = root.endsWith("/inline-note-review");
+        const bool markerFixture = root.endsWith("/handwritten-markers");
         const bool fullInlineCopy = qEnvironmentVariableIsSet("STARC_FOUNTAIN_EXPORT_INLINE_CLIPBOARD");
         // Full copying after inline-note filtering is a separate WORKLIST defect. Keep its
         // failing oracle opt-in; this issue's editor check copies a range before the notes.
-        if (inlineFixture && !fullInlineCopy) {
-            const auto selected = edit->document()->find("Before.");
+        if ((inlineFixture && !fullInlineCopy) || markerFixture) {
+            const auto selected = edit->document()->find(markerFixture ? "It costs 2 * 4."
+                                                                       : "Before.");
             require(!selected.isNull(), "find reviewed Action before inline notes");
             edit->setTextCursorForced(selected);
         } else {
@@ -336,7 +441,8 @@ int main(int argc, char** argv)
         write(root + "/clipboard.fountain", copied);
         // Clipboard export uses the ordinary default that excludes inline notes. The
         // explicit Export above enables them; compare each route with its own contract.
-        const auto expectedCopy = !inlineFixture ? saved : !fullInlineCopy
+        const auto expectedCopy = markerFixture ? QByteArray("It costs 2 \\* 4.\n")
+            : !inlineFixture ? saved : !fullInlineCopy
             ? QByteArray("Before.[[before]]\n")
             : QByteArray("INT. STUDIO - DAY\n\nBefore.[[before]]\n\nAfter.[[after]]\n\n"
                          "Final action. SAVEMARKER\n");

@@ -271,7 +271,21 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
         }
         switch (curSymbol) {
         case '\\': {
-            if (!isNotation) {
+            // Only Fountain syntax is escaped. Ordinary path characters and a final
+            // backslash stay literal; a leading escape can also force a spoken line.
+            const auto next = i + 1 < _paragraphText.size() ? _paragraphText.at(i + 1) : QChar();
+            const bool isEscape = !next.isNull()
+                && (QStringLiteral("\\*_[]/").contains(next)
+                    || (i == 0 && !isNotation
+                        && AbstractFountainImporter::startsAnotherBlock(_paragraphText.mid(1))));
+            if (!isEscape) {
+                if (isNotation) {
+                    note.append('\\');
+                } else {
+                    blockText.append('\\');
+                }
+                curSymbol = '\0';
+            } else if (!isNotation) {
                 q->removePreviousTypes(blockText.size(), 1);
             }
             break;
@@ -343,6 +357,11 @@ void AbstractFountainImporter::Implementation::processBlock(const QString& _para
             } else {
                 if (isNotation) {
                     note.append('*');
+                } else if (!(isCommenting && i + 1 < _paragraphText.size()
+                             && _paragraphText.at(i + 1) == '/')) {
+                    // Paired emphasis has already been removed. Every remaining star is
+                    // text except the closing inline-note delimiter.
+                    blockText.append('*');
                 }
             }
             break;

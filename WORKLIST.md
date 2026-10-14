@@ -76,7 +76,13 @@ Limits: Linux debug/offscreen, editor Save/explicit Export/ordinary close and fr
 
 ### 19. P1 — Fountain import removes asterisk/underscore text
 
-- [ ] Fix and verify.
+- [x] Fix and verify.
+
+Resolution: Fountain preserves unpaired/whitespace-padded markers and ordinary path backslashes; reviews stay literal, and plain-text paste uses normal editor insertion while native/Markdown MIME retain priority.
+Files: `abstract_fountain_importer.cpp`, `abstract_markdown_importer.cpp`, `screenplay_text_edit.cpp`, handwritten-marker fixtures/checks and `docs/INTERCHANGE.md`.
+Oracle: doctor, `make -C .build/debug qmake_all`, `JOBS=4 ./build/dev.sh build debug`, `./tools/check-screenplay-interchange.sh`, `./tools/check-fountain-export.sh`, focused paste/native reopen, Bash/ShellCheck/Python syntax, changed-code formatting and `git diff --check` passed.
+Evidence: `.build/evidence/handwritten-marker-fix/`, passing `screenplay-interchange-HZkRUa/` and `fountain-export-BmBYr6/`; baseline `screenplay-interchange-7BK3tu/`, compatibility `screenplay-interchange-KwiUAr/` and known issue-22 clipboard failure `fountain-export-tz2DgN/` retained under `.build/evidence/`.
+Limits: Linux debug/offscreen, clipboard/one-step Undo/Redo, Save/explicit Export/ordinary close and separate-process exact native XML/UUID reopen; physical desktop/GPU, release and third-party clients unexercised. Issue 22 remains separate.
 
 **Locations:** `src/corelib/business_layer/import/abstract_fountain_importer.cpp` (`processBlock` `*` case); `src/corelib/business_layer/import/abstract_markdown_importer.cpp` (`collectSelectionTypes`); `src/core/management_layer/plugins/screenplay_text/text/screenplay_text_edit.cpp` (`insertFromMimeData` paste path).
 

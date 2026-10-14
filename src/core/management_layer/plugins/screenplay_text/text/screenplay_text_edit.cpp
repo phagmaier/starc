@@ -1996,6 +1996,14 @@ void ScreenplayTextEdit::insertFromMimeData(const QMimeData* _source)
         return;
     }
 
+    // Plain text has no Fountain contract. Preserve its characters using the editor's
+    // normal insertion/selection/history path; rich native and Markdown MIME keep theirs.
+    if (!_source->hasFormat(d->model->mimeTypes().constFirst())
+        && !_source->hasFormat(kMarkdownMimeType) && _source->hasText()) {
+        insertPlainText(TextHelper::removeControlCharacters(_source->text()));
+        return;
+    }
+
     //
     // Удаляем выделенный текст
     //
@@ -2028,9 +2036,8 @@ void ScreenplayTextEdit::insertFromMimeData(const QMimeData* _source)
     //
     // Если простой текст
     //
-    else if (_source->hasFormat(kMarkdownMimeType) || _source->hasText()) {
-        const auto text = _source->hasFormat(kMarkdownMimeType) ? _source->data(kMarkdownMimeType)
-                                                                : _source->text();
+    else if (_source->hasFormat(kMarkdownMimeType)) {
+        const auto text = _source->data(kMarkdownMimeType);
 
         //
         // NOTE: Перед текстом нужно обязательно добавить перенос строки, чтобы он

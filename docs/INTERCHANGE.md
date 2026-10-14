@@ -76,6 +76,27 @@ Dialogue types, every character, Unicode styles and review coverage through dire
 and explicit-dialog exports, fresh import and separate-process native save/reopen.
 Hand-written sources need the same leading escape for these ambiguous starts.
 
+`handwritten-markers.fountain` covers unescaped arithmetic stars, unpaired markers,
+whitespace-padded markers, ordinary Windows paths and a final backslash. Valid emphasis
+must touch its content at both ends, following [Fountain's whitespace examples](https://fountain.io/syntax/#section-emphasis).
+The reader also retains the existing export spelling for an adjacent style change to
+a whitespace-only tail. Review comments are literal text: stars and underscores inside
+`[[...]]` never apply emphasis or pair with markers in the screenplay. Inline-note text
+still supports emphasis. Explicit escapes of syntax and leading reserved-start dialogue
+remain supported; a backslash before an ordinary path character remains literal.
+The separate canonical export fixture pins every resulting escape and review anchor.
+Raw/imported XML, types, per-character styles, comments/ranges, direct export, fresh import,
+UUIDs and separate-process native save/reopen are checked.
+
+In the screenplay editor, plain-text clipboard data now inserts literal text using the
+current paragraph type and normal editor formatting. It does not interpret Fountain
+headings, emphasis or notes. Clipboard data carrying `text/markdown` still uses Fountain
+parsing, and the native screenplay MIME type retains priority. Editor checks cover exact
+plain-text paste, multiple lines, selection replacement, one-step Undo/Redo, Markdown
+formatting/reviews, native Save, explicit Export, fresh import and exact native XML in a
+separate process. Copy checks precede inline notes because full-selection/filter-offset
+clipboard export remains the separately queued issue 22.
+
 `inline-note-review.fountain` covers review comments inside `/* */` inline notes:
 the original `private[[about it]]` case, separate ranges, adjacent replies,
 emphasis, Unicode/UTF-16 offsets, escaped brackets/backslashes/markers, and

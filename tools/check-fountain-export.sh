@@ -23,15 +23,18 @@ export QT_QPA_PLATFORM=${STARC_FOUNTAIN_EXPORT_PLATFORM:-offscreen}
 export QT_FORCE_STDERR_LOGGING=1
 export LD_LIBRARY_PATH="$OUTPUT:$OUTPUT/libs:$OUTPUT/plugins${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export DBUS_SESSION_BUS_ADDRESS="unix:path=$EVIDENCE/absent-session-bus"
-for fixture in emphasis-review review-offsets forced-action forced-action-first \
-    literal-syntax reserved-dialogue inline-note-review; do
+for fixture in ${STARC_FOUNTAIN_EXPORT_FIXTURES:-emphasis-review review-offsets forced-action forced-action-first literal-syntax reserved-dialogue inline-note-review handwritten-markers}; do
     case_root="$EVIDENCE/$fixture"
     mkdir -p "$case_root"
     cp "$ROOT/tests/fixtures/interchange/$fixture.fountain" "$case_root/source.fountain"
     if [[ "$fixture" == inline-note-review ]]; then
         printf '\nFinal action.\n' >> "$case_root/source.fountain"
     fi
-    for mode in ${STARC_FOUNTAIN_EXPORT_MODES:-save reopen}; do
+    modes=${STARC_FOUNTAIN_EXPORT_MODES:-save reopen}
+    if [[ "$fixture" == handwritten-markers && -z "${STARC_FOUNTAIN_EXPORT_MODES:-}" ]]; then
+        modes+=' native-reopen'
+    fi
+    for mode in $modes; do
         export STARC_PROFILE_DIR="$case_root/$mode-profile"
         export XDG_CONFIG_HOME="$STARC_PROFILE_DIR/config"
         export XDG_DATA_HOME="$STARC_PROFILE_DIR/data"
@@ -51,14 +54,20 @@ from pathlib import Path
 import sys
 evidence, fixtures = map(Path, sys.argv[1:])
 for name in ("emphasis-review", "review-offsets", "forced-action", "forced-action-first",
-             "literal-syntax", "reserved-dialogue", "inline-note-review"):
-    expected = (fixtures / (name + ".fountain")).read_text()
+             "literal-syntax", "reserved-dialogue", "inline-note-review", "handwritten-markers"):
+    if not (evidence / name).exists():
+        continue
+    expected = (fixtures / (name + ("-export" if name == "handwritten-markers" else "") + ".fountain")).read_text()
     if name == "emphasis-review":
         expected = expected.replace("!A **bold** clue.", "A **bold** clue.")
     if name == "reserved-dialogue":
         expected = expected.replace(" #17A#", "", 1)
     if name == "inline-note-review":
         expected = expected.replace(" #18A#", "", 1) + "\nFinal action.\n"
+    if name == "handwritten-markers":
+        expected = expected.replace(" #19A#", "", 1)
+        expected = expected.replace("The calculation ends.",
+            r"The calculation ends. PASTE 2 \* 3; \*literal\* \_name\_ \[\[note\]\] C:\\temp")
     body, _, last = expected.rstrip("\n").rpartition("\n")
     # Typing at the end of the fully reviewed final line naturally extends its
     # review coverage to the marker. The note must follow the added characters.
@@ -68,6 +77,12 @@ for name in ("emphasis-review", "review-offsets", "forced-action", "forced-actio
     expected = body + "\n" + last[:anchor] + typed + last[anchor:] + "\n"
     actual = (evidence / name / "export.fountain").read_text()
     assert actual == expected, (name, actual, expected)
+# Focused fixture selection retains all requested editor/oracle checks above.
+if any(not (evidence / name).exists() for name in (
+    "emphasis-review", "review-offsets", "forced-action", "forced-action-first",
+    "literal-syntax", "reserved-dialogue", "inline-note-review")):
+    print("PASS: selected fixtures retain exact canonical export syntax")
+    sys.exit(0)
 # The saved model, which the fresh application import must equal, holds the authored
 # paragraph types and complete text: no forced Action became another kind of paragraph.
 rows = json.loads((evidence / "forced-action" / "expected.json").read_text())
